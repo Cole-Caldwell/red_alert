@@ -1,0 +1,293 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<style>
+		/* === FULL OVERLAY === */
+		.result-overlay {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-direction: column;
+			gap: 20px;
+			z-index: 998;
+			opacity: 1;
+		}
+
+		.result-overlay.hidden {
+			display: none;
+		}
+
+		/* Backgrounds per result type */
+		.result-overlay.not-anomaly {
+			background-color: rgba(8, 6, 20, 0.98);
+		}
+
+		.result-overlay.was-anomaly {
+			background-color: rgba(8, 18, 8, 0.98);
+		}
+
+		.result-overlay.no-eject {
+			background-color: rgba(12, 12, 16, 0.98);
+		}
+
+		/* Fade stages */
+		.result-overlay.fade-out {
+			opacity: 0.4;
+			transition: opacity 0.8s ease-in;
+		}
+
+		.result-overlay.fade-gone {
+			opacity: 0;
+			transition: opacity 0.5s ease-in;
+		}
+
+		/* === CONTENT === */
+		.result-line {
+			width: 500px;
+			height: 2px;
+		}
+
+		.line-red {
+			background-color: rgba(255, 50, 50, 0.5);
+			box-shadow: 0 0 20px rgba(255, 40, 40, 0.3);
+		}
+
+		.line-green {
+			background-color: rgba(50, 220, 80, 0.5);
+			box-shadow: 0 0 20px rgba(50, 220, 80, 0.3);
+		}
+
+		.line-gray {
+			background-color: rgba(140, 150, 170, 0.3);
+			box-shadow: 0 0 20px rgba(140, 150, 170, 0.15);
+		}
+
+		/* Avatar */
+		.result-avatar {
+			width: 96px;
+			height: 96px;
+			border-radius: 6px;
+			overflow: hidden;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.result-avatar.not-anomaly {
+			border: 2px solid rgba(255, 60, 60, 0.5);
+			background-color: rgba(255, 40, 40, 0.08);
+			box-shadow: 0 0 30px rgba(255, 40, 40, 0.15);
+		}
+
+		.result-avatar.was-anomaly {
+			border: 2px solid rgba(50, 220, 80, 0.5);
+			background-color: rgba(50, 220, 80, 0.08);
+			box-shadow: 0 0 30px rgba(50, 220, 80, 0.15);
+		}
+
+		.result-avatar img {
+			width: 100%;
+			height: 100%;
+		}
+
+		.avatar-initial-large {
+			font-size: 40px;
+			font-weight: 900;
+			font-family: Consolas;
+		}
+
+		.initial-red {
+			color: rgba(255, 80, 80, 0.7);
+		}
+
+		.initial-green {
+			color: rgba(50, 220, 80, 0.7);
+		}
+
+		/* Player name */
+		.result-player-name {
+			font-size: 32px;
+			font-weight: 900;
+			letter-spacing: 4px;
+			font-family: Consolas;
+		}
+
+		.name-red {
+			color: rgba(255, 120, 120, 0.95);
+			text-shadow: 0 0 20px rgba(255, 60, 60, 0.3);
+		}
+
+		.name-green {
+			color: rgba(80, 230, 110, 0.95);
+			text-shadow: 0 0 20px rgba(50, 220, 80, 0.3);
+		}
+
+		/* Ejected label */
+		.result-ejected-label {
+			font-size: 14px;
+			font-weight: 700;
+			letter-spacing: 6px;
+			font-family: Consolas;
+			color: rgba(180, 190, 210, 0.5);
+		}
+
+		/* Main result text */
+		.result-title {
+			font-size: 38px;
+			font-weight: 900;
+			letter-spacing: 6px;
+			font-family: Consolas;
+		}
+
+		.title-red {
+			color: rgb(255, 70, 70);
+			text-shadow: 0 0 30px rgba(255, 50, 50, 0.5);
+		}
+
+		.title-green {
+			color: rgb(50, 230, 80);
+			text-shadow: 0 0 30px rgba(50, 220, 80, 0.5);
+		}
+
+		.title-gray {
+			color: rgba(180, 190, 210, 0.8);
+			text-shadow: 0 0 20px rgba(160, 170, 190, 0.2);
+		}
+
+		/* Subtitle */
+		.result-subtitle {
+			font-size: 16px;
+			font-weight: 700;
+			letter-spacing: 4px;
+			font-family: Consolas;
+		}
+
+		.subtitle-red {
+			color: rgba(255, 100, 100, 0.5);
+		}
+
+		.subtitle-green {
+			color: rgba(50, 220, 80, 0.5);
+		}
+
+		.subtitle-gray {
+			color: rgba(140, 150, 170, 0.4);
+		}
+
+		/* No eject icon */
+		.no-eject-icon {
+			font-size: 72px;
+			color: rgba(140, 150, 170, 0.4);
+		}
+	</style>
+
+	<div class="result-overlay @ResultType @FadeClass">
+
+		@if ( ResultType == "not-anomaly" )
+		{
+			<!-- Ejected but was NOT the anomaly -->
+			<div class="result-avatar not-anomaly">
+				@if ( EjectedSteamId > 0 )
+				{
+					<img src="avatar:@EjectedSteamId" />
+				}
+				else
+				{
+					<label class="avatar-initial-large initial-red">@EjectedInitial</label>
+				}
+			</div>
+			<label class="result-player-name name-red">@EjectedName</label>
+			<label class="result-ejected-label">WAS SENTENCED TO DEATH</label>
+			<div class="result-line line-red"></div>
+			<label class="result-title title-red">NOT THE ANOMALY</label>
+			<label class="result-subtitle subtitle-red">THE ANOMALY REMAINS AMONG YOU</label>
+		}
+		else if ( ResultType == "was-anomaly" )
+		{
+			<!-- Ejected and WAS the anomaly -->
+			<div class="result-avatar was-anomaly">
+				@if ( EjectedSteamId > 0 )
+				{
+					<img src="avatar:@EjectedSteamId" />
+				}
+				else
+				{
+					<label class="avatar-initial-large initial-green">@EjectedInitial</label>
+				}
+			</div>
+			<label class="result-player-name name-green">@EjectedName</label>
+			<label class="result-ejected-label">WAS SENTENCED TO DEATH</label>
+			<div class="result-line line-green"></div>
+			<label class="result-title title-green">WAS THE ANOMALY</label>
+			<label class="result-subtitle subtitle-green">THE STATION IS SAFE</label>
+		}
+		else
+		{
+			<!-- No one ejected -->
+			<label class="no-eject-icon">—</label>
+			<div class="result-line line-gray"></div>
+			<label class="result-title title-gray">NO ONE WAS SENTENCED TO DEATH</label>
+			<label class="result-subtitle subtitle-gray">THE ANOMALY REMAINS AMONG YOU</label>
+		}
+
+	</div>
+</root>
+
+@code {
+	/// <summary>
+	/// "not-anomaly", "was-anomaly", or "no-eject"
+	/// </summary>
+	public string ResultType { get; set; } = "no-eject";
+
+	public string EjectedName { get; set; } = "";
+	public ulong EjectedSteamId { get; set; } = 0;
+	public string EjectedInitial => EjectedName.Length > 0 ? EjectedName.Substring( 0, 1 ).ToUpper() : "?";
+
+	public string FadeClass { get; set; } = "";
+
+	private float startTime = 0f;
+	private bool isActive = true;
+
+	protected override void OnEnabled()
+	{
+		startTime = Time.Now;
+		isActive = true;
+		FadeClass = "";
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( !isActive ) return;
+
+		float elapsed = Time.Now - startTime;
+
+		if ( elapsed < 3.0f )
+		{
+			// Solid for 3 seconds
+			FadeClass = "";
+		}
+		else if ( elapsed < 3.8f )
+		{
+			FadeClass = "fade-out";
+		}
+		else if ( elapsed < 4.3f )
+		{
+			FadeClass = "fade-gone";
+		}
+		else
+		{
+			isActive = false;
+			GameObject.Destroy();
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( ResultType, FadeClass, EjectedName, isActive );
+	}
+}

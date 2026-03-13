@@ -1,0 +1,147 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+    <style>
+        .anomaly-team {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 220px;
+            flex-direction: column;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .anomaly-team.hidden {
+            display: none;
+        }
+
+        .team-header {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background-color: rgba(22, 6, 8, 0.85);
+            border-bottom: 1px solid rgba(220, 50, 50, 0.2);
+            border-radius: 4px 4px 0px 0px;
+        }
+
+        .team-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(220, 160, 160, 0.5);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .team-count {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(220, 60, 60, 0.5);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .team-list {
+            flex-direction: column;
+            background-color: rgba(22, 6, 8, 0.75);
+            border-radius: 0px 0px 4px 4px;
+            padding: 4px 0px;
+            gap: 1px;
+        }
+
+        .team-row {
+            flex-direction: row;
+            align-items: center;
+            padding: 6px 14px;
+            gap: 10px;
+        }
+
+        .team-dot {
+            width: 8px;
+            height: 8px;
+            min-width: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background-color: rgb(220, 50, 50);
+            box-shadow: 0 0 6px rgba(220, 50, 50, 0.5);
+        }
+
+        .team-dot.dead {
+            background-color: rgba(140, 50, 50, 0.3);
+            box-shadow: none;
+            border: 1px solid rgba(140, 50, 50, 0.2);
+        }
+
+        .team-name {
+            font-size: 12px;
+            font-weight: 600;
+            font-family: Consolas;
+            color: rgba(220, 180, 180, 0.8);
+            flex-grow: 1;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .team-name.dead {
+            color: rgba(140, 100, 100, 0.4);
+        }
+
+        .team-you {
+            font-size: 9px;
+            font-weight: 700;
+            color: rgba(220, 60, 60, 0.5);
+            letter-spacing: 1px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="anomaly-team @(IsVisible ? "" : "hidden")">
+        <div class="team-header">
+            <label class="team-title">ANOMALIES</label>
+            <label class="team-count">@Anomalies.Count</label>
+        </div>
+        <div class="team-list">
+            @foreach ( var anomaly in Anomalies )
+            {
+                var dotClass = anomaly.IsAlive ? "" : "dead";
+                var nameClass = anomaly.IsAlive ? "" : "dead";
+
+                <div class="team-row">
+                    <div class="team-dot @dotClass"></div>
+                    <label class="team-name @nameClass">@anomaly.Name</label>
+                    @if ( anomaly.IsLocal )
+                    {
+                        <label class="team-you">YOU</label>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsVisible { get; set; } = false;
+    public List<AnomalyTeamBridge.AnomalyInfo> Anomalies { get; set; } = new();
+
+    protected override void OnUpdate()
+    {
+        AnomalyTeamBridge.Update( Scene );
+        IsVisible = AnomalyTeamBridge.IsVisible;
+        Anomalies = AnomalyTeamBridge.Anomalies;
+    }
+
+    protected override int BuildHash()
+    {
+        var hash = System.HashCode.Combine( IsVisible, Anomalies.Count );
+        foreach ( var a in Anomalies )
+        {
+            hash = System.HashCode.Combine( hash, a.Name, a.IsAlive, a.IsLocal );
+        }
+        return hash;
+    }
+}

@@ -1,0 +1,39 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<div class="nametag">
+		<span class="name">@DisplayName</span>
+	</div>
+</root>
+
+@code {
+	public string DisplayName { get; set; } = "";
+
+	protected override void OnStart()
+	{
+		DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+	}
+
+	protected override void OnUpdate()
+	{
+		// Update name each frame in case it changes (e.g., mimic ability)
+		DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+
+		// Billboard: always face the camera
+		var cam = Scene.Camera;
+		if ( cam is null ) return;
+
+		var dirToCamera = cam.WorldPosition - WorldPosition;
+		if ( dirToCamera.LengthSquared > 0.01f )
+		{
+			WorldRotation = Rotation.LookAt( dirToCamera );
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( DisplayName );
+	}
+}

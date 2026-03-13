@@ -1,0 +1,381 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-memory-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-memory-container {
+            width: 800px;
+            background-color: rgba(10, 14, 39, 0.98);
+            border: 3px solid rgba(220, 50, 50, 0.8);
+            border-radius: 10px;
+            padding: 40px;
+            flex-direction: column;
+            gap: 25px;
+            box-shadow: 0 0 50px rgba(220, 50, 50, 0.4);
+        }
+
+        .task-memory-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(255, 80, 80);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        .card-grid {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .memory-card {
+            width: 120px;
+            height: 140px;
+            background-color: rgba(20, 20, 40, 0.9);
+            border: 3px solid rgba(220, 50, 50, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .memory-card:hover {
+            border-color: rgba(255, 80, 80, 0.9);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(220, 50, 50, 0.5);
+        }
+
+        .memory-card.flipped {
+            background-color: rgba(40, 10, 10, 0.95);
+            border-color: rgba(255, 80, 80, 1);
+        }
+
+        .memory-card.matched {
+            background-color: rgba(10, 60, 10, 0.95);
+            border-color: rgba(0, 255, 100, 0.8);
+            cursor: default;
+        }
+
+        .card-back {
+            font-size: 48px;
+            color: rgba(220, 50, 50, 0.6);
+        }
+
+        .card-front {
+            font-size: 56px;
+            font-weight: bold;
+            font-family: Consolas;
+        }
+
+        .card-label {
+            position: absolute;
+            bottom: 5px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: Consolas;
+        }
+
+        .progress-display {
+            font-size: 20px;
+            color: rgba(255, 80, 80, 0.9);
+            text-align: center;
+            font-family: Consolas;
+            font-weight: bold;
+        }
+
+        .progress-display.complete {
+            color: rgba(0, 255, 100, 0.9);
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 10px 30px;
+            background-color: rgba(200, 0, 0, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 5px;
+            color: rgb(255, 150, 150);
+            font-size: 14px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.5);
+        }
+    </style>
+
+    <div class="task-memory-overlay">
+        <div class="task-memory-container">
+            
+            <label class="task-memory-title">@TaskName</label>
+            <label class="task-instruction">Match all file pairs to decrypt the data</label>
+            
+            <div class="card-grid">
+                @foreach ( var card in Cards )
+                {
+                    var cardClass = card.IsMatched ? "matched" : (card.IsFlipped ? "flipped" : "");
+                    
+                    <div class="memory-card @cardClass" onclick="@(() => FlipCard(card))">
+                        @if ( card.IsFlipped || card.IsMatched )
+                        {
+                            <label class="card-front" style="color: @card.Color;">@card.Icon</label>
+                            <label class="card-label">@card.FileName</label>
+                        }
+                        else
+                        {
+                            <label class="card-back">🔒</label>
+                        }
+                    </div>
+                }
+            </div>
+            
+            <label class="progress-display @(MatchedPairs >= TotalPairs ? "complete" : "")">
+                Matched: @MatchedPairs / @TotalPairs pairs
+            </label>
+            
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+            
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int TotalPairs { get; set; } = 6;
+    public int MatchedPairs { get; set; } = 0;
+    
+    public List<MemoryCard> Cards { get; set; } = new();
+    
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    
+    private MemoryCard firstFlipped = null;
+    private MemoryCard secondFlipped = null;
+    private bool isChecking = false;
+    private float checkTimer = 0f;
+    
+    public class MemoryCard
+    {
+        public int Id { get; set; }
+        public int PairId { get; set; } // Cards with same PairId match
+        public string Icon { get; set; } = "📄";
+        public string Color { get; set; } = "rgb(255, 80, 80)";
+        public string FileName { get; set; } = "FILE";
+        public bool IsFlipped { get; set; } = false;
+        public bool IsMatched { get; set; } = false;
+    }
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+            
+            // Create 6 pairs of cards (12 cards total)
+            var icons = new[] { "📊", "📈", "📉", "🗂️", "📋", "🔐" };
+            var colors = new[] 
+            { 
+                "rgb(255, 80, 80)", 
+                "rgb(80, 150, 255)", 
+                "rgb(255, 200, 80)", 
+                "rgb(150, 80, 255)", 
+                "rgb(80, 255, 150)", 
+                "rgb(255, 80, 200)" 
+            };
+            var fileNames = new[] { "LOGS", "DATA", "STATS", "FILES", "DOCS", "KEYS" };
+            
+            var cardList = new List<MemoryCard>();
+            
+            for ( int i = 0; i < TotalPairs; i++ )
+            {
+                // Create two cards with the same PairId
+                for ( int j = 0; j < 2; j++ )
+                {
+                    cardList.Add( new MemoryCard
+                    {
+                        Id = (i * 2) + j,
+                        PairId = i,
+                        Icon = icons[i],
+                        Color = colors[i],
+                        FileName = fileNames[i]
+                    } );
+                }
+            }
+            
+            // Shuffle the cards
+            var random = new System.Random();
+            Cards = cardList.OrderBy( _ => random.Next() ).ToList();
+            
+            Log.Info( $"TaskMemoryMatchUI initialized for {TaskName}" );
+        }
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Handle delayed destruction
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+        
+        if ( isCompleted )
+            return;
+        
+        // Allow ESC to cancel
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+        
+        // Handle checking timer (delay before flipping cards back)
+        if ( isChecking )
+        {
+            checkTimer += Time.Delta;
+            if ( checkTimer >= 1.0f )
+            {
+                CheckMatch();
+                isChecking = false;
+            }
+        }
+    }
+    
+    private void FlipCard( MemoryCard card )
+    {
+        // Can't flip if already matched, already flipped, or currently checking
+        if ( card.IsMatched || card.IsFlipped || isChecking || isCompleted )
+            return;
+        
+        // Flip the card
+        card.IsFlipped = true;
+        
+        if ( firstFlipped == null )
+        {
+            // This is the first card
+            firstFlipped = card;
+        }
+        else if ( secondFlipped == null )
+        {
+            // This is the second card
+            secondFlipped = card;
+            
+            // Start checking after a delay
+            isChecking = true;
+            checkTimer = 0f;
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void CheckMatch()
+    {
+        if ( firstFlipped == null || secondFlipped == null )
+            return;
+        
+        if ( firstFlipped.PairId == secondFlipped.PairId )
+        {
+            // Match!
+            firstFlipped.IsMatched = true;
+            secondFlipped.IsMatched = true;
+            MatchedPairs++;
+            
+            Log.Info( $"Match found! {MatchedPairs}/{TotalPairs}" );
+            
+            if ( MatchedPairs >= TotalPairs )
+            {
+                // All matched!
+                CompleteTask();
+            }
+        }
+        else
+        {
+            // No match - flip back
+            firstFlipped.IsFlipped = false;
+            secondFlipped.IsFlipped = false;
+        }
+        
+        firstFlipped = null;
+        secondFlipped = null;
+        
+        StateHasChanged();
+    }
+    
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        
+        // Complete task by network owner ID
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+            
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+        
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+    
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( MatchedPairs );
+    }
+}

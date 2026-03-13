@@ -1,0 +1,445 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-decrypt-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-decrypt-container {
+            width: 700px;
+            background-color: rgba(10, 14, 39, 0.98);
+            border: 3px solid rgba(255, 200, 50, 0.8);
+            border-radius: 10px;
+            padding: 40px;
+            flex-direction: column;
+            gap: 25px;
+            box-shadow: 0 0 50px rgba(255, 200, 50, 0.4);
+        }
+
+        .task-decrypt-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(255, 200, 50);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        .status-display {
+            font-size: 18px;
+            color: rgb(255, 200, 50);
+            text-align: center;
+            font-family: Consolas;
+            font-weight: bold;
+            min-height: 30px;
+        }
+
+        .status-display.watching {
+            color: rgb(100, 200, 255);
+        }
+
+        .status-display.your-turn {
+            color: rgb(100, 255, 150);
+        }
+
+        .status-display.wrong {
+            color: rgb(255, 100, 100);
+        }
+
+        .keypad-grid {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            max-width: 450px;
+            align-self: center;
+        }
+
+        .keypad-button {
+            width: 130px;
+            height: 130px;
+            background-color: rgba(30, 30, 50, 0.9);
+            border: 3px solid rgba(255, 200, 50, 0.5);
+            border-radius: 10px;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+            font-size: 48px;
+            font-weight: bold;
+            color: rgba(255, 200, 50, 0.6);
+            font-family: Consolas;
+        }
+
+        .keypad-button:hover {
+            border-color: rgba(255, 200, 50, 1);
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 200, 50, 0.6);
+        }
+
+        .keypad-button.lit {
+            background-color: rgba(255, 200, 50, 0.9);
+            border-color: rgba(255, 255, 100, 1);
+            color: rgba(10, 14, 39, 1);
+            box-shadow: 0 0 30px rgba(255, 200, 50, 0.9);
+        }
+
+        .keypad-button.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .progress-display {
+            font-size: 18px;
+            color: rgba(255, 200, 50, 0.9);
+            text-align: center;
+            font-family: Consolas;
+            font-weight: bold;
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 10px 30px;
+            background-color: rgba(200, 0, 0, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 5px;
+            color: rgb(255, 150, 150);
+            font-size: 14px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.5);
+        }
+    </style>
+
+    <div class="task-decrypt-overlay">
+        <div class="task-decrypt-container">
+            
+            <label class="task-decrypt-title">@TaskName</label>
+            <label class="task-instruction">Watch the pattern, then repeat it</label>
+            
+            <label class="status-display @StatusClass">@StatusMessage</label>
+            
+            <div class="keypad-grid">
+                @for ( int i = 0; i < 9; i++ )
+                {
+                    var buttonIndex = i;
+                    var isLit = LitButtons.Contains(i);
+                    var isDisabled = !CanInput;
+                    
+                    <div class="keypad-button @(isLit ? "lit" : "") @(isDisabled ? "disabled" : "")"
+                         onclick="@(() => PressButton(buttonIndex))">
+                        @(i + 1)
+                    </div>
+                }
+            </div>
+            
+            <label class="progress-display">Round: @CurrentRound / @TotalRounds</label>
+            
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+            
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int TotalRounds { get; set; } = 5;
+    public int CurrentRound { get; set; } = 0;
+    
+    public HashSet<int> LitButtons { get; set; } = new();
+    public List<int> Pattern { get; set; } = new();
+    public List<int> PlayerInput { get; set; } = new();
+    public bool CanInput { get; set; } = false;
+    public string StatusMessage { get; set; } = "Watch carefully...";
+    public string StatusClass { get; set; } = "watching";
+    
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    
+    private bool isShowingPattern = false;
+    private int patternIndex = 0;
+    private float patternTimer = 0f;
+    private float flashDuration = 0.5f;
+    private float pauseDuration = 0.3f;
+    private bool isFlashing = false;
+
+    private float buttonFlashTimer = 0f;
+    private int flashedButton = -1;
+    private bool isWaitingAfterWrong = false;
+    private float wrongWaitTimer = 0f;
+    private bool isWaitingForNextRound = false;
+    private float nextRoundTimer = 0f;
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+            
+            // Start first round
+            StartNewRound();
+            
+            Log.Info( $"TaskWireConnectUI (Decrypt) initialized for {TaskName}" );
+        }
+    }
+    
+    private void StartNewRound()
+    {
+        CurrentRound++;
+        PlayerInput.Clear();
+        
+        // Add one more button to the pattern each round
+        var random = new System.Random();
+        Pattern.Add( random.Next( 0, 9 ) );
+        
+        // Start showing the pattern
+        isShowingPattern = true;
+        patternIndex = 0;
+        patternTimer = 0f;
+        CanInput = false;
+        StatusMessage = "Watch carefully...";
+        StatusClass = "watching";
+        
+        Log.Info( $"Round {CurrentRound} - Pattern length: {Pattern.Count}" );
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Handle delayed destruction
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+        
+        if ( isCompleted )
+            return;
+        
+        // Allow ESC to cancel
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+        
+        // Handle button flash timer
+        if ( buttonFlashTimer > 0f )
+        {
+            buttonFlashTimer -= Time.Delta;
+            if ( buttonFlashTimer <= 0f )
+            {
+                LitButtons.Clear();
+                flashedButton = -1;
+                StateHasChanged();
+            }
+        }
+        
+        // Handle wrong answer wait
+        if ( isWaitingAfterWrong )
+        {
+            wrongWaitTimer += Time.Delta;
+            if ( wrongWaitTimer >= 1.5f )
+            {
+                isWaitingAfterWrong = false;
+                PlayerInput.Clear();
+                isShowingPattern = true;
+                patternIndex = 0;
+                patternTimer = 0f;
+                StatusMessage = "Watch carefully...";
+                StatusClass = "watching";
+                StateHasChanged();
+            }
+        }
+        
+        // Handle next round wait
+        if ( isWaitingForNextRound )
+        {
+            nextRoundTimer += Time.Delta;
+            if ( nextRoundTimer >= 1f )
+            {
+                isWaitingForNextRound = false;
+                StartNewRound();
+                StateHasChanged();
+            }
+        }
+        
+        // Handle pattern display
+        if ( isShowingPattern )
+        {
+            ShowPattern();
+        }
+    }
+    
+    private void ShowPattern()
+    {
+        patternTimer += Time.Delta;
+        
+        if ( isFlashing )
+        {
+            // Button is lit
+            if ( patternTimer >= flashDuration )
+            {
+                // Turn off
+                LitButtons.Clear();
+                isFlashing = false;
+                patternTimer = 0f;
+                patternIndex++;
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            // Pause between flashes
+            if ( patternTimer >= pauseDuration )
+            {
+                if ( patternIndex < Pattern.Count )
+                {
+                    // Light up next button
+                    LitButtons.Clear();
+                    LitButtons.Add( Pattern[patternIndex] );
+                    isFlashing = true;
+                    patternTimer = 0f;
+                    StateHasChanged();
+                }
+                else
+                {
+                    // Pattern complete - player's turn
+                    isShowingPattern = false;
+                    CanInput = true;
+                    StatusMessage = "Your turn! Repeat the pattern";
+                    StatusClass = "your-turn";
+                    StateHasChanged();
+                }
+            }
+        }
+    }
+    
+    private void PressButton( int buttonIndex )
+    {
+        if ( !CanInput || isCompleted )
+            return;
+        
+        // Flash the button
+        LitButtons.Clear();
+        LitButtons.Add( buttonIndex );
+        flashedButton = buttonIndex;
+        buttonFlashTimer = 0.2f;
+        
+        // Check if correct
+        PlayerInput.Add( buttonIndex );
+        
+        if ( buttonIndex != Pattern[PlayerInput.Count - 1] )
+        {
+            // Wrong!
+            StatusMessage = "WRONG! Try again...";
+            StatusClass = "wrong";
+            Log.Info( "Wrong input - restarting round" );
+            
+            // Set flag to restart after delay
+            CanInput = false;
+            isWaitingAfterWrong = true;
+            wrongWaitTimer = 0f;
+            
+            StateHasChanged();
+            return;
+        }
+        
+        // Check if pattern complete
+        if ( PlayerInput.Count >= Pattern.Count )
+        {
+            // Round complete!
+            if ( CurrentRound >= TotalRounds )
+            {
+                // All rounds done!
+                CompleteTask();
+            }
+            else
+            {
+                // Next round
+                StatusMessage = "Correct! Next round...";
+                CanInput = false;
+                isWaitingForNextRound = true;
+                nextRoundTimer = 0f;
+            }
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        StatusMessage = "ACCESS GRANTED!";
+        StatusClass = "your-turn";
+        
+        // Complete task by network owner ID
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+            
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+        
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+    
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( CurrentRound, PlayerInput.Count );
+    }
+}

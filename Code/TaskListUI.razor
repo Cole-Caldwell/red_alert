@@ -1,0 +1,179 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-list-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            background-color: rgba(8, 10, 28, 0.95);
+            border: 2px solid rgba(0, 180, 220, 0.7);
+            border-radius: 8px;
+            padding: 15px;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .task-list-hidden {
+            display: none;
+        }
+
+        .task-list-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .task-list-title-wrap {
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 5px;
+            position: relative;
+        }
+
+        .task-title-img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .task-title-fallback {
+            font-size: 18px;
+            position: absolute;
+            left: 50%;
+            margin-left: -80px;
+        }
+
+        .task-item {
+            flex-direction: row;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            gap: 10px;
+        }
+
+        .task-item.completed {
+            opacity: 0.5;
+        }
+
+        .task-item.active {
+            background-color: rgba(0, 180, 220, 0.15);
+            border-left: 3px solid rgb(0, 200, 240);
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 180, 220, 0.6);
+            border-radius: 3px;
+            background-color: rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .task-checkbox.checked {
+            background-color: rgba(0, 200, 240, 0.4);
+            border-color: rgb(0, 200, 240);
+        }
+
+        .task-checkmark {
+            font-size: 14px;
+            color: rgb(0, 255, 100);
+            font-weight: bold;
+        }
+
+        .task-number {
+            font-size: 16px;
+            font-weight: bold;
+            color: rgba(0, 200, 240, 0.8);
+            font-family: Consolas;
+            min-width: 25px;
+        }
+
+        .task-name {
+            font-size: 14px;
+            color: rgb(200, 220, 240);
+            flex-grow: 1;
+            font-family: Consolas;
+        }
+
+        .task-name.completed {
+            text-decoration: line-through;
+            color: rgba(200, 220, 240, 0.5);
+        }
+
+        .task-progress-text {
+            font-size: 12px;
+            color: rgba(0, 180, 220, 0.6);
+            text-align: center;
+            margin-top: 5px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="task-list-panel @(ShouldShow ? "" : "task-list-hidden")">
+        <div class="task-list-title-wrap">
+            <img class="task-title-img" src="ui/red-alert-task_1.png" />
+            <label class="task-list-title">TASKS</label>
+        </div>
+        
+        @for ( int i = 0; i < Tasks.Count; i++ )
+        {
+            var task = Tasks[i];
+            var itemClass = task.IsCompleted ? "completed" : (task.IsActive ? "active" : "");
+            
+            <div class="task-item @itemClass">
+                <div class="task-checkbox @(task.IsCompleted ? "checked" : "")">
+                    @if ( task.IsCompleted )
+                    {
+                        <label class="task-checkmark">✓</label>
+                    }
+                </div>
+                <label class="task-number">@((i + 1).ToString())</label>
+                <label class="task-name @(task.IsCompleted ? "completed" : "")">
+                    @task.TaskName
+                </label>
+            </div>
+        }
+        
+        <label class="task-progress-text">@CompletedCount / @Tasks.Count completed</label>
+    </div>
+</root>
+
+@code {
+    public List<TaskListBridge.TaskInfo> Tasks { get; set; } = new();
+    public int CompletedCount => Tasks.Count( t => t.IsCompleted );
+    public bool ShouldShow { get; set; } = false;
+    private bool hasLoggedOnce = false;
+    
+    protected override void OnUpdate()
+    {
+        // Get data from bridge
+        ShouldShow = TaskListBridge.ShouldShowTasks();
+        Tasks = TaskListBridge.GetTasks();
+        
+        // Debug log once when first shown
+        if ( !hasLoggedOnce && ShouldShow && Tasks.Count > 0 )
+        {
+            Log.Info( $"[TaskListUI] Showing {Tasks.Count} tasks" );
+            hasLoggedOnce = true;
+        }
+        
+        StateHasChanged();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( ShouldShow, CompletedCount, Tasks.Count );
+    }
+}

@@ -1,0 +1,97 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <div class="blind-overlay @(isVisible ? "visible" : "")">
+        <div class="blind-text">YOU ARE BLINDED</div>
+    </div>
+</root>
+
+<style>
+    .blind-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+        pointer-events: none;
+        z-index: 9999;
+    }
+    
+    .blind-overlay.visible {
+        opacity: 1;
+    }
+    
+    .blind-text {
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 48px;
+        font-weight: bold;
+        font-family: 'Poppins', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 8px;
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @@keyframes pulse {
+        0%, 100% { opacity: 0.2; }
+        50% { opacity: 0.5; }
+    }
+</style>
+
+@code {
+    private bool isVisible = false;
+    private float duration = 10f;
+    
+    public void StartBlind(float blindDuration)
+    {
+        duration = blindDuration;
+        isVisible = true;
+        StateHasChanged();
+        
+        EndBlindAfterDelay();
+    }
+    
+    private async void EndBlindAfterDelay()
+    {
+        await GameTask.DelaySeconds(duration);
+        
+        // Check if still valid before updating state
+        if ( !this.IsValid() )
+            return;
+        
+        isVisible = false;
+        StateHasChanged();
+        
+        // Destroy this UI after fade out
+        await GameTask.DelaySeconds(0.5f);
+        
+        // Check if still valid before destroying
+        if ( GameObject != null && GameObject.IsValid() )
+        {
+            GameObject.Destroy();
+        }
+    }
+    
+    protected override void OnStart()
+    {
+        // Find or create screen panel
+        var screenPanel = Components.Get<ScreenPanel>();
+        if (screenPanel == null)
+        {
+            screenPanel = Components.Create<ScreenPanel>();
+        }
+        screenPanel.ZIndex = 9999;
+    }
+    
+    protected override int BuildHash()
+    {
+        return isVisible ? 1 : 0;
+    }
+}

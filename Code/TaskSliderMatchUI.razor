@@ -1,0 +1,365 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-slider-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .task-slider-container {
+            width: 700px;
+            background-color: rgba(10, 14, 39, 0.98);
+            border: 3px solid rgba(0, 180, 220, 0.8);
+            border-radius: 10px;
+            padding: 40px;
+            flex-direction: column;
+            gap: 30px;
+            box-shadow: 0 0 50px rgba(0, 160, 220, 0.4);
+        }
+
+        .task-slider-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+            margin-bottom: 10px;
+        }
+
+        .sliders-container {
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .slider-row {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .slider-label {
+            font-size: 14px;
+            color: rgba(0, 200, 240, 0.7);
+            font-family: Consolas;
+            text-align: center;
+        }
+
+        .slider-track {
+            width: 100%;
+            height: 50px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 180, 220, 0.4);
+            border-radius: 6px;
+            position: relative;
+        }
+
+        .slider-target-zone {
+            position: absolute;
+            height: 100%;
+            background-color: rgba(0, 255, 100, 0.2);
+            border: 2px solid rgba(0, 255, 100, 0.5);
+            border-radius: 4px;
+        }
+
+        .slider-handle {
+            position: absolute;
+            width: 24px;
+            height: 34px;
+            background-color: rgba(0, 150, 220, 0.9);
+            border: 2px solid rgba(0, 200, 240, 1);
+            border-radius: 4px;
+            cursor: pointer;
+            top: 0px;
+        }
+
+        .slider-handle:hover {
+            background-color: rgba(0, 180, 240, 1);
+        }
+
+        .slider-handle.matched {
+            background-color: rgba(0, 255, 100, 0.9);
+            border-color: rgba(0, 255, 100, 1);
+        }
+
+        .progress-display {
+            font-size: 20px;
+            color: rgba(0, 200, 240, 0.9);
+            text-align: center;
+            font-family: Consolas;
+            font-weight: bold;
+        }
+
+        .submit-button {
+            align-self: center;
+            padding: 15px 50px;
+            background-color: rgba(0, 150, 220, 0.3);
+            border: 2px solid rgba(0, 200, 240, 0.6);
+            border-radius: 5px;
+            color: rgb(0, 200, 240);
+            font-size: 18px;
+            font-family: Consolas;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .submit-button:hover {
+            background-color: rgba(0, 150, 220, 0.5);
+            border-color: rgba(0, 200, 240, 0.9);
+        }
+
+        .submit-button.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 10px 30px;
+            background-color: rgba(200, 0, 0, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 5px;
+            color: rgb(255, 150, 150);
+            font-size: 14px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.5);
+            border-color: rgba(255, 50, 50, 0.9);
+        }
+
+		.slider-controls {
+			flex-direction: row;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.slider-button {
+			width: 42px;
+			height: 38px;
+			background-color: rgba(0, 150, 220, 0.3);
+			border: 2px solid rgba(0, 200, 240, 0.6);
+			border-radius: 5px;
+			justify-content: center;
+			align-items: center;
+			cursor: pointer;
+			font-size: 24px;
+			color: rgb(0, 200, 240);
+		}
+
+		.slider-button:hover {
+			background-color: rgba(0, 150, 220, 0.6);
+			border-color: rgba(0, 200, 240, 1);
+		}
+
+		.slider-track-display {
+			flex-grow: 1;
+			height: 38px;
+			background-color: rgba(0, 0, 0, 0.5);
+			border: 2px solid rgba(0, 180, 220, 0.4);
+			border-radius: 6px;
+			position: relative;
+		}
+    </style>
+
+    <div class="task-slider-overlay">
+        <div class="task-slider-container">
+            <label class="task-slider-title">@TaskName</label>
+            <label class="task-instruction">Align all 6 channels to the green target zones</label>
+            
+            <div class="sliders-container">
+				@for ( int i = 0; i < Sliders.Count; i++ )
+				{
+					var slider = Sliders[i];
+					var sliderIndex = i;
+					
+					<div class="slider-row">
+						<label class="slider-label">Channel @(i + 1): @(slider.IsMatched ? "✓ MATCHED" : "Adjust...")</label>
+						
+						<div class="slider-controls">
+							<div class="slider-button" onclick="@(() => AdjustSlider(sliderIndex, -2))">◄◄</div>
+                            <div class="slider-button" onclick="@(() => AdjustSlider(sliderIndex, -0.5f))">◄</div>
+							
+							<div class="slider-track-display">
+								<!-- Target zone -->
+								<div class="slider-target-zone" 
+									style="left: @(slider.TargetMin)%; width: @(slider.TargetMax - slider.TargetMin)%;"></div>
+								
+								<!-- Handle -->
+								<div class="slider-handle @(slider.IsMatched ? "matched" : "")" 
+									style="left: @(slider.CurrentValue)%;"></div>
+							</div>
+							
+							<div class="slider-button" onclick="@(() => AdjustSlider(sliderIndex, 0.5f))">►</div>
+                            <div class="slider-button" onclick="@(() => AdjustSlider(sliderIndex, 2))">►►</div>
+						</div>
+					</div>
+				}
+			</div>
+            
+            <label class="progress-display">Matched: @MatchedCount / @Sliders.Count</label>
+            
+            <div class="submit-button @(AllMatched ? "" : "disabled")" onclick="@SubmitTask">
+                @(AllMatched ? "SUBMIT" : "Match all sliders first")
+            </div>
+            
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public List<SliderData> Sliders { get; set; } = new();
+    public int MatchedCount => Sliders.Count( s => s.IsMatched );
+    public bool AllMatched => Sliders.All( s => s.IsMatched );
+    
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    
+    public class SliderData
+    {
+        public float CurrentValue { get; set; } = 0f; // 0-100
+        public float TargetMin { get; set; } = 40f; // Target zone start
+        public float TargetMax { get; set; } = 60f; // Target zone end
+        public bool IsMatched { get; set; } = false;
+    }
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+            
+            // Create 6 sliders with narrow target zones
+            var random = new System.Random();
+            for ( int i = 0; i < 6; i++ )
+            {
+                float targetCenter = random.Next( 20, 80 ); // Random center between 20-80%
+                float targetWidth = 10f; // 10% wide zone (narrower = harder)
+                
+                Sliders.Add( new SliderData
+                {
+                    CurrentValue = random.Next( 0, 100 ), // Random starting position
+                    TargetMin = targetCenter - (targetWidth / 2),
+                    TargetMax = targetCenter + (targetWidth / 2),
+                    IsMatched = false
+                } );
+            }
+            
+            Log.Info( $"TaskSliderMatchUI initialized for {TaskName}" );
+        }
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Handle delayed destruction
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+        
+        // Allow ESC to cancel
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+        
+        // Check all sliders for match status
+        foreach ( var slider in Sliders )
+        {
+            slider.IsMatched = slider.CurrentValue >= slider.TargetMin && slider.CurrentValue <= slider.TargetMax;
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void SubmitTask()
+    {
+        if ( !AllMatched || isCompleted )
+            return;
+        
+        isCompleted = true;
+        
+        // Complete task by network owner ID
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+            
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+        
+        // Set flag to destroy after delay
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+
+	private void AdjustSlider( int sliderIndex, float amount )
+	{
+		if ( isCompleted )
+			return;
+		
+		Sliders[sliderIndex].CurrentValue += amount;
+		Sliders[sliderIndex].CurrentValue = Math.Clamp( Sliders[sliderIndex].CurrentValue, 0f, 100f );
+		
+		StateHasChanged();
+	}
+    
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( MatchedCount );
+    }
+}

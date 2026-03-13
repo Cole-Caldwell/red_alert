@@ -1,0 +1,130 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.death-overlay {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.95);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			z-index: 5000;
+			opacity: 1;
+		}
+
+		.death-overlay.fade-out {
+			opacity: 0.3;
+			transition: opacity 0.8s ease-in;
+		}
+
+		.death-overlay.fade-gone {
+			opacity: 0;
+			transition: opacity 0.5s ease-in;
+		}
+
+		.death-icon-img {
+			width: 90px;
+			height: 90px;
+			margin-bottom: 16px;
+			opacity: 0.7;
+		}
+
+		.death-line {
+			width: 500px;
+			height: 2px;
+			background-color: rgba(255, 50, 50, 0.5);
+			box-shadow: 0 0 30px rgba(255, 40, 40, 0.3);
+		}
+
+		.death-text {
+			font-size: 52px;
+			font-weight: 900;
+			color: rgb(255, 70, 70);
+			letter-spacing: 10px;
+			font-family: Consolas;
+			text-shadow: 0 0 40px rgba(255, 50, 50, 0.6), 0 0 80px rgba(255, 30, 30, 0.3);
+			margin-top: 20px;
+			margin-bottom: 12px;
+		}
+
+		.death-subtext {
+			font-size: 16px;
+			font-weight: 700;
+			color: rgba(200, 200, 220, 0.5);
+			letter-spacing: 6px;
+			font-family: Consolas;
+		}
+	</style>
+
+	<div class="death-overlay @FadeClass">
+		<img class="death-icon-img" src="ui/red-alert-death.png" />
+		<div class="death-line"></div>
+		<label class="death-text">YOU HAVE BEEN KILLED</label>
+		<label class="death-subtext">ENTERING SPECTATOR MODE</label>
+		<div class="death-line"></div>
+	</div>
+</root>
+
+@code {
+	public string FadeClass { get; set; } = "";
+
+	private float startTime = 0f;
+	private bool isActive = true;
+
+	public void Show()
+	{
+		startTime = Time.Now;
+		isActive = true;
+		FadeClass = "";
+	}
+
+	protected override void OnStart()
+	{
+		var screenPanel = Components.Get<ScreenPanel>();
+		if ( screenPanel == null )
+		{
+			screenPanel = Components.Create<ScreenPanel>();
+		}
+		screenPanel.ZIndex = 5000;
+
+		startTime = Time.Now;
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( !isActive ) return;
+
+		float elapsed = Time.Now - startTime;
+
+		if ( elapsed < 2.0f )
+		{
+			FadeClass = "";
+		}
+		else if ( elapsed < 2.8f )
+		{
+			FadeClass = "fade-out";
+		}
+		else if ( elapsed < 3.5f )
+		{
+			FadeClass = "fade-gone";
+		}
+		else
+		{
+			isActive = false;
+			GameObject.Destroy();
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( FadeClass, isActive );
+	}
+}

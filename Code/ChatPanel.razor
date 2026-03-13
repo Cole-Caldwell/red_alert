@@ -1,0 +1,171 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.chat-wrapper {
+			position: absolute;
+			bottom: 24px;
+			right: 24px;
+			width: 380px;
+			flex-direction: column;
+			gap: 4px;
+			pointer-events: none;
+		}
+
+		.chat-messages {
+			flex-direction: column;
+			gap: 3px;
+			max-height: 240px;
+			overflow: hidden;
+		}
+
+		.chat-msg {
+			padding: 5px 12px;
+			border-radius: 3px;
+			background-color: rgba(6, 8, 24, 0.75);
+			border-left: 2px solid rgba(0, 180, 220, 0.3);
+			font-family: Consolas;
+			flex-direction: row;
+			gap: 8px;
+			opacity: 1;
+			transition: opacity 1s ease;
+		}
+
+		.chat-msg.fading {
+			opacity: 0.4;
+		}
+
+		.chat-msg.gone {
+			opacity: 0;
+		}
+
+		.msg-name {
+			font-weight: 700;
+			color: rgb(0, 200, 240);
+			font-size: 13px;
+		}
+
+		.msg-text {
+			color: rgba(220, 230, 245, 0.9);
+			font-size: 13px;
+		}
+
+		.chat-input-area {
+			margin-top: 4px;
+		}
+
+		TextEntry {
+			width: 100%;
+			height: 32px;
+			padding: 6px 12px;
+			background-color: rgba(6, 8, 24, 0.85);
+			border: 1px solid rgba(0, 200, 240, 0.4);
+			border-radius: 3px;
+			color: rgba(220, 230, 245, 0.9);
+			font-size: 13px;
+			font-family: Consolas;
+			pointer-events: all;
+		}
+
+		TextEntry:focus {
+			border-color: rgba(0, 200, 240, 0.8);
+			background-color: rgba(6, 8, 24, 0.95);
+			box-shadow: 0 0 12px rgba(0, 180, 220, 0.2);
+		}
+
+		.chat-hint {
+			font-size: 10px;
+			font-family: Consolas;
+			color: rgba(0, 200, 240, 0.25);
+			letter-spacing: 1px;
+			padding: 4px 2px;
+		}
+	</style>
+
+	<div class="chat-wrapper">
+		<div class="chat-messages">
+			@if ( ChatSystem.Instance is not null )
+			{
+				@foreach ( var msg in ChatSystem.Instance.Messages )
+				{
+					var age = Sandbox.Time.Now - msg.Time;
+					var fadeClass = age > 8f ? "gone" : age > 6f ? "fading" : "";
+
+					<div class="chat-msg @fadeClass">
+						<span class="msg-name">@msg.PlayerName:</span>
+						<span class="msg-text">@msg.Text</span>
+					</div>
+				}
+			}
+		</div>
+
+		<div class="chat-input-area">
+			@if ( ShowInput )
+			{
+				<TextEntry @ref="ChatInput" Text=@CurrentText onsubmit=@OnChatSubmit></TextEntry>
+			}
+			else
+			{
+				<label class="chat-hint">ENTER to chat</label>
+			}
+		</div>
+	</div>
+</root>
+
+@code {
+	public string CurrentText { get; set; } = "";
+	public bool ShowInput { get; set; } = false;
+	private TextEntry ChatInput { get; set; }
+	private bool needsFocus = false;
+
+	protected override void OnUpdate()
+	{
+		if ( !ShowInput && Input.Pressed( "chat" ) && ChatSystem.Instance?.ChatEnabled == true )
+		{
+			ShowInput = true;
+			needsFocus = true;
+		}
+
+		if ( ShowInput && needsFocus && ChatInput != null )
+		{
+			ChatInput.Focus();
+			needsFocus = false;
+		}
+
+		if ( ShowInput && Input.Pressed( "chat" ) && ChatInput != null )
+		{
+			CurrentText = ChatInput.Text;
+			
+			if ( !string.IsNullOrWhiteSpace( CurrentText ) && ChatSystem.Instance is not null )
+			{
+				ChatSystem.Instance.SendMessage( CurrentText );
+			}
+			
+			CurrentText = "";
+			ShowInput = false;
+		}
+	}
+
+	private void OnChatSubmit()
+	{
+		if ( ChatInput != null )
+			CurrentText = ChatInput.Text;
+
+		if ( !string.IsNullOrWhiteSpace( CurrentText ) && ChatSystem.Instance is not null )
+		{
+			ChatSystem.Instance.SendMessage( CurrentText );
+		}
+
+		CurrentText = "";
+		ShowInput = false;
+	}
+
+	protected override int BuildHash()
+	{
+		var msgCount = ChatSystem.Instance?.Messages.Count ?? 0;
+		var timeHash = ((int)(Sandbox.Time.Now * 2)).ToString();
+		return System.HashCode.Combine( CurrentText, ShowInput, msgCount, timeHash );
+	}
+}

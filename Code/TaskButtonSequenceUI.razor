@@ -1,0 +1,335 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-sequence-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .task-sequence-container {
+            width: 750px;
+            background-color: rgba(10, 14, 39, 0.98);
+            border: 3px solid rgba(0, 180, 220, 0.8);
+            border-radius: 10px;
+            padding: 40px;
+            flex-direction: column;
+            gap: 25px;
+            box-shadow: 0 0 50px rgba(0, 160, 220, 0.4);
+        }
+
+        .task-sequence-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+            margin-bottom: 10px;
+        }
+
+        .button-grid {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .sequence-button {
+            width: 75px;
+            height: 75px;
+            background-color: rgba(0, 80, 120, 0.3);
+            border: 3px solid rgba(0, 180, 220, 0.5);
+            border-radius: 8px;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sequence-button:hover {
+            background-color: rgba(0, 120, 180, 0.5);
+            border-color: rgba(0, 200, 240, 0.8);
+            transform: scale(1.05);
+        }
+
+        .sequence-button.completed {
+            background-color: rgba(0, 200, 100, 0.3);
+            border-color: rgba(0, 255, 100, 0.6);
+        }
+
+        .sequence-button.wrong {
+            background-color: rgba(200, 0, 0, 0.4);
+            border-color: rgba(255, 50, 50, 0.8);
+            animation: shake 0.3s;
+        }
+
+        .button-number {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            font-family: Consolas;
+        }
+
+        .button-number.completed {
+            color: rgb(0, 255, 100);
+        }
+
+        .button-number.wrong {
+            color: rgb(255, 100, 100);
+        }
+
+        .progress-display {
+            font-size: 20px;
+            color: rgba(0, 200, 240, 0.9);
+            text-align: center;
+            font-family: Consolas;
+            font-weight: bold;
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 10px 30px;
+            background-color: rgba(200, 0, 0, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 5px;
+            color: rgb(255, 150, 150);
+            font-size: 14px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.5);
+            border-color: rgba(255, 50, 50, 0.9);
+        }
+
+        @@keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+    </style>
+
+    <div class="task-sequence-overlay">
+        <div class="task-sequence-container">
+            <label class="task-sequence-title">@TaskName</label>
+            <label class="task-instruction">Press the buttons in numerical order (1 → 20)</label>
+            
+            <div class="button-grid">
+                @foreach ( var button in Buttons )
+                {
+                    var buttonClass = button.IsCompleted ? "completed" : (button.IsWrong ? "wrong" : "");
+                    var numberClass = button.IsCompleted ? "completed" : (button.IsWrong ? "wrong" : "");
+                    
+                    <div class="sequence-button @buttonClass" onclick="@(() => PressButton(button.Number))">
+                        <label class="button-number @numberClass">@button.Number</label>
+                    </div>
+                }
+            </div>
+            
+            <label class="progress-display">Progress: @CurrentStep / @TotalSteps</label>
+            
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int TotalSteps { get; set; } = 20;
+    public int CurrentStep { get; set; } = 0;
+    
+    public List<ButtonData> Buttons { get; set; } = new();
+    
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroy = false;
+    private float destroyTimer = 0f;
+    
+    public class ButtonData
+    {
+        public int Number { get; set; }
+        public bool IsCompleted { get; set; } = false;
+        public bool IsWrong { get; set; } = false;
+    }
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        // Get data from bridge
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+            
+            // Create buttons 1-20 in random order
+            var numbers = new List<int>();
+            for ( int n = 1; n <= 20; n++ )
+                numbers.Add( n );
+
+            var random = new System.Random();
+
+            while ( numbers.Count > 0 )
+            {
+                int randomIndex = random.Next( numbers.Count );
+                Buttons.Add( new ButtonData { Number = numbers[randomIndex] } );
+                numbers.RemoveAt( randomIndex );
+            }
+            
+            Log.Info( $"TaskButtonSequenceUI initialized for {TaskName}" );
+        }
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Allow ESC to cancel
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+        
+        // Handle delayed destruction on main thread
+        if ( shouldDestroy )
+        {
+            destroyTimer += Time.Delta;
+            if ( destroyTimer >= 1f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+        }
+    }
+    
+    private void PressButton( int number )
+    {
+        if ( isCompleted ) return;
+        
+        int expectedNumber = CurrentStep + 1;
+        
+        if ( number == expectedNumber )
+        {
+            // Correct button!
+            var button = Buttons.FirstOrDefault( b => b.Number == number );
+            if ( button != null )
+            {
+                button.IsCompleted = true;
+                button.IsWrong = false;
+            }
+            
+            CurrentStep++;
+            Log.Info( $"Correct! Progress: {CurrentStep}/{TotalSteps}" );
+            
+            if ( CurrentStep >= TotalSteps )
+            {
+                // Task complete!
+                CompleteTask();
+            }
+            
+            StateHasChanged();
+        }
+        else
+        {
+            // Wrong button - show error animation
+            var button = Buttons.FirstOrDefault( b => b.Number == number );
+            if ( button != null )
+            {
+                button.IsWrong = true;
+                StateHasChanged();
+                
+                // Reset wrong state after animation using a timer
+                ScheduleWrongReset( button );
+            }
+            
+            Log.Info( $"Wrong! Expected {expectedNumber}, pressed {number}" );
+        }
+    }
+    
+    private float wrongResetTimer = 0f;
+    private ButtonData buttonToReset = null;
+    
+    private void ScheduleWrongReset( ButtonData button )
+    {
+        buttonToReset = button;
+        wrongResetTimer = 0.3f;
+    }
+    
+    protected override void OnFixedUpdate()
+    {
+        // Handle wrong button reset timer
+        if ( buttonToReset != null && wrongResetTimer > 0f )
+        {
+            wrongResetTimer -= Time.Delta;
+            if ( wrongResetTimer <= 0f )
+            {
+                buttonToReset.IsWrong = false;
+                buttonToReset = null;
+                StateHasChanged();
+            }
+        }
+    }
+    
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        
+        // Complete task by network owner ID
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+            
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+        
+        // Set flag to destroy after 1 second
+        shouldDestroy = true;
+        destroyTimer = 0f;
+    }
+    
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( CurrentStep );
+    }
+}

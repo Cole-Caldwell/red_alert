@@ -1,0 +1,63 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits Sandbox.UI.WorldPanel
+
+<root style="width: 100%; height: 100%; background-color: #0a0a0a; position: relative; overflow: hidden; font-family: Consolas, monospace;">
+
+	<!-- CRT vignette -->
+	<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.15); z-index: 10; pointer-events: none;"></div>
+
+	@if ( CurrentState == ScreenState.NoSignal )
+	{
+		<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #0d0d0d 0%, #1a0a0a 50%, #0d0d0d 100%); z-index: 5;">
+			<div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+				<span style="font-size: 72px; color: #ff3333; text-shadow: 0 0 20px rgba(255,51,51,0.6);">⚠</span>
+				<div style="font-size: 64px; font-weight: 900; color: #ff3333; letter-spacing: 8px; text-shadow: 0 0 10px rgba(255,51,51,0.8), 0 0 30px rgba(255,51,51,0.4), 0 0 60px rgba(255,51,51,0.2);">NO SIGNAL</div>
+				<div style="display: flex; flex-direction: row; gap: 8px;">
+					<div style="width: 40px; height: 14px; background-color: #331111; border: 1px solid #441111; border-radius: 2px;"></div>
+					<div style="width: 40px; height: 14px; background-color: #331111; border: 1px solid #441111; border-radius: 2px;"></div>
+					<div style="width: 40px; height: 14px; background-color: #331111; border: 1px solid #441111; border-radius: 2px;"></div>
+					<div style="width: 40px; height: 14px; background-color: #331111; border: 1px solid #441111; border-radius: 2px;"></div>
+					<div style="width: 40px; height: 14px; background-color: #331111; border: 1px solid #441111; border-radius: 2px;"></div>
+				</div>
+				<div style="font-size: 22px; color: #663333; letter-spacing: 4px; text-transform: uppercase; opacity: 0.6;">AWAITING CALIBRATION...</div>
+			</div>
+		</div>
+	}
+	else
+	{
+		<div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, #0a1a0d 0%, #0d1f10 50%, #0a1a0d 100%); z-index: 5;">
+			<div style="display: flex; flex-direction: column; align-items: center; gap: 20px;">
+				<span style="font-size: 80px; color: #33ff66; text-shadow: 0 0 15px rgba(51,255,102,0.8), 0 0 40px rgba(51,255,102,0.4);">✓</span>
+				<div style="font-size: 56px; font-weight: 900; color: #33ff66; letter-spacing: 6px; text-shadow: 0 0 10px rgba(51,255,102,0.8), 0 0 30px rgba(51,255,102,0.3);">SIGNAL ALIGNED</div>
+				<div style="display: flex; flex-direction: row; gap: 8px;">
+					<div style="width: 40px; height: 14px; background-color: #33ff66; border: 1px solid #44ff77; border-radius: 2px; box-shadow: 0 0 8px rgba(51,255,102,0.6);"></div>
+					<div style="width: 40px; height: 14px; background-color: #33ff66; border: 1px solid #44ff77; border-radius: 2px; box-shadow: 0 0 8px rgba(51,255,102,0.6);"></div>
+					<div style="width: 40px; height: 14px; background-color: #33ff66; border: 1px solid #44ff77; border-radius: 2px; box-shadow: 0 0 8px rgba(51,255,102,0.6);"></div>
+					<div style="width: 40px; height: 14px; background-color: #33ff66; border: 1px solid #44ff77; border-radius: 2px; box-shadow: 0 0 8px rgba(51,255,102,0.6);"></div>
+					<div style="width: 40px; height: 14px; background-color: #33ff66; border: 1px solid #44ff77; border-radius: 2px; box-shadow: 0 0 8px rgba(51,255,102,0.6);"></div>
+				</div>
+				<div style="font-size: 22px; color: #338844; letter-spacing: 4px; text-transform: uppercase; opacity: 0.8;">SYSTEM ONLINE</div>
+			</div>
+		</div>
+	}
+</root>
+
+@code {
+	public enum ScreenState
+	{
+		NoSignal,
+		Aligned
+	}
+
+	public ScreenState CurrentState { get; set; } = ScreenState.NoSignal;
+
+	public TaskScreenPanel( SceneWorld world ) : base( world )
+	{
+	}
+
+	public override void Tick()
+	{
+		StateHasChanged();
+	}
+}

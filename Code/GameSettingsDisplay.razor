@@ -1,0 +1,109 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+    <style>
+        .settings-display {
+            position: absolute;
+            top: 20px;
+            right: 250px;
+            width: 220px;
+            flex-direction: column;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .settings-display.hidden {
+            display: none;
+        }
+
+        .settings-header {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            background-color: rgba(6, 8, 22, 0.85);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 4px 4px 0px 0px;
+        }
+
+        .settings-title {
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(180, 200, 220, 0.5);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .settings-list {
+            flex-direction: column;
+            background-color: rgba(6, 8, 22, 0.75);
+            border-radius: 0px 0px 4px 4px;
+            padding: 4px 0px;
+            gap: 1px;
+        }
+
+        .settings-row {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 14px;
+        }
+
+        .setting-label {
+            font-size: 12px;
+            font-weight: 600;
+            font-family: Consolas;
+            color: rgba(140, 150, 170, 0.45);
+        }
+
+        .setting-value {
+            font-size: 12px;
+            font-weight: 800;
+            font-family: Consolas;
+            color: rgba(0, 200, 240, 0.7);
+        }
+    </style>
+
+    <div class="settings-display @(ShouldShow ? "" : "hidden")">
+        <div class="settings-header">
+            <label class="settings-title">GAME SETTINGS</label>
+        </div>
+        <div class="settings-list">
+            <div class="settings-row">
+                <label class="setting-label">ANOMALIES</label>
+                <label class="setting-value">@AnomalyCount</label>
+            </div>
+            <div class="settings-row">
+                <label class="setting-label">MAX PLAYERS</label>
+                <label class="setting-value">10</label>
+            </div>
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool ShouldShow { get; set; } = false;
+    public int AnomalyCount { get; set; } = 1;
+
+    protected override void OnUpdate()
+    {
+        var gm = Scene.GetAllComponents<GameManager>().FirstOrDefault();
+        if ( gm != null )
+        {
+            ShouldShow = gm.CurrentState == GameManager.GameState.WaitingInLobby;
+            AnomalyCount = gm.AnomalyCount;
+        }
+        else
+        {
+            ShouldShow = false;
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( ShouldShow, AnomalyCount );
+    }
+}

@@ -1,0 +1,202 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-progress-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* ADD THIS - force it to front */
+        }
+
+        .task-progress-container {
+            width: 600px;
+            background-color: rgba(10, 14, 39, 0.95);
+            border: 3px solid rgba(0, 180, 220, 0.8);
+            border-radius: 10px;
+            padding: 30px;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 0 50px rgba(0, 160, 220, 0.4);
+        }
+
+        .task-progress-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 40px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 180, 220, 0.4);
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, rgba(0, 150, 200, 0.8), rgba(0, 200, 240, 1));
+            transition: width 0.1s linear;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            font-family: Consolas;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="task-progress-overlay">
+        <div class="task-progress-container">
+            <label class="task-progress-title">@TaskName</label>
+            
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" style="width: @(ProgressPercent)%"></div>
+                <label class="progress-text">@((int)ProgressPercent)%</label>
+            </div>
+            
+            <label class="task-instruction">Hold E to complete...</label>
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public float ProgressPercent { get; set; } = 0f;
+    
+    private float completionTime = 15f;
+    private string playerName = "";
+    private TaskManager taskManager;
+    private float progress = 0f;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+
+    protected override void OnStart()
+    {
+        // Log.Info( "TaskProgressUI OnStart() called!" );
+    }
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        // Get data from bridge
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            completionTime = taskData.CompletionTime;
+            playerName = taskData.PlayerName;
+            
+            Log.Info( $"TaskProgressUI initialized for {TaskName} (Player: {playerName})" );
+        }
+        else
+        {
+            Log.Error( "TaskProgressUI: No task data in bridge!" );
+        }
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Handle delayed destruction first (before any early returns)
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 0.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return; // Don't process anything else if we're destroying
+        }
+        
+        // Now check if task is invalid
+        if ( string.IsNullOrEmpty( playerName ) || isCompleted )
+        {
+            TaskProgressBridge.ClearTask();
+            GameObject.Destroy();
+            return;
+        }
+        
+        // Check if player is still holding E
+        if ( Input.Down( "Use" ) )
+        {
+            // Increment progress
+            progress += Time.Delta / completionTime;
+            ProgressPercent = progress * 100f;
+            
+            if ( progress >= 1f )
+            {
+                // Task complete!
+                progress = 1f;
+                ProgressPercent = 100f;
+                isCompleted = true;
+                
+                // Complete task by network owner ID
+                if ( taskManager != null )
+                {
+                    ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+                    
+                    if ( ownerId != 0 )
+                    {
+                        taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                        Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+                    }
+                    else
+                    {
+                        Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+                    }
+                }
+                
+                // Set flag to destroy after delay
+                shouldDestroyAfterDelay = true;
+                destroyDelayTimer = 0f;
+            }
+            
+            StateHasChanged();
+        }
+        else
+        {
+            // Player let go - cancel and allow restart
+            Log.Info( "Task canceled - player released E" );
+            TaskProgressBridge.ClearTask();
+            GameObject.Destroy();
+        }
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( ProgressPercent );
+    }
+}

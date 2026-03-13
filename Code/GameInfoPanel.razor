@@ -1,0 +1,767 @@
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root>
+    <style>
+        .info-panel {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.92);
+        }
+
+        .info-panel.hidden {
+            display: none;
+        }
+
+        .panel-container {
+            width: 1200px;
+            max-height: 860px;
+            background-color: rgb(8, 10, 28);
+            border: 2px solid rgba(0, 180, 220, 0.7);
+            border-radius: 6px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 80px rgba(0, 160, 220, 0.3);
+        }
+
+        /* === HEADER === */
+        .panel-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 22px 36px;
+            background-color: rgba(0, 30, 60, 0.6);
+            border-bottom: 2px solid rgba(0, 180, 220, 0.5);
+        }
+
+        .header-left {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-title-group {
+            flex-direction: column;
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 900;
+            color: rgb(180, 230, 255);
+            letter-spacing: 6px;
+            font-family: Consolas;
+        }
+
+        .title-sub {
+            font-size: 13px;
+            color: rgba(0, 180, 220, 0.5);
+            letter-spacing: 4px;
+            margin-top: 3px;
+            font-family: Consolas;
+        }
+
+        .close-btn {
+            background-color: rgba(255, 40, 40, 0.15);
+            border: 1px solid rgba(255, 60, 60, 0.5);
+            color: rgba(255, 100, 100, 0.9);
+            font-size: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 4px;
+            transition: all 0.15s;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(255, 40, 40, 0.4);
+            border-color: rgba(255, 80, 80, 0.8);
+        }
+
+        /* === TABS === */
+        .tabs {
+            flex-direction: row;
+            padding: 0px 36px;
+            background-color: rgba(0, 8, 24, 0.9);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.2);
+        }
+
+        .tab-btn {
+            padding: 16px 28px;
+            background-color: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: rgba(140, 170, 200, 0.5);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-family: Consolas;
+        }
+
+        .tab-btn:hover {
+            color: rgba(180, 210, 240, 0.9);
+            background-color: rgba(0, 80, 140, 0.1);
+        }
+
+        .tab-btn.active {
+            color: rgb(0, 200, 240);
+            border-bottom: 2px solid rgb(0, 200, 240);
+            background-color: rgba(0, 100, 160, 0.08);
+        }
+
+        /* === CONTENT AREA === */
+        .tab-content-wrapper {
+            flex-grow: 1;
+            overflow-y: scroll;
+            max-height: 620px;
+            background-color: rgba(8, 10, 28, 1);
+        }
+
+        .tab-page {
+            padding: 36px 44px;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .tab-page.hidden {
+            display: none;
+        }
+
+        /* === SECTION HEADER === */
+        .section-header {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .heading {
+            font-size: 22px;
+            color: rgba(0, 200, 240, 0.9);
+            font-weight: 800;
+            letter-spacing: 4px;
+            font-family: Consolas;
+        }
+
+        .heading-line {
+            flex-grow: 1;
+            height: 1px;
+            background-color: rgba(0, 180, 220, 0.25);
+        }
+
+        /* === DESCRIPTION TAB === */
+        .year-tag {
+            font-size: 13px;
+            color: rgba(0, 180, 220, 0.45);
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+            font-family: Consolas;
+        }
+
+        .lore-block {
+            background-color: rgba(0, 16, 40, 0.5);
+            border-left: 3px solid rgba(0, 180, 220, 0.4);
+            padding: 20px 26px;
+            border-radius: 3px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .lore-label {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .label-cyan { color: rgb(0, 200, 240); }
+        .label-red { color: rgb(255, 70, 70); }
+        .label-green { color: rgb(70, 230, 70); }
+
+        .lore-text {
+            font-size: 17px;
+            line-height: 30px;
+            color: rgba(190, 200, 215, 0.9);
+            font-family: Consolas;
+        }
+
+        .alert-box {
+            background-color: rgba(160, 0, 0, 0.2);
+            border: 1px solid rgba(255, 50, 50, 0.5);
+            border-radius: 3px;
+            padding: 18px;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .alert-text {
+            font-size: 16px;
+            font-weight: 800;
+            color: rgb(255, 80, 80);
+            letter-spacing: 5px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.6);
+            font-family: Consolas;
+        }
+
+        /* === HOW TO PLAY TAB === */
+        .roles-row {
+            flex-direction: row;
+            gap: 20px;
+            flex-grow: 1;
+        }
+
+        .role-column {
+            flex: 1;
+            flex-direction: column;
+            background-color: rgba(0, 12, 32, 0.5);
+            border: 1px solid rgba(0, 180, 220, 0.12);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .role-column-header {
+            flex-direction: row;
+            align-items: center;
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(0, 180, 220, 0.08);
+        }
+
+        .citizen-header {
+            background-color: rgba(0, 100, 30, 0.15);
+            border-left: 3px solid rgba(70, 230, 70, 0.7);
+        }
+
+        .anomaly-header {
+            background-color: rgba(100, 0, 0, 0.15);
+            border-left: 3px solid rgba(255, 70, 70, 0.7);
+        }
+
+        .role-name {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .citizen-name { color: rgb(70, 230, 70); }
+        .anomaly-name { color: rgb(255, 70, 70); }
+
+        .role-column-objective {
+            padding: 10px 24px;
+            border-bottom: 1px solid rgba(0, 180, 220, 0.06);
+        }
+
+        .citizen-obj {
+            background-color: rgba(0, 80, 30, 0.08);
+        }
+
+        .anomaly-obj {
+            background-color: rgba(80, 0, 0, 0.08);
+        }
+
+        .objective-text {
+            font-size: 11px;
+            color: rgba(160, 180, 200, 0.45);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .role-column-body {
+            padding: 22px 24px;
+            flex-direction: column;
+            gap: 16px;
+            flex-grow: 1;
+        }
+
+        .instruction-row {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .instruction-bullet {
+            font-size: 12px;
+            color: rgba(0, 180, 220, 0.4);
+            margin-top: 4px;
+        }
+
+        .instruction-text {
+            font-size: 15px;
+            line-height: 26px;
+            color: rgba(190, 200, 215, 0.85);
+            font-family: Consolas;
+        }
+
+        /* === COMING SOON TAB === */
+        .coming-soon-text {
+            font-size: 17px;
+            line-height: 30px;
+            color: rgba(190, 200, 215, 0.85);
+            font-family: Consolas;
+        }
+
+        .map-list {
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+            margin-left: 8px;
+        }
+
+        .map-item {
+            flex-direction: row;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 22px;
+            background-color: rgba(0, 12, 32, 0.3);
+            border: 1px solid rgba(0, 180, 220, 0.08);
+            border-left: 3px solid rgba(0, 180, 220, 0.25);
+            border-radius: 4px;
+        }
+
+        .map-item-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: rgba(210, 225, 240, 0.95);
+            font-family: Consolas;
+        }
+
+        .map-item-status {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 2px;
+            margin-left: auto;
+            color: rgba(0, 180, 220, 0.6);
+            background-color: rgba(0, 120, 180, 0.1);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            font-family: Consolas;
+        }
+
+        .stay-tuned-bar {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            padding: 18px;
+            margin-top: 12px;
+            background-color: rgba(0, 40, 80, 0.1);
+            border: 1px solid rgba(0, 180, 220, 0.1);
+            border-radius: 3px;
+        }
+
+        .stay-tuned-text {
+            font-size: 15px;
+            color: rgba(0, 200, 240, 0.6);
+            font-weight: 600;
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        /* === CREDITS TAB === */
+        .credit-card {
+            background-color: rgba(0, 12, 32, 0.3);
+            border: 1px solid rgba(0, 180, 220, 0.08);
+            border-radius: 4px;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .credit-card-header {
+            padding: 14px 22px;
+            background-color: rgba(0, 30, 60, 0.2);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.08);
+        }
+
+        .credit-card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.7);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .credit-card-body {
+            padding: 16px 22px;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .credit-line {
+            flex-direction: row;
+            gap: 12px;
+        }
+
+        .credit-label {
+            font-size: 15px;
+            color: rgba(140, 160, 190, 0.5);
+            min-width: 130px;
+            font-family: Consolas;
+        }
+
+        .credit-value {
+            font-size: 15px;
+            color: rgba(200, 215, 235, 0.85);
+            font-family: Consolas;
+        }
+
+        .thanks-bar {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 24px;
+            margin-top: 16px;
+            border-top: 1px solid rgba(0, 180, 220, 0.08);
+        }
+
+        .thanks-text {
+            font-size: 18px;
+            color: rgba(200, 220, 255, 0.7);
+            font-weight: 600;
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .thanks-heart {
+            color: rgb(255, 80, 120);
+            font-size: 18px;
+        }
+
+        /* === FOOTER === */
+        .footer {
+            padding: 12px 36px;
+            background-color: rgba(0, 8, 24, 0.8);
+            border-top: 1px solid rgba(0, 180, 220, 0.12);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-text {
+            font-size: 13px;
+            color: rgba(120, 140, 170, 0.4);
+            font-family: Consolas;
+        }
+
+        .footer-key {
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.5);
+            background-color: rgba(0, 120, 180, 0.1);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 3px;
+            padding: 3px 10px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="info-panel @(IsVisible ? "" : "hidden")">
+        <div class="panel-container">
+
+            <!-- HEADER -->
+            <div class="panel-header">
+                <div class="header-left">
+                    <div class="header-title-group">
+                        <label class="title">RED ALERT</label>
+                        <label class="title-sub">ANOMALY PROTOCOL — CLASSIFIED BRIEFING</label>
+                    </div>
+                </div>
+                <button class="close-btn" onclick=@ClosePanel>✕</button>
+            </div>
+
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab-btn @(ActiveTab == "description" ? "active" : "")"
+                        onclick=@(() => SetTab("description"))>
+                    DESCRIPTION
+                </button>
+                <button class="tab-btn @(ActiveTab == "howto" ? "active" : "")"
+                        onclick=@(() => SetTab("howto"))>
+                    HOW TO PLAY
+                </button>
+                <button class="tab-btn @(ActiveTab == "comingsoon" ? "active" : "")"
+                        onclick=@(() => SetTab("comingsoon"))>
+                    COMING SOON
+                </button>
+                <button class="tab-btn @(ActiveTab == "credits" ? "active" : "")"
+                        onclick=@(() => SetTab("credits"))>
+                    CREDITS
+                </button>
+            </div>
+
+            <!-- CONTENT -->
+            <div class="tab-content-wrapper">
+
+                <!-- DESCRIPTION -->
+                <div class="tab-page @(ActiveTab == "description" ? "" : "hidden")">
+                    <div class="section-header">
+                        <label class="heading">EXPERIMENTAL PROTOCOL BREACH</label>
+                        <div class="heading-line"></div>
+                    </div>
+
+                    <label class="year-tag">YEAR 2486 — DEEP SPACE RESEARCH STATION</label>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-cyan">NEXUS-7 STATION</label>
+                        <label class="lore-text">
+                            Deep space research station NEXUS-7 was conducting classified experiments on
+                            interdimensional parasitic entities. Something went catastrophically wrong.
+                        </label>
+                    </div>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-red">THE ANOMALY</label>
+                        <label class="lore-text">
+                            An Anomaly has escaped containment and infected one of the crew members.
+                            It can perfectly mimic human behavior, blend in seamlessly, and is
+                            systematically eliminating the crew one by one.
+                        </label>
+                    </div>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-green">YOUR MISSION — CITIZEN</label>
+                        <label class="lore-text">
+                            As a Citizen, you must work together to identify and eject the Anomaly
+                            before it completes its mission. Trust no one. Watch everyone.
+                            Your survival depends on it.
+                        </label>
+                    </div>
+
+                    <div class="alert-box">
+                        <label class="alert-text">THE ANOMALY IS AMONG YOU</label>
+                    </div>
+                </div>
+
+                <!-- HOW TO PLAY -->
+                <div class="tab-page @(ActiveTab == "howto" ? "" : "hidden")">
+                    <div class="section-header">
+                        <label class="heading">GAMEPLAY GUIDE</label>
+                        <div class="heading-line"></div>
+                    </div>
+
+                    <div class="roles-row">
+                        <!-- Citizens column -->
+                        <div class="role-column">
+                            <div class="role-column-header citizen-header">
+                                <label class="role-name citizen-name">CITIZENS</label>
+                            </div>
+                            <div class="role-column-objective citizen-obj">
+                                <label class="objective-text">IDENTIFY AND EJECT THE ANOMALY</label>
+                            </div>
+                            <div class="role-column-body">
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Work together with other crew members to find the Anomaly</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Press F near a dead body to report it and call an emergency meeting</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">During meetings, discuss who you suspect and vote them out</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Collectively navigate and complete all tasks across the station to win</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Otherwise, successfully eject the Anomaly before everyone is eliminated</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Anomaly column -->
+                        <div class="role-column">
+                            <div class="role-column-header anomaly-header">
+                                <label class="role-name anomaly-name">ANOMALY</label>
+                            </div>
+                            <div class="role-column-objective anomaly-obj">
+                                <label class="objective-text">ELIMINATE ALL CITIZENS</label>
+                            </div>
+                            <div class="role-column-body">
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Press E near a Citizen to eliminate them (10 second cooldown between kills)</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Blend in with the crew — act normal and avoid raising suspicion</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">During meetings, lie and manipulate to deflect blame onto others</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Use purge abilities (F) to get the upper edge on the citizens</label>
+                                </div>
+                                <div class="instruction-row">
+                                    <label class="instruction-bullet">▸</label>
+                                    <label class="instruction-text">Win when Citizens are reduced to equal or fewer than Anomalies</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COMING SOON -->
+                <div class="tab-page @(ActiveTab == "comingsoon" ? "" : "hidden")">
+                    <div class="section-header">
+                        <label class="heading">COMING SOON</label>
+                        <div class="heading-line"></div>
+                    </div>
+
+                    <label class="coming-soon-text">
+                        Red Alert is actively being developed. Here is a look at what is planned for future updates.
+                    </label>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-cyan">NEW MAPS + MAP VOTING</label>
+                        <label class="lore-text">
+                            Additional station maps are in development, each with unique layouts, hazards, and strategic opportunities. A map voting system will allow players to choose which map to play before each round.
+                        </label>
+                    </div>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-red">ANOMALY ABILITY PROGRESSION</label>
+                        <label class="lore-text">
+                            Anomalies will be able to rack up wins and unlock new abilities to equip. Progress through tiers of increasingly powerful tools of deception and elimination. Build your loadout and adapt your strategy.
+                        </label>
+                    </div>
+
+                    <div class="lore-block">
+                        <label class="lore-label label-green">EXPANDED CITIZEN TASKS</label>
+                        <label class="lore-text">
+                            More tasks and more unique task types are being developed for Citizens. Expect a wider variety of interactive challenges spread across the station to keep gameplay fresh every round.
+                        </label>
+                    </div>
+
+                    <div class="stay-tuned-bar">
+                        <label class="stay-tuned-text">MORE UPDATES COMING SOON</label>
+                    </div>
+                </div>
+
+                <!-- CREDITS -->
+                <div class="tab-page @(ActiveTab == "credits" ? "" : "hidden")">
+                    <div class="section-header">
+                        <label class="heading">CREDITS</label>
+                        <div class="heading-line"></div>
+                    </div>
+
+                    <div class="credit-card">
+                        <div class="credit-card-header">
+                            <label class="credit-card-title">MAP</label>
+                        </div>
+                        <div class="credit-card-body">
+                            <div class="credit-line">
+                                <label class="credit-label">Map Name</label>
+                                <label class="credit-value">Space Station</label>
+                            </div>
+                            <div class="credit-line">
+                                <label class="credit-label">Created by</label>
+                                <label class="credit-value">Pilgrim</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="credit-card">
+                        <div class="credit-card-header">
+                            <label class="credit-card-title">LOBBY PROPS</label>
+                        </div>
+                        <div class="credit-card-body">
+                            <div class="credit-line">
+                                <label class="credit-label">Created by</label>
+                                <label class="credit-value">Titanovsky, Pilgrim, and ReizeR</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="credit-card">
+                        <div class="credit-card-header">
+                            <label class="credit-card-title">MAP PROPS</label>
+                        </div>
+                        <div class="credit-card-body">
+                            <div class="credit-line">
+                                <label class="credit-label">Created by</label>
+                                <label class="credit-value">Baik, andiq, and Terry's group</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="credit-card">
+                        <div class="credit-card-header">
+                            <label class="credit-card-title">SOUNDS</label>
+                        </div>
+                        <div class="credit-card-body">
+                            <div class="credit-line">
+                                <label class="credit-label">Source</label>
+                                <label class="credit-value">All sounds freely downloaded from FreeSound</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="thanks-bar">
+                        <label class="thanks-heart">❤️</label>
+                        <label class="thanks-text">Thank you for playing!</label>
+                        <label class="thanks-heart">❤️</label>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">Q</label>
+                <label class="footer-text">anytime to toggle this panel</label>
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsVisible { get; set; } = true;
+    public string ActiveTab { get; set; } = "description";
+
+    protected override void OnUpdate()
+    {
+        if ( Input.Pressed( "Menu" ) )
+        {
+            IsVisible = !IsVisible;
+            StateHasChanged();
+        }
+    }
+
+    private void SetTab( string tab )
+    {
+        ActiveTab = tab;
+        StateHasChanged();
+    }
+
+    private void ClosePanel()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsVisible, ActiveTab );
+    }
+}

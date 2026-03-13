@@ -1,0 +1,538 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+	<style>
+		/* === FULL SCREEN OVERLAY === */
+		.leaderboard-panel {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.leaderboard-container {
+			width: 1200px;
+			max-height: 880px;
+			background-color: rgb(6, 8, 22);
+			border: 2px solid rgba(255, 180, 40, 0.5);
+			border-radius: 6px;
+			flex-direction: column;
+			overflow: hidden;
+			box-shadow: 0 0 80px rgba(255, 170, 30, 0.12), 0 0 40px rgba(0, 0, 0, 0.8);
+		}
+
+		/* === HEADER === */
+		.lb-header {
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			padding: 22px 36px;
+			background-color: rgba(40, 30, 8, 0.4);
+			border-bottom: 2px solid rgba(255, 180, 40, 0.35);
+		}
+
+		.lb-header-left {
+			flex-direction: column;
+		}
+
+		.lb-title {
+			font-size: 30px;
+			font-weight: 900;
+			color: rgb(255, 200, 80);
+			letter-spacing: 8px;
+			font-family: Consolas;
+			text-shadow: 0 0 20px rgba(255, 180, 40, 0.3);
+		}
+
+		.lb-subtitle {
+			font-size: 12px;
+			color: rgba(255, 180, 40, 0.4);
+			letter-spacing: 4px;
+			margin-top: 4px;
+			font-family: Consolas;
+		}
+
+		.lb-badge {
+			flex-direction: row;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 18px;
+			background-color: rgba(255, 180, 40, 0.06);
+			border: 1px solid rgba(255, 180, 40, 0.25);
+			border-radius: 4px;
+		}
+
+		.lb-badge-icon {
+			font-size: 18px;
+			color: rgba(255, 200, 80, 0.8);
+			font-family: Consolas;
+		}
+
+		.lb-badge-text {
+			font-size: 14px;
+			font-weight: 700;
+			color: rgb(255, 200, 80);
+			font-family: Consolas;
+			letter-spacing: 2px;
+		}
+
+		/* === TABLE HEADER === */
+		.lb-table-header {
+			flex-direction: row;
+			align-items: center;
+			padding: 14px 44px;
+			background-color: rgba(0, 8, 24, 0.9);
+			border-bottom: 1px solid rgba(255, 180, 40, 0.15);
+		}
+
+		.lb-col-rank {
+			min-width: 80px;
+		}
+
+		.lb-col-name {
+			flex-grow: 1;
+		}
+
+		.lb-col-citizen {
+			min-width: 140px;
+			justify-content: center;
+		}
+
+		.lb-col-anomaly {
+			min-width: 140px;
+			justify-content: center;
+		}
+
+		.lb-col-total {
+			min-width: 140px;
+			justify-content: center;
+		}
+
+		.lb-header-text {
+			font-size: 11px;
+			font-weight: 700;
+			color: rgba(255, 200, 80, 0.4);
+			letter-spacing: 3px;
+			font-family: Consolas;
+		}
+
+		.lb-header-text-citizen {
+			color: rgba(80, 220, 120, 0.5);
+		}
+
+		.lb-header-text-anomaly {
+			color: rgba(255, 80, 80, 0.5);
+		}
+
+		.lb-header-text-total {
+			color: rgba(255, 200, 80, 0.5);
+		}
+
+		/* === PLAYER ROWS === */
+		.lb-player-list {
+			flex-direction: column;
+			flex-grow: 1;
+			background-color: rgba(6, 8, 22, 1);
+			padding: 6px 0px;
+			overflow-y: scroll;
+			max-height: 620px;
+		}
+
+		.lb-row {
+			flex-direction: row;
+			align-items: center;
+			padding: 14px 44px;
+			border-bottom: 1px solid rgba(255, 180, 40, 0.03);
+			transition: all 0.15s;
+		}
+
+		.lb-row:hover {
+			background-color: rgba(255, 180, 40, 0.03);
+		}
+
+		.lb-row.is-local {
+			background-color: rgba(255, 180, 40, 0.06);
+			border-left: 3px solid rgba(255, 200, 80, 0.5);
+		}
+
+		.lb-row.is-top-three {
+			background-color: rgba(255, 180, 40, 0.03);
+		}
+
+		/* Rank */
+		.lb-rank-display {
+			min-width: 80px;
+			flex-direction: row;
+			align-items: center;
+		}
+
+		.lb-rank-number {
+			font-size: 20px;
+			font-weight: 900;
+			color: rgba(160, 170, 190, 0.35);
+			font-family: Consolas;
+			min-width: 40px;
+		}
+
+		.lb-rank-first {
+			color: rgb(255, 215, 0);
+			text-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+		}
+
+		.lb-rank-second {
+			color: rgb(200, 200, 220);
+			text-shadow: 0 0 8px rgba(200, 200, 220, 0.2);
+		}
+
+		.lb-rank-third {
+			color: rgb(205, 140, 60);
+			text-shadow: 0 0 8px rgba(205, 140, 60, 0.2);
+		}
+
+		/* Player info */
+		.lb-name-col {
+			flex-grow: 1;
+			flex-direction: row;
+			align-items: center;
+			gap: 14px;
+		}
+
+		.lb-avatar {
+			width: 38px;
+			height: 38px;
+			min-width: 38px;
+			background-color: rgba(255, 180, 40, 0.06);
+			border: 1px solid rgba(255, 180, 40, 0.15);
+			border-radius: 4px;
+			justify-content: center;
+			align-items: center;
+			overflow: hidden;
+		}
+
+		.lb-avatar img {
+			width: 100%;
+			height: 100%;
+		}
+
+		.lb-avatar-letter {
+			font-size: 16px;
+			font-weight: 900;
+			color: rgba(255, 200, 80, 0.6);
+			font-family: Consolas;
+		}
+
+		.lb-player-name {
+			font-size: 16px;
+			font-weight: 700;
+			color: rgba(210, 220, 235, 0.9);
+			font-family: Consolas;
+			letter-spacing: 1px;
+		}
+
+		.lb-you-tag {
+			font-size: 9px;
+			font-weight: 700;
+			color: rgba(255, 200, 80, 0.6);
+			background-color: rgba(255, 180, 40, 0.08);
+			border: 1px solid rgba(255, 180, 40, 0.2);
+			border-radius: 2px;
+			padding: 2px 8px;
+			letter-spacing: 1px;
+			font-family: Consolas;
+		}
+
+		/* Stat columns */
+		.lb-stat-col {
+			min-width: 140px;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 6px;
+		}
+
+		.lb-stat-number {
+			font-size: 20px;
+			font-weight: 800;
+			font-family: Consolas;
+		}
+
+		.lb-stat-citizen {
+			color: rgb(80, 220, 120);
+		}
+
+		.lb-stat-anomaly {
+			color: rgb(255, 80, 80);
+		}
+
+		.lb-stat-total {
+			color: rgb(255, 200, 80);
+		}
+
+		.lb-stat-label {
+			font-size: 9px;
+			color: rgba(140, 150, 170, 0.35);
+			letter-spacing: 1px;
+			font-family: Consolas;
+		}
+
+		/* Loading / Empty */
+		.lb-loading {
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 60px;
+			gap: 12px;
+		}
+
+		.lb-loading-text {
+			font-size: 16px;
+			color: rgba(255, 200, 80, 0.4);
+			letter-spacing: 4px;
+			font-family: Consolas;
+		}
+
+		.lb-empty-text {
+			font-size: 14px;
+			color: rgba(140, 150, 170, 0.3);
+			letter-spacing: 2px;
+			font-family: Consolas;
+		}
+
+		/* === FOOTER === */
+		.lb-footer {
+			padding: 12px 36px;
+			background-color: rgba(0, 4, 12, 0.8);
+			border-top: 1px solid rgba(255, 180, 40, 0.1);
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.lb-footer-text {
+			font-size: 12px;
+			color: rgba(120, 130, 150, 0.4);
+			font-family: Consolas;
+		}
+
+		.lb-footer-key {
+			font-size: 11px;
+			font-weight: 700;
+			color: rgba(255, 200, 80, 0.5);
+			background-color: rgba(255, 180, 40, 0.06);
+			border: 1px solid rgba(255, 180, 40, 0.2);
+			border-radius: 3px;
+			padding: 3px 10px;
+			font-family: Consolas;
+		}
+	</style>
+
+	<div class="leaderboard-panel">
+		<div class="leaderboard-container">
+
+			<!-- HEADER -->
+			<div class="lb-header">
+				<div class="lb-header-left">
+					<label class="lb-title">GLOBAL LEADERBOARD</label>
+					<label class="lb-subtitle">TOP OPERATIVES — ALL STATIONS</label>
+				</div>
+				<div class="lb-badge">
+					<label class="lb-badge-icon">★</label>
+					<label class="lb-badge-text">TOP @Entries.Count</label>
+				</div>
+			</div>
+
+			<!-- TABLE HEADER -->
+			<div class="lb-table-header">
+				<div class="lb-col-rank">
+					<label class="lb-header-text">RANK</label>
+				</div>
+				<div class="lb-col-name">
+					<label class="lb-header-text">OPERATIVE</label>
+				</div>
+				<div class="lb-col-citizen">
+					<label class="lb-header-text lb-header-text-citizen">CITIZEN</label>
+				</div>
+				<div class="lb-col-anomaly">
+					<label class="lb-header-text lb-header-text-anomaly">ANOMALY</label>
+				</div>
+				<div class="lb-col-total">
+					<label class="lb-header-text lb-header-text-total">TOTAL</label>
+				</div>
+			</div>
+
+			<!-- PLAYER LIST -->
+			<div class="lb-player-list">
+				@if ( IsLoading )
+				{
+					<div class="lb-loading">
+						<label class="lb-loading-text">FETCHING DATA...</label>
+					</div>
+				}
+				else if ( Entries.Count == 0 )
+				{
+					<div class="lb-loading">
+						<label class="lb-empty-text">NO DATA AVAILABLE</label>
+					</div>
+				}
+				else
+				{
+					@foreach ( var entry in Entries )
+					{
+						var rankClass = entry.Rank == 1 ? "lb-rank-first" : entry.Rank == 2 ? "lb-rank-second" : entry.Rank == 3 ? "lb-rank-third" : "";
+						var rowClass = entry.IsLocal ? "is-local" : entry.Rank <= 3 ? "is-top-three" : "";
+						var initial = entry.Name.Length > 0 ? entry.Name.Substring( 0, 1 ).ToUpper() : "?";
+
+						<div class="lb-row @rowClass">
+							<div class="lb-rank-display">
+								<label class="lb-rank-number @rankClass">@entry.Rank.ToString("00")</label>
+							</div>
+							<div class="lb-name-col">
+								<div class="lb-avatar">
+									@if ( entry.SteamId > 0 )
+									{
+										<img src="avatar:@entry.SteamId" />
+									}
+									else
+									{
+										<label class="lb-avatar-letter">@initial</label>
+									}
+								</div>
+								<label class="lb-player-name">@entry.Name</label>
+								@if ( entry.IsLocal )
+								{
+									<label class="lb-you-tag">YOU</label>
+								}
+							</div>
+							<div class="lb-stat-col">
+								<label class="lb-stat-number lb-stat-citizen">@entry.CitizenWins</label>
+							</div>
+							<div class="lb-stat-col">
+								<label class="lb-stat-number lb-stat-anomaly">@entry.AnomalyWins</label>
+							</div>
+							<div class="lb-stat-col">
+								<label class="lb-stat-number lb-stat-total">@entry.TotalWins</label>
+							</div>
+						</div>
+					}
+				}
+			</div>
+		</div>
+	</div>
+</root>
+
+@code {
+    public bool IsLoading { get; set; } = true;
+    public List<LeaderboardEntry> Entries { get; set; } = new();
+
+    private float lastRefreshTime = -999f;
+    private float refreshInterval = 60f;
+    private bool isFetching = false;
+
+    public class LeaderboardEntry
+    {
+        public int Rank { get; set; }
+        public string Name { get; set; } = "";
+        public ulong SteamId { get; set; }
+        public int CitizenWins { get; set; }
+        public int AnomalyWins { get; set; }
+        public int TotalWins => CitizenWins + AnomalyWins;
+        public bool IsLocal { get; set; }
+    }
+
+    protected override void OnUpdate()
+    {
+        // Auto-refresh periodically
+        if ( (Time.Now - lastRefreshTime) > refreshInterval )
+        {
+            FetchLeaderboard();
+        }
+    }
+
+    protected override void OnEnabled()
+    {
+        FetchLeaderboard();
+    }
+
+    private async void FetchLeaderboard()
+    {
+        if ( isFetching ) return;
+        isFetching = true;
+        IsLoading = Entries.Count == 0;
+
+        try
+        {
+            var citizenBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "citizen_wins" );
+            citizenBoard.MaxEntries = 50;
+            await citizenBoard.Refresh();
+
+            var anomalyBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "anomaly_wins" );
+            anomalyBoard.MaxEntries = 50;
+            await anomalyBoard.Refresh();
+
+            var playerMap = new Dictionary<long, LeaderboardEntry>();
+
+            foreach ( var entry in citizenBoard.Entries )
+            {
+                if ( !playerMap.ContainsKey( entry.SteamId ) )
+                {
+                    playerMap[entry.SteamId] = new LeaderboardEntry
+                    {
+                        Name = entry.DisplayName,
+                        SteamId = (ulong)entry.SteamId,
+                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0)
+                    };
+                }
+                playerMap[entry.SteamId].CitizenWins = (int)entry.Value;
+            }
+
+            foreach ( var entry in anomalyBoard.Entries )
+            {
+                if ( !playerMap.ContainsKey( entry.SteamId ) )
+                {
+                    playerMap[entry.SteamId] = new LeaderboardEntry
+                    {
+                        Name = entry.DisplayName,
+                        SteamId = (ulong)entry.SteamId,
+                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0)
+                    };
+                }
+                playerMap[entry.SteamId].AnomalyWins = (int)entry.Value;
+            }
+
+            var sorted = playerMap.Values
+                .OrderByDescending( e => e.TotalWins )
+                .ThenByDescending( e => e.CitizenWins )
+                .ToList();
+
+            for ( int i = 0; i < sorted.Count; i++ )
+            {
+                sorted[i].Rank = i + 1;
+            }
+
+            Entries = sorted.Take( 10 ).ToList();
+            lastRefreshTime = Time.Now;
+
+            Log.Info( $"[Leaderboard] Fetched {Entries.Count} players" );
+        }
+        catch ( System.Exception e )
+        {
+            Log.Warning( $"[Leaderboard] Failed to fetch: {e.Message}" );
+        }
+        finally
+        {
+            IsLoading = false;
+            isFetching = false;
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsLoading, Entries.Count, lastRefreshTime.ToString( "F0" ) );
+    }
+}

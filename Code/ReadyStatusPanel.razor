@@ -1,0 +1,180 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.ready-panel {
+			position: absolute;
+			top: 20px;
+			right: 20px;
+			width: 220px;
+			flex-direction: column;
+			pointer-events: none;
+			z-index: 50;
+		}
+
+		.ready-panel.hidden {
+			display: none;
+		}
+
+		/* Header strip */
+		.ready-header {
+			flex-direction: row;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px 14px;
+			background-color: rgba(6, 8, 22, 0.85);
+			border-bottom: 1px solid rgba(0, 180, 220, 0.2);
+			border-radius: 4px 4px 0px 0px;
+		}
+
+		.ready-title {
+			font-size: 10px;
+			font-weight: 800;
+			color: rgba(180, 200, 220, 0.5);
+			letter-spacing: 3px;
+			font-family: Consolas;
+		}
+
+		.ready-count {
+			font-size: 10px;
+			font-weight: 700;
+			color: rgba(0, 200, 240, 0.5);
+			font-family: Consolas;
+			letter-spacing: 1px;
+		}
+
+		/* Player list */
+		.ready-list {
+			flex-direction: column;
+			background-color: rgba(6, 8, 22, 0.75);
+			border-radius: 0px 0px 4px 4px;
+			padding: 4px 0px;
+			gap: 1px;
+		}
+
+		/* Individual player row */
+		.ready-row {
+			flex-direction: row;
+			align-items: center;
+			padding: 6px 14px;
+			gap: 10px;
+		}
+
+		/* Status indicator dot */
+		.status-dot {
+			width: 8px;
+			height: 8px;
+			min-width: 8px;
+			border-radius: 50%;
+			flex-shrink: 0;
+		}
+
+		.status-dot.ready {
+			background-color: rgb(60, 210, 120);
+			box-shadow: 0 0 6px rgba(60, 210, 120, 0.5);
+		}
+
+		.status-dot.unready {
+			background-color: rgba(140, 150, 170, 0.3);
+			border: 1px solid rgba(140, 150, 170, 0.2);
+		}
+
+		.status-dot.ingame {
+			background-color: rgb(255, 170, 40);
+			box-shadow: 0 0 6px rgba(255, 170, 40, 0.4);
+		}
+
+		/* Player name */
+		.ready-name {
+			font-size: 12px;
+			font-weight: 600;
+			font-family: Consolas;
+			color: rgba(200, 210, 225, 0.8);
+			flex-grow: 1;
+			overflow: hidden;
+			white-space: nowrap;
+		}
+
+		.ready-name.is-ready {
+			color: rgba(200, 215, 225, 0.9);
+		}
+
+		.ready-name.is-unready {
+			color: rgba(140, 150, 170, 0.45);
+		}
+
+		.ready-name.is-ingame {
+			color: rgba(255, 190, 80, 0.6);
+		}
+	</style>
+
+	<div class="ready-panel @(IsVisible ? "" : "hidden")">
+		<div class="ready-header">
+			<label class="ready-title">CREW STATUS</label>
+			<label class="ready-count">@ReadyCount / @TotalCount</label>
+		</div>
+		<div class="ready-list">
+			@foreach ( var player in Players )
+			{
+				var dotClass = player.Status == 0 ? "unready" : player.Status == 1 ? "ready" : "ingame";
+				var nameClass = player.Status == 0 ? "is-unready" : player.Status == 1 ? "is-ready" : "is-ingame";
+
+				<div class="ready-row">
+					<div class="status-dot @dotClass"></div>
+					<label class="ready-name @nameClass">@player.Name</label>
+				</div>
+			}
+		</div>
+	</div>
+</root>
+
+@code {
+	public bool IsVisible { get; set; } = false;
+	public List<DisplayPlayer> Players { get; set; } = new();
+	public int ReadyCount { get; set; } = 0;
+	public int TotalCount { get; set; } = 0;
+
+	public class DisplayPlayer
+	{
+		public string Name { get; set; } = "";
+		public int Status { get; set; } = 0; // 0=unready, 1=ready, 2=ingame
+	}
+
+	protected override void OnUpdate()
+	{
+		ReadyStatusBridge.Update( Scene );
+		IsVisible = ReadyStatusBridge.ShouldShow();
+
+		if ( !IsVisible ) return;
+
+		var bridgeData = ReadyStatusBridge.GetPlayers();
+		Players.Clear();
+
+		int ready = 0;
+		foreach ( var p in bridgeData )
+		{
+			int status = p.Status == ReadyStatusBridge.PlayerStatus.Ready ? 1
+				: p.Status == ReadyStatusBridge.PlayerStatus.InGame ? 2
+				: 0;
+
+			if ( status == 1 ) ready++;
+
+			Players.Add( new DisplayPlayer
+			{
+				Name = p.Name,
+				Status = status
+			} );
+		}
+
+		ReadyCount = ready;
+		TotalCount = bridgeData.Count;
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( IsVisible, TotalCount, ReadyCount, Players.Count );
+	}
+}

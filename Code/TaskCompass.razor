@@ -1,0 +1,270 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System;
+@using System.Collections.Generic;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.compass-container {
+			position: absolute;
+			top: 24px;
+			left: 30%;
+			width: 40%;
+			height: 36px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			pointer-events: none;
+			z-index: 200;
+		}
+
+		.compass-container.hidden {
+			display: none;
+		}
+
+		.compass-bar {
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 8, 24, 0.55);
+			border-bottom: 1px solid rgba(0, 180, 220, 0.25);
+			border-radius: 0px 0px 4px 4px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			overflow: hidden;
+			position: relative;
+		}
+
+		.compass-center-tick {
+			position: absolute;
+			top: 0px;
+			left: 50%;
+			margin-left: -1px;
+			width: 2px;
+			height: 10px;
+			background-color: rgba(0, 200, 240, 0.6);
+		}
+
+		.compass-cardinal {
+			position: absolute;
+			top: 10px;
+			font-size: 13px;
+			font-weight: 800;
+			font-family: Consolas;
+			letter-spacing: 2px;
+			color: rgba(180, 195, 220, 0.4);
+		}
+
+		.compass-cardinal.cardinal-main {
+			color: rgba(210, 225, 240, 0.5);
+			font-size: 14px;
+		}
+
+		.task-marker {
+			position: absolute;
+			top: 2px;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			pointer-events: none;
+		}
+
+		.task-diamond {
+			width: 10px;
+			height: 10px;
+			background-color: rgba(0, 220, 255, 0.9);
+			transform: rotate(45deg);
+			box-shadow: 0 0 12px rgba(0, 200, 240, 0.6), 0 0 24px rgba(0, 180, 220, 0.2);
+		}
+
+		.task-distance {
+			font-size: 9px;
+			font-weight: 700;
+			font-family: Consolas;
+			color: rgba(0, 200, 240, 0.7);
+			letter-spacing: 1px;
+			margin-top: 3px;
+			white-space: nowrap;
+		}
+
+		.task-arrow-left {
+			position: absolute;
+			top: 8px;
+			left: 8px;
+			font-size: 16px;
+			font-weight: 900;
+			font-family: Consolas;
+			color: rgba(0, 200, 240, 0.6);
+			text-shadow: 0 0 8px rgba(0, 200, 240, 0.3);
+		}
+
+		.task-arrow-right {
+			position: absolute;
+			top: 8px;
+			right: 8px;
+			font-size: 16px;
+			font-weight: 900;
+			font-family: Consolas;
+			color: rgba(0, 200, 240, 0.6);
+			text-shadow: 0 0 8px rgba(0, 200, 240, 0.3);
+		}
+	</style>
+
+	<div class="compass-container @(ShouldShow ? "" : "hidden")">
+		<div class="compass-bar">
+			<div class="compass-center-tick"></div>
+
+			@foreach ( var cardinal in Cardinals )
+			{
+				var offset = cardinal.ScreenOffset;
+				if ( offset >= -5 && offset <= 105 )
+				{
+					<label class="compass-cardinal @(cardinal.IsMain ? "cardinal-main" : "")"
+						   style="left: @(offset)%;">@cardinal.Label</label>
+				}
+			}
+
+			@if ( TaskOnScreen )
+			{
+				<div class="task-marker" style="left: @(TaskScreenPercent)%;">
+					<div class="task-diamond"></div>
+					<label class="task-distance">@TaskDistanceText</label>
+				</div>
+			}
+			else if ( TaskArrowLeft )
+			{
+				<label class="task-arrow-left">◄</label>
+			}
+			else if ( TaskArrowRight )
+			{
+				<label class="task-arrow-right">►</label>
+			}
+		</div>
+	</div>
+</root>
+
+@code {
+	public bool ShouldShow { get; set; } = false;
+	public bool TaskOnScreen { get; set; } = false;
+	public float TaskScreenPercent { get; set; } = 50f;
+	public string TaskDistanceText { get; set; } = "";
+	public bool TaskArrowLeft { get; set; } = false;
+	public bool TaskArrowRight { get; set; } = false;
+	public List<CardinalInfo> Cardinals { get; set; } = new();
+
+	public class CardinalInfo
+	{
+		public string Label { get; set; } = "";
+		public float ScreenOffset { get; set; } = 0f;
+		public bool IsMain { get; set; } = false;
+	}
+
+	private float compassFOV = 180f;
+
+	protected override void OnUpdate()
+	{
+		// Let the bridge do the heavy lifting
+		TaskCompassBridge.Update( Scene );
+
+		ShouldShow = TaskCompassBridge.ShouldShow;
+		if ( !ShouldShow ) return;
+
+		float cameraYaw = TaskCompassBridge.CameraYaw;
+
+		UpdateCardinals( cameraYaw );
+
+		if ( !TaskCompassBridge.HasActiveTask )
+		{
+			TaskOnScreen = false;
+			TaskArrowLeft = false;
+			TaskArrowRight = false;
+			return;
+		}
+
+		Vector3 playerPos = TaskCompassBridge.PlayerPosition;
+		Vector3 taskPos = TaskCompassBridge.TaskPosition;
+		Vector3 dirToTask = (taskPos - playerPos);
+		dirToTask = new Vector3( dirToTask.x, dirToTask.y, 0 ).Normal;
+
+		float taskAngle = (float)Math.Atan2( dirToTask.y, dirToTask.x ) * (180f / (float)Math.PI);
+		float bearing = cameraYaw - taskAngle;
+
+		while ( bearing > 180f ) bearing -= 360f;
+		while ( bearing < -180f ) bearing += 360f;
+
+		float halfFOV = compassFOV / 2f;
+
+		if ( bearing >= -halfFOV && bearing <= halfFOV )
+		{
+			TaskOnScreen = true;
+			TaskArrowLeft = false;
+			TaskArrowRight = false;
+			TaskScreenPercent = 50f + (bearing / halfFOV) * 50f;
+			TaskScreenPercent = Math.Max( 3f, Math.Min( 97f, TaskScreenPercent ) );
+		}
+		else
+		{
+			TaskOnScreen = false;
+			TaskArrowLeft = bearing < 0;
+			TaskArrowRight = bearing >= 0;
+		}
+
+		float distance = (taskPos - playerPos).Length;
+		if ( distance >= 1000f )
+		{
+			TaskDistanceText = $"{(distance / 1000f):F1}km";
+		}
+		else
+		{
+			TaskDistanceText = $"{(int)distance}m";
+		}
+	}
+
+	private void UpdateCardinals( float cameraYaw )
+	{
+		Cardinals.Clear();
+
+		var directions = new (string Label, float Angle, bool IsMain)[]
+		{
+			("N", 0f, true),
+			("NE", 45f, false),
+			("E", 90f, true),
+			("SE", 135f, false),
+			("S", 180f, true),
+			("SW", 225f, false),
+			("W", 270f, true),
+			("NW", 315f, false)
+		};
+
+		float halfFOV = compassFOV / 2f;
+
+		foreach ( var dir in directions )
+		{
+			float diff = cameraYaw - dir.Angle;
+			while ( diff > 180f ) diff -= 360f;
+			while ( diff < -180f ) diff += 360f;
+
+			float screenPercent = 50f + (diff / halfFOV) * 50f;
+
+			Cardinals.Add( new CardinalInfo
+			{
+				Label = dir.Label,
+				ScreenOffset = screenPercent,
+				IsMain = dir.IsMain
+			} );
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine(
+			ShouldShow,
+			TaskOnScreen,
+			TaskScreenPercent.ToString( "F0" ),
+			TaskDistanceText,
+			TaskArrowLeft,
+			TaskArrowRight
+		);
+	}
+}

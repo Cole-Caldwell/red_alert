@@ -1,0 +1,107 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <div class="purge-activated @(isVisible ? "visible" : "")">
+        <div class="purge-text">@PurgeText</div>
+    </div>
+</root>
+
+<style>
+    .purge-activated {
+        position: absolute;
+        left: 50%;
+        top: 30%;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: opacity 0.3s ease-in;
+        pointer-events: none;
+        z-index: 1000;
+    }
+    
+    .purge-activated.visible {
+        opacity: 1;
+    }
+    
+    .purge-text {
+        color: #ff0000;
+        font-size: 64px;
+        font-weight: bold;
+        font-family: 'Poppins', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 12px;
+        text-shadow: 0 0 20px rgba(255, 0, 0, 0.8),
+                     0 0 40px rgba(255, 0, 0, 0.6),
+                     0 0 60px rgba(255, 0, 0, 0.4);
+        animation: glitch 0.3s infinite;
+    }
+    
+    @@keyframes glitch {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(-2px, 2px); }
+        50% { transform: translate(2px, -2px); }
+        75% { transform: translate(-2px, -2px); }
+    }
+</style>
+
+@code {
+    private bool isVisible = false;
+    public string PurgeText { get; set; } = "PURGE ACTIVATED";
+    
+    public void Show( string abilityId )
+    {
+        switch ( abilityId )
+        {
+            case "blind":
+                PurgeText = "BLACKOUT ACTIVATED — ALL CITIZENS BLINDED";
+                break;
+            case "doublekill":
+                PurgeText = "DOUBLE KILL — COOLDOWN RESET";
+                break;
+            case "xray":
+                PurgeText = "X-RAY ACTIVATED — ALL CITIZENS LOCATED";
+                break;
+            default:
+                PurgeText = "PURGE ACTIVATED";
+                break;
+        }
+
+        isVisible = true;
+        StateHasChanged();
+        HideAfterDelay();
+    }
+    
+    private async void HideAfterDelay()
+    {
+        await GameTask.DelaySeconds( 2 );
+        isVisible = false;
+        StateHasChanged();
+        
+        await GameTask.DelaySeconds( 0.3f );
+        GameObject.Destroy();
+    }
+    
+    protected override void OnStart()
+    {
+        var screenPanel = Components.Get<ScreenPanel>();
+        if ( screenPanel == null )
+        {
+            screenPanel = Components.Create<ScreenPanel>();
+        }
+        screenPanel.ZIndex = 1000;
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( isVisible, PurgeText );
+    }
+
+    public void ShowMimic( string targetName )
+    {
+        PurgeText = $"MIMIC ACTIVATED — YOU ARE {targetName}";
+        isVisible = true;
+        StateHasChanged();
+        HideAfterDelay();
+    }
+}

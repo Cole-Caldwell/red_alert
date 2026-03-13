@@ -1,0 +1,361 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-collect-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-collect-container {
+            width: 900px;
+            height: 600px;
+            background-color: rgba(10, 14, 39, 0.98);
+            border: 3px solid rgba(0, 180, 220, 0.8);
+            border-radius: 10px;
+            padding: 30px;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 0 50px rgba(0, 160, 220, 0.4);
+            position: relative;
+        }
+
+        .task-collect-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-collect-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .timer-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: rgb(255, 150, 50);
+            font-family: Consolas;
+        }
+
+        .timer-display.warning {
+            color: rgb(255, 50, 50);
+            animation: pulse 0.5s infinite;
+        }
+
+        .task-instruction {
+            font-size: 16px;
+            color: rgba(200, 220, 240, 0.8);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        .collection-area {
+            flex-grow: 1;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(0, 180, 220, 0.3);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dna-sample {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, rgba(0, 255, 150, 0.9), rgba(0, 200, 100, 0.5));
+            border: 3px solid rgba(0, 255, 150, 0.9);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 255, 150, 0.6);
+            animation: float 2s ease-in-out infinite;
+        }
+
+        .dna-sample:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 30px rgba(0, 255, 150, 0.9);
+        }
+
+        .dna-sample.collected {
+            animation: collect 0.3s forwards;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 30px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(0, 180, 220, 0.4);
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, rgba(0, 200, 100, 0.8), rgba(0, 255, 150, 1));
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            font-family: Consolas;
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 10px 30px;
+            background-color: rgba(200, 0, 0, 0.3);
+            border: 2px solid rgba(255, 50, 50, 0.6);
+            border-radius: 5px;
+            color: rgb(255, 150, 150);
+            font-size: 14px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.5);
+        }
+
+        @@keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @@keyframes collect {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.3); opacity: 0; }
+        }
+
+        @@keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+
+    <div class="task-collect-overlay">
+        <div class="task-collect-container">
+            
+            <div class="task-collect-header">
+                <label class="task-collect-title">@TaskName</label>
+                <label class="timer-display @(TimeRemaining <= 5 ? "warning" : "")">⏱ @((int)TimeRemaining)s</label>
+            </div>
+            
+            <label class="task-instruction">Click the DNA samples to collect them! (@CollectedCount/@TotalSamples)</label>
+            
+            <div class="collection-area">
+                @foreach ( var sample in Samples )
+                {
+                    if ( !sample.IsCollected )
+                    {
+                        <div class="dna-sample @(sample.IsCollecting ? "collected" : "")" 
+                             style="left: @(sample.X)%; top: @(sample.Y)%;"
+                             onclick="@(() => CollectSample(sample))">
+                        </div>
+                    }
+                }
+            </div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" style="width: @(ProgressPercent)%;"></div>
+                <label class="progress-text">@CollectedCount / @TotalSamples Collected</label>
+            </div>
+            
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+            
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int TotalSamples { get; set; } = 5;
+    public int CollectedCount { get; set; } = 0;
+    public float ProgressPercent => (CollectedCount / (float)TotalSamples) * 100f;
+    public float TimeLimit { get; set; } = 20f;
+    public float TimeRemaining { get; set; } = 20f;
+    
+    public List<DNASample> Samples { get; set; } = new();
+    
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    
+    public class DNASample
+    {
+        public float X { get; set; } // Position X (0-100%)
+        public float Y { get; set; } // Position Y (0-100%)
+        public float VelocityX { get; set; } // Movement speed X
+        public float VelocityY { get; set; } // Movement speed Y
+        public bool IsCollected { get; set; } = false;
+        public bool IsCollecting { get; set; } = false; // Animation flag
+    }
+    
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+        
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+            TimeRemaining = TimeLimit;
+            
+            // Spawn 5 DNA samples at random positions
+            var random = new System.Random();
+            for ( int i = 0; i < TotalSamples; i++ )
+            {
+                Samples.Add( new DNASample
+                {
+                    X = random.Next( 10, 85 ), // Keep away from edges
+                    Y = random.Next( 10, 85 ),
+                    VelocityX = (float)(random.NextDouble() - 0.5) * 0.5f, // Random direction
+                    VelocityY = (float)(random.NextDouble() - 0.5) * 0.5f
+                } );
+            }
+            
+            Log.Info( $"TaskCollectSamplesUI initialized for {TaskName}" );
+        }
+    }
+    
+    protected override void OnUpdate()
+    {
+        // Handle delayed destruction
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+        
+        if ( isCompleted )
+            return;
+        
+        // Allow ESC to cancel
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+        
+        // Update timer
+        TimeRemaining -= Time.Delta;
+        
+        if ( TimeRemaining <= 0f )
+        {
+            // Time's up - fail the task
+            Log.Info( "Task failed - time ran out!" );
+            CancelTask();
+            return;
+        }
+        
+        // Move samples around
+        foreach ( var sample in Samples )
+        {
+            if ( sample.IsCollected )
+                continue;
+            
+            sample.X += sample.VelocityX * Time.Delta * 10f;
+            sample.Y += sample.VelocityY * Time.Delta * 10f;
+            
+            // Bounce off edges
+            if ( sample.X <= 5 || sample.X >= 90 )
+                sample.VelocityX *= -1;
+            if ( sample.Y <= 5 || sample.Y >= 85 )
+                sample.VelocityY *= -1;
+            
+            // Clamp to bounds
+            sample.X = Math.Clamp( sample.X, 5f, 90f );
+            sample.Y = Math.Clamp( sample.Y, 5f, 85f );
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void CollectSample( DNASample sample )
+    {
+        if ( sample.IsCollected || isCompleted )
+            return;
+        
+        sample.IsCollecting = true;
+        sample.IsCollected = true;
+        CollectedCount++;
+        
+        Log.Info( $"Collected DNA sample! {CollectedCount}/{TotalSamples}" );
+        
+        if ( CollectedCount >= TotalSamples )
+        {
+            // All collected!
+            CompleteTask();
+        }
+        
+        StateHasChanged();
+    }
+    
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        
+        // Complete task by network owner ID
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+            
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+        
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+    
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+    
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( CollectedCount, (int)TimeRemaining );
+    }
+}

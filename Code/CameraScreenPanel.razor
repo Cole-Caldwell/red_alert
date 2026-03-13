@@ -1,0 +1,25 @@
+@using Sandbox;
+@using Sandbox.UI;
+
+@inherits Sandbox.UI.WorldPanel
+
+<root style="width: 100%; height: 100%; background-color: black;">
+</root>
+
+@code {
+    public Texture CameraTexture { get; set; }
+
+    public CameraScreenPanel( SceneWorld world ) : base( world )
+    {
+    }
+
+    public override void Tick()
+    {
+        base.Tick();
+
+        if ( CameraTexture != null )
+        {
+            Style.SetBackgroundImage( CameraTexture );
+        }
+    }
+}

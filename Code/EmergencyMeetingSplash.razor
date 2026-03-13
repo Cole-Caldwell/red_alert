@@ -1,0 +1,132 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.splash-overlay {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			pointer-events: none;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-direction: column;
+			gap: 16px;
+			background-color: rgba(0, 0, 0, 0.95);
+			z-index: 999;
+			opacity: 1;
+		}
+
+		.splash-overlay.hidden {
+			display: none;
+		}
+
+		.splash-line-top {
+			width: 600px;
+			height: 2px;
+			background-color: rgba(255, 50, 50, 0.6);
+			box-shadow: 0 0 30px rgba(255, 40, 40, 0.5);
+		}
+
+		.splash-title {
+			font-size: 52px;
+			font-weight: 900;
+			color: rgb(255, 70, 70);
+			letter-spacing: 12px;
+			font-family: Consolas;
+			text-shadow: 0 0 40px rgba(255, 50, 50, 0.6), 0 0 80px rgba(255, 30, 30, 0.3);
+		}
+
+		.splash-subtitle {
+			font-size: 16px;
+			font-weight: 700;
+			color: rgba(255, 200, 80, 0.7);
+			letter-spacing: 8px;
+			font-family: Consolas;
+		}
+
+		.splash-line-bottom {
+			width: 600px;
+			height: 2px;
+			background-color: rgba(255, 50, 50, 0.6);
+			box-shadow: 0 0 30px rgba(255, 40, 40, 0.5);
+		}
+
+		.splash-icon {
+			font-size: 80px;
+			color: rgba(255, 60, 60, 0.8);
+			text-shadow: 0 0 40px rgba(255, 40, 40, 0.5);
+			margin-bottom: 10px;
+		}
+
+		/* Fade stages */
+		.splash-overlay.fade-out {
+			opacity: 0.3;
+			transition: opacity 0.6s ease-in;
+		}
+
+		.splash-overlay.fade-gone {
+			opacity: 0;
+			transition: opacity 0.4s ease-in;
+		}
+	</style>
+
+	<div class="splash-overlay @FadeClass">
+		<label class="splash-icon">⚠</label>
+		<div class="splash-line-top"></div>
+		<label class="splash-title">EMERGENCY MEETING</label>
+		<label class="splash-subtitle">ALL CREW REPORT IMMEDIATELY</label>
+		<div class="splash-line-bottom"></div>
+	</div>
+</root>
+
+@code {
+	private float startTime = 0f;
+	private float duration = 2f;
+	private bool isActive = true;
+
+	public string FadeClass { get; set; } = "";
+
+	protected override void OnEnabled()
+	{
+		startTime = Time.Now;
+		isActive = true;
+		FadeClass = "";
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( !isActive ) return;
+
+		float elapsed = Time.Now - startTime;
+
+		if ( elapsed < 1.0f )
+		{
+			// Full visible for first second
+			FadeClass = "";
+		}
+		else if ( elapsed < 1.5f )
+		{
+			// Start fading
+			FadeClass = "fade-out";
+		}
+		else if ( elapsed < 2.0f )
+		{
+			// Almost gone
+			FadeClass = "fade-gone";
+		}
+		else
+		{
+			// Done — destroy self
+			isActive = false;
+			GameObject.Destroy();
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( FadeClass, isActive );
+	}
+}

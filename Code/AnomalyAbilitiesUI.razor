@@ -1,0 +1,190 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System;
+@inherits PanelComponent
+
+<root>
+    <div class="anomaly-hud">
+        <div class="ability-box kill-box @(isKillOnCooldown ? "cooldown" : "")">
+            <div class="ability-key">E</div>
+            <div class="ability-name">KILL</div>
+            @if (isKillOnCooldown)
+            {
+                <div class="cooldown-timer">@killCooldownText</div>
+            }
+        </div>
+        
+        <div class="ability-box purge-box @(isPurgeOnCooldown ? "cooldown" : "")">
+            <div class="ability-key">F</div>
+            <div class="ability-name">PURGE</div>
+            @if (isPurgeOnCooldown)
+            {
+                <div class="cooldown-timer">@cooldownText</div>
+            }
+        </div>
+    </div>
+</root>
+
+<style>
+    .anomaly-hud {
+        position: absolute;
+        left: 20px;
+        bottom: 20px;
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+        pointer-events: none;
+    }
+    
+    .ability-box {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, rgba(139, 0, 0, 0.9), rgba(80, 0, 0, 0.9));
+        border: 3px solid rgba(255, 0, 0, 0.8);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .ability-box.cooldown {
+        background: linear-gradient(135deg, rgba(60, 60, 60, 0.9), rgba(40, 40, 40, 0.9));
+        border-color: rgba(100, 100, 100, 0.6);
+        box-shadow: 0 0 10px rgba(100, 100, 100, 0.3);
+    }
+    
+    .ability-key {
+        font-size: 28px;
+        font-weight: bold;
+        color: white;
+        font-family: 'Poppins', sans-serif;
+        text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+        margin-bottom: 5px;
+    }
+    
+    .ability-box.cooldown .ability-key {
+        color: rgba(150, 150, 150, 0.6);
+        text-shadow: none;
+    }
+    
+    .ability-name {
+        font-size: 11px;
+        font-weight: bold;
+        color: rgba(255, 255, 255, 0.9);
+        font-family: 'Poppins', sans-serif;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+    }
+    
+    .ability-box.cooldown .ability-name {
+        color: rgba(150, 150, 150, 0.5);
+    }
+    
+    .cooldown-timer {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 24px;
+        font-weight: bold;
+        color: white;
+        font-family: 'Poppins', sans-serif;
+        text-shadow: 0 0 5px black;
+    }
+    
+    .kill-box {
+        animation: pulse-red 2s ease-in-out infinite;
+    }
+    
+    @@keyframes pulse-red {
+        0%, 100% {
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+        50% {
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.8);
+        }
+    }
+</style>
+
+@code {
+    private bool isPurgeOnCooldown = false;
+    private string cooldownText = "";
+    private float cooldownRemaining = 0f;
+    private float purgeCooldown = 120f;
+    private float lastPurgeTime = -999f;
+    
+    // NEW: Kill cooldown tracking
+    private bool isKillOnCooldown = false;
+    private string killCooldownText = "";
+    private float killCooldownRemaining = 0f;
+    private float killCooldown = 10f;
+    private float lastKillTime = -999f;
+    
+    protected override void OnUpdate()
+    {
+        // Calculate purge cooldown
+        float timeSincePurge = Time.Now - lastPurgeTime;
+        cooldownRemaining = purgeCooldown - timeSincePurge;
+        
+        if (cooldownRemaining > 0)
+        {
+            isPurgeOnCooldown = true;
+            cooldownText = ((int)System.Math.Ceiling(cooldownRemaining)).ToString();
+        }
+        else
+        {
+            isPurgeOnCooldown = false;
+            cooldownText = "";
+        }
+        
+        // NEW: Calculate kill cooldown
+        float timeSinceKill = Time.Now - lastKillTime;
+        killCooldownRemaining = killCooldown - timeSinceKill;
+        
+        if (killCooldownRemaining > 0)
+        {
+            isKillOnCooldown = true;
+            killCooldownText = ((int)System.Math.Ceiling(killCooldownRemaining)).ToString();
+        }
+        else
+        {
+            isKillOnCooldown = false;
+            killCooldownText = "";
+        }
+        
+        StateHasChanged();
+    }
+    
+    public void SetPurgeCooldown(float cooldown, float lastUseTime)
+    {
+        purgeCooldown = cooldown;
+        lastPurgeTime = lastUseTime;
+    }
+    
+    // NEW: Method to set kill cooldown
+    public void SetKillCooldown(float cooldown, float lastUseTime)
+    {
+        killCooldown = cooldown;
+        lastKillTime = lastUseTime;
+    }
+    
+    protected override void OnStart()
+    {
+        var screenPanel = Components.Get<ScreenPanel>();
+        if (screenPanel == null)
+        {
+            screenPanel = Components.Create<ScreenPanel>();
+        }
+        screenPanel.ZIndex = 100;
+    }
+    
+    protected override int BuildHash()
+    {
+        return (isPurgeOnCooldown ? 1 : 0) + (int)(cooldownRemaining * 10) + 
+               (isKillOnCooldown ? 100 : 0) + (int)(killCooldownRemaining * 10);
+    }
+}

@@ -1,0 +1,110 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <style>
+        .ready-feedback {
+            position: absolute;
+            left: 50%;
+            top: 75%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 600;
+            opacity: 0;
+            transition: opacity 0.3s ease-in;
+        }
+
+        .ready-feedback.visible {
+            opacity: 1;
+        }
+
+        .ready-feedback.fade-out {
+            opacity: 0;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .feedback-text {
+            font-size: 32px;
+            font-weight: 900;
+            font-family: Consolas;
+            letter-spacing: 4px;
+        }
+
+        .feedback-text.ready {
+            color: rgb(80, 220, 120);
+            text-shadow: 0 0 20px rgba(80, 220, 120, 0.5);
+        }
+
+        .feedback-text.unready {
+            color: rgb(255, 80, 80);
+            text-shadow: 0 0 20px rgba(255, 80, 80, 0.5);
+        }
+    </style>
+
+    <div class="ready-feedback @FadeClass">
+        <label class="feedback-text @ColorClass">@Message</label>
+    </div>
+</root>
+
+@code {
+    public string Message { get; set; } = "";
+    public string ColorClass { get; set; } = "ready";
+    public string FadeClass { get; set; } = "";
+    private float startTime = 0f;
+    private bool isActive = false;
+
+    public void ShowReady()
+    {
+        Message = "YOU HAVE READIED";
+        ColorClass = "ready";
+        FadeClass = "visible";
+        startTime = Time.Now;
+        isActive = true;
+    }
+
+    public void ShowUnready()
+    {
+        Message = "YOU HAVE UNREADIED";
+        ColorClass = "unready";
+        FadeClass = "visible";
+        startTime = Time.Now;
+        isActive = true;
+    }
+
+    protected override void OnStart()
+    {
+        var screenPanel = Components.Get<ScreenPanel>();
+        if ( screenPanel == null )
+        {
+            screenPanel = Components.Create<ScreenPanel>();
+        }
+        screenPanel.ZIndex = 600;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( !isActive ) return;
+
+        float elapsed = Time.Now - startTime;
+
+        if ( elapsed < 1.5f )
+        {
+            FadeClass = "visible";
+        }
+        else if ( elapsed < 2.5f )
+        {
+            FadeClass = "fade-out";
+        }
+        else
+        {
+            isActive = false;
+            GameObject.Destroy();
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( Message, FadeClass, isActive );
+    }
+}

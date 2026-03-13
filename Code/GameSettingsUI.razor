@@ -1,0 +1,284 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+    <style>
+        .settings-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.88);
+            z-index: 500;
+        }
+
+        .settings-overlay.hidden {
+            display: none;
+        }
+
+        .settings-container {
+            width: 700px;
+            background-color: rgb(8, 10, 28);
+            border: 2px solid rgba(0, 180, 220, 0.5);
+            border-radius: 6px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 80px rgba(0, 160, 220, 0.15), 0 0 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .settings-header {
+            flex-direction: column;
+            padding: 22px 32px;
+            background-color: rgba(0, 30, 60, 0.6);
+            border-bottom: 2px solid rgba(0, 180, 220, 0.4);
+        }
+
+        .settings-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: rgb(180, 230, 255);
+            letter-spacing: 6px;
+            font-family: Consolas;
+        }
+
+        .settings-subtitle {
+            font-size: 11px;
+            color: rgba(0, 180, 220, 0.4);
+            letter-spacing: 4px;
+            margin-top: 4px;
+            font-family: Consolas;
+        }
+
+        .settings-body {
+            flex-direction: column;
+            padding: 24px 32px;
+            gap: 20px;
+        }
+
+        .setting-row {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 24px;
+            background-color: rgba(0, 20, 50, 0.4);
+            border: 1px solid rgba(0, 180, 220, 0.15);
+            border-radius: 4px;
+        }
+
+        .setting-info {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .setting-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: rgba(200, 220, 240, 0.9);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .setting-desc {
+            font-size: 12px;
+            color: rgba(140, 170, 200, 0.5);
+            font-family: Consolas;
+        }
+
+        .setting-controls {
+            flex-direction: row;
+            gap: 8px;
+        }
+
+        .option-btn {
+            padding: 10px 24px;
+            background-color: rgba(0, 80, 140, 0.1);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .option-btn:hover {
+            background-color: rgba(0, 120, 180, 0.2);
+            border-color: rgba(0, 200, 240, 0.4);
+        }
+
+        .option-btn.selected {
+            background-color: rgba(0, 180, 220, 0.15);
+            border-color: rgba(0, 200, 240, 0.7);
+            box-shadow: 0 0 12px rgba(0, 180, 220, 0.15);
+        }
+
+        .option-text {
+            font-size: 18px;
+            font-weight: 800;
+            color: rgba(160, 190, 220, 0.6);
+            font-family: Consolas;
+        }
+
+        .option-btn.selected .option-text {
+            color: rgb(0, 220, 255);
+        }
+
+        .option-btn.locked {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .option-btn.locked:hover {
+            background-color: rgba(0, 80, 140, 0.1);
+            border-color: rgba(0, 180, 220, 0.2);
+        }
+
+        .lock-text {
+            font-size: 8px;
+            font-weight: 700;
+            color: rgba(160, 190, 220, 0.4);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            position: absolute;
+            bottom: 2px;
+        }
+
+        .coming-soon-section {
+            padding: 20px 24px;
+            background-color: rgba(0, 20, 50, 0.2);
+            border: 1px solid rgba(0, 180, 220, 0.08);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .coming-soon-text {
+            font-size: 13px;
+            font-weight: 700;
+            font-family: Consolas;
+            color: rgba(100, 140, 180, 0.25);
+            letter-spacing: 4px;
+        }
+
+        .settings-footer {
+            padding: 14px 32px;
+            background-color: rgba(0, 8, 24, 0.8);
+            border-top: 1px solid rgba(0, 180, 220, 0.12);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-text {
+            font-size: 11px;
+            color: rgba(120, 140, 170, 0.35);
+            font-family: Consolas;
+        }
+
+        .footer-key {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.5);
+            background-color: rgba(0, 120, 180, 0.1);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 3px;
+            padding: 3px 10px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="settings-overlay @(IsOpen ? "" : "hidden")">
+        <div class="settings-container">
+
+            <div class="settings-header">
+                <label class="settings-title">GAME SETTINGS</label>
+                <label class="settings-subtitle">MATCH CONFIGURATION</label>
+            </div>
+
+            <div class="settings-body">
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <label class="setting-name">ANOMALY COUNT</label>
+                        <label class="setting-desc">Number of anomalies assigned each round.</label>
+                    </div>
+                    <div class="setting-controls">
+                        <div class="option-btn @(AnomalyCount == 1 ? "selected" : "")" onclick=@(() => SetAnomalyCount(1))>
+                            <label class="option-text">1</label>
+                        </div>
+                        @{
+                            var canSelectTwo = PlayerCount >= 8;
+                            var twoBtnClass = AnomalyCount == 2 ? "selected" : canSelectTwo ? "" : "locked";
+                        }
+                        <div class="option-btn @twoBtnClass" onclick=@(() => SetAnomalyCount(2))>
+                            <label class="option-text">2</label>
+                            @if ( !canSelectTwo )
+                            {
+                                <label class="lock-text">8+ PLAYERS</label>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="coming-soon-section">
+                    <label class="coming-soon-text">MORE SETTINGS COMING SOON...</label>
+                </div>
+
+            </div>
+
+            <div class="settings-footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">E</label>
+                <label class="footer-text">to close</label>
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsOpen { get; set; } = false;
+    public int AnomalyCount { get; set; } = 1;
+    public int PlayerCount { get; set; } = 0;
+
+    protected override void OnStart()
+    {
+        GameSettingsBridge.Close();
+    }
+
+    protected override void OnUpdate()
+    {
+        IsOpen = GameSettingsBridge.IsOpen;
+        if ( !IsOpen ) return;
+
+        AnomalyCount = GameSettingsBridge.AnomalyCount;
+        PlayerCount = GameSettingsBridge.PlayerCount;
+    }
+
+    private void SetAnomalyCount( int count )
+    {
+        if ( count == AnomalyCount ) return;
+        if ( count == 2 && PlayerCount < 8 ) return;
+
+        GameSettingsBridge.AnomalyCount = count;
+        GameSettingsStation.PlayChangeSound = true;
+
+        // Broadcast to all clients via GameManager RPC
+        var gm = Scene.GetAllComponents<GameManager>().FirstOrDefault();
+        if ( gm != null )
+        {
+            gm.SetAnomalyCountRpc( count );
+        }
+
+        Log.Info( $"[GameSettings] Set anomaly count to {count}" );
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsOpen, AnomalyCount, PlayerCount );
+    }
+}
