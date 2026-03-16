@@ -321,6 +321,17 @@
             firstFlipped.IsMatched = true;
             secondFlipped.IsMatched = true;
             MatchedPairs++;
+
+            // Play correct match sound
+            if ( TaskProgressBridge.MatchCorrectSound != null )
+            {
+                var handle = Sound.Play( TaskProgressBridge.MatchCorrectSound );
+                if ( handle != null )
+                {
+                    handle.ListenLocal = true;
+                    handle.Volume = 1.0f;
+                }
+            }
             
             Log.Info( $"Match found! {MatchedPairs}/{TotalPairs}" );
             
@@ -335,6 +346,17 @@
             // No match - flip back
             firstFlipped.IsFlipped = false;
             secondFlipped.IsFlipped = false;
+
+            // Play incorrect match sound
+            if ( TaskProgressBridge.MatchIncorrectSound != null )
+            {
+                var handle = Sound.Play( TaskProgressBridge.MatchIncorrectSound );
+                if ( handle != null )
+                {
+                    handle.ListenLocal = true;
+                    handle.Volume = 1.0f;
+                }
+            }
         }
         
         firstFlipped = null;

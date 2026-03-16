@@ -218,6 +218,7 @@ public class TaskManager : Component
 		else if ( taskData.Type == TaskData.TaskType.SliderMatch )
 		{
 			uiObject.Name = "Task Slider Match UI";
+			TaskProgressBridge.SliderMatchSound = station.SliderMatchSound;
 			var sliderUI = uiObject.Components.Create<TaskSliderMatchUI>();
 			sliderUI.InitializeFromBridge( this );
 		}
@@ -230,14 +231,17 @@ public class TaskManager : Component
 		else if ( taskData.Type == TaskData.TaskType.MemoryMatch )
 		{
 			uiObject.Name = "Task Memory Match UI";
+			TaskProgressBridge.MatchCorrectSound = station.MatchCorrectSound;
+    		TaskProgressBridge.MatchIncorrectSound = station.MatchIncorrectSound;
 			var memoryUI = uiObject.Components.Create<TaskMemoryMatchUI>();
 			memoryUI.InitializeFromBridge( this );
 		}
-		else if ( taskData.Type == TaskData.TaskType.WireConnect )
+		else if ( taskData.Type == TaskData.TaskType.Decrypt )
 		{
-			uiObject.Name = "Task Wire Connect UI";
-			var wireUI = uiObject.Components.Create<TaskWireConnectUI>();
-			wireUI.InitializeFromBridge( this );
+			uiObject.Name = "Task Decrypt UI";
+			TaskProgressBridge.KeypadSound = station.KeypadBeepSound;
+			var decryptUI = uiObject.Components.Create<TaskWireConnectUI>();
+			decryptUI.InitializeFromBridge( this );
 		}
 		else // ProgressBar
 		{

@@ -243,7 +243,7 @@
 		{
 			float diff = cameraYaw - dir.Angle;
 			while ( diff > 180f ) diff -= 360f;
-			while ( diff < -180f ) diff += 360f;
+        	while ( diff < -180f ) diff += 360f;
 
 			float screenPercent = 50f + (diff / halfFOV) * 50f;
 
@@ -264,7 +264,8 @@
 			TaskScreenPercent.ToString( "F0" ),
 			TaskDistanceText,
 			TaskArrowLeft,
-			TaskArrowRight
+			TaskArrowRight,
+			TaskCompassBridge.CameraYaw.ToString( "F0" )
 		);
 	}
 }

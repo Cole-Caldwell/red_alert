@@ -8,7 +8,12 @@ public class TaskStation : Component, Component.ITriggerListener
 	[Property] public float CompletionTime { get; set; } = 15f;
 	[Property] public float InteractionRange { get; set; } = 150f;
 	[Property] public TaskData.TaskType TaskType { get; set; } = TaskData.TaskType.ProgressBar;
+	
 	[Property] public SoundEvent TaskInteractSound { get; set; }
+	[Property] public SoundEvent KeypadBeepSound { get; set; }
+	[Property] public SoundEvent MatchCorrectSound { get; set; }
+	[Property] public SoundEvent MatchIncorrectSound { get; set; }
+	[Property] public SoundEvent SliderMatchSound { get; set; }
 	
 	private bool playerNearby = false;
 	private PlayerController nearbyPlayer = null;
@@ -103,7 +108,7 @@ public class TaskStation : Component, Component.ITriggerListener
 					"Task Slider Match UI",
 					"Task Collect Samples UI",
 					"Task Memory Match UI",
-					"Task Wire Connect UI",
+					"Task Decrypt UI",
 					"Task Progress UI"
 				};
 

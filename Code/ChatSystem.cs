@@ -12,6 +12,7 @@ public sealed class ChatSystem : Component
     [Property] public int MaxMessages { get; set; } = 30;
     [Property] public float MessageLifetime { get; set; } = 10f;
     [Property] public bool TTSEnabled { get; set; } = true;
+    [Property] public int MaxMessageLength { get; set; } = 100;
 
     protected override void OnStart()
     {
@@ -27,6 +28,12 @@ public sealed class ChatSystem : Component
     public void SendMessage( string text )
     {
         if ( string.IsNullOrWhiteSpace( text ) ) return;
+
+        // Enforce character limit
+        if ( text.Length > MaxMessageLength )
+        {
+            text = text.Substring( 0, MaxMessageLength );
+        }
 
         var name = Connection.Local?.DisplayName ?? "Player";
         BroadcastMessage( name, text );

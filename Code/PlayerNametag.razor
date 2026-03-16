@@ -18,13 +18,22 @@
 
 	protected override void OnUpdate()
 	{
-		// Update name each frame in case it changes (e.g., mimic ability)
 		DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
 
-		// Billboard: always face the camera
 		var cam = Scene.Camera;
 		if ( cam is null ) return;
 
+		// Check crouch state from the built-in PlayerController (synced to all clients)
+		float nametagHeight = 85f;
+		var sboxController = GameObject.Root.Components.Get<Sandbox.PlayerController>();
+		if ( sboxController != null && sboxController.IsDucking )
+		{
+			nametagHeight = 55f;
+		}
+
+		WorldPosition = GameObject.Root.WorldPosition + Vector3.Up * nametagHeight;
+
+		// Billboard: always face the camera
 		var dirToCamera = cam.WorldPosition - WorldPosition;
 		if ( dirToCamera.LengthSquared > 0.01f )
 		{

@@ -17,6 +17,7 @@ public partial class PlayerController : Component
 	[Property, Sync] public bool IsSpectating { get; set; } = false;
 	[Property] public GameObject RagdollPrefab { get; set; }  // Assign in inspector
 	[Property] public float XRayDuration { get; set; } = 20f;
+	[Property] public float VanishCooldown { get; set; } = 90f;
 	
 	// Kill System (Anomaly only)
 	[Property] public float KillCooldown { get; set; } = 10f;
@@ -269,6 +270,17 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	public void ShowReadyFeedbackRpc( bool isReady )
 	{
+		// Destroy any existing feedback UI first
+		var existingFeedback = Scene.GetAllObjects( true )
+			.Where( obj => obj.Name == "Ready Feedback UI" )
+			.ToList();
+		
+		foreach ( var existing in existingFeedback )
+		{
+			if ( existing != null && existing.IsValid() )
+				existing.Destroy();
+		}
+
 		var uiObject = Scene.CreateObject();
 		uiObject.Name = "Ready Feedback UI";
 		var feedback = uiObject.Components.Create<ReadyFeedbackUI>();
@@ -702,11 +714,12 @@ public partial class PlayerController : Component
 			return;
 		}
 		
-		// Check cooldown
+		// Check cooldown (varies by ability)
+		float activeCooldown = GetPurgeCooldownForAbility();
 		float timeSincePurge = Time.Now - lastPurgeTime;
-		if ( timeSincePurge < PurgeCooldown )
+		if ( timeSincePurge < activeCooldown )
 		{
-			float timeRemaining = PurgeCooldown - timeSincePurge;
+			float timeRemaining = activeCooldown - timeSincePurge;
 			Log.Info( $"Purge on cooldown! Wait {timeRemaining:F1} more seconds" );
 			return;
 		}
@@ -718,12 +731,23 @@ public partial class PlayerController : Component
 		// Update UI cooldown
 		if ( anomalyUI != null && anomalyUI.IsValid() )
 		{
-			anomalyUI.SetPurgeCooldown( PurgeCooldown, lastPurgeTime );
+			anomalyUI.SetPurgeCooldown( activeCooldown, lastPurgeTime );
 		}
 		
 		Log.Info( $"[AttemptPurge] EquippedPurgeAbility: '{EquippedPurgeAbility}', Bridge: '{PurgeProgressionBridge.EquippedAbilityId}'" );
 		// Call RPC to execute purge
 		ExecutePurgeRpc( EquippedPurgeAbility );
+	}
+
+	private float GetPurgeCooldownForAbility()
+	{
+		switch ( EquippedPurgeAbility )
+		{
+			case "vanish":
+				return VanishCooldown;
+			default:
+				return PurgeCooldown;
+		}
 	}
 
 	[Rpc.Broadcast]
@@ -953,7 +977,7 @@ public partial class PlayerController : Component
 				"Task Slider Match UI",
 				"Task Collect Samples UI",
 				"Task Memory Match UI",
-				"Task Wire Connect UI",
+				"Task Decrypt UI",
 				"Task Progress UI"
 			};
 
@@ -1174,6 +1198,18 @@ public partial class PlayerController : Component
 			}
 		}
 
+		// Vanish: teleport the anomaly to a random vanish spawn
+		if ( abilityId == "vanish" )
+		{
+			var localPlayer = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy );
+			
+			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			{
+				localPlayer.ActivateVanish();
+			}
+		}
+
 		// Mimic: anomaly copies a random citizen's appearance
 		if ( abilityId == "mimic" )
 		{
@@ -1287,6 +1323,32 @@ public partial class PlayerController : Component
 		}
 		
 		Log.Info( "[DoubleKill] Kill cooldown reset!" );
+	}
+
+	public void ActivateVanish()
+	{
+		var vanishSpawns = Scene.GetAllObjects( true )
+			.Where( obj => obj.Tags != null && obj.Tags.Has( "vanish" ) )
+			.ToList();
+
+		if ( vanishSpawns.Count == 0 )
+		{
+			Log.Warning( "[Vanish] No vanish spawn points found!" );
+			return;
+		}
+
+		var targetSpawn = vanishSpawns[Game.Random.Int( 0, vanishSpawns.Count - 1 )];
+		
+		// Teleport via broadcast so all clients see it
+		VanishTeleportRpc( targetSpawn.WorldPosition );
+		
+		Log.Info( $"[Vanish] Teleported to vanish spawn at {targetSpawn.WorldPosition}" );
+	}
+
+	[Rpc.Broadcast]
+	private void VanishTeleportRpc( Vector3 position )
+	{
+		GameObject.WorldPosition = position;
 	}
 
 	public void StartMimicEffect()
@@ -1480,7 +1542,7 @@ public partial class PlayerController : Component
 		var uiObject = Scene.CreateObject();
 		uiObject.Name = "Anomaly Abilities UI";
 		anomalyUI = uiObject.Components.Create<AnomalyAbilitiesUI>();
-		anomalyUI.SetPurgeCooldown( PurgeCooldown, lastPurgeTime );
+		anomalyUI.SetPurgeCooldown( GetPurgeCooldownForAbility(), lastPurgeTime );
 		anomalyUI.SetKillCooldown( KillCooldown, lastKillTime );
 	}
 

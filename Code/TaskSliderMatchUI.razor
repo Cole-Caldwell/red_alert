@@ -241,6 +241,8 @@
     private bool isCompleted = false;
     private bool shouldDestroyAfterDelay = false;
     private float destroyDelayTimer = 0f;
+
+    private List<bool> previousMatchState = new();
     
     public class SliderData
     {
@@ -276,6 +278,9 @@
                     IsMatched = false
                 } );
             }
+
+            // Initialize match tracking
+            previousMatchState = Sliders.Select( s => false ).ToList();
             
             Log.Info( $"TaskSliderMatchUI initialized for {TaskName}" );
         }
@@ -304,9 +309,26 @@
         }
         
         // Check all sliders for match status
-        foreach ( var slider in Sliders )
+        for ( int i = 0; i < Sliders.Count; i++ )
         {
-            slider.IsMatched = slider.CurrentValue >= slider.TargetMin && slider.CurrentValue <= slider.TargetMax;
+            bool wasMatched = previousMatchState[i];
+            Sliders[i].IsMatched = Sliders[i].CurrentValue >= Sliders[i].TargetMin && Sliders[i].CurrentValue <= Sliders[i].TargetMax;
+            
+            // Play sound only when transitioning from unmatched to matched
+            if ( Sliders[i].IsMatched && !wasMatched )
+            {
+                if ( TaskProgressBridge.SliderMatchSound != null )
+                {
+                    var handle = Sound.Play( TaskProgressBridge.SliderMatchSound );
+                    if ( handle != null )
+                    {
+                        handle.ListenLocal = true;
+                        handle.Volume = 1.0f;
+                    }
+                }
+            }
+            
+            previousMatchState[i] = Sliders[i].IsMatched;
         }
         
         StateHasChanged();

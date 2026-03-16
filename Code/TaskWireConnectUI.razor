@@ -358,6 +358,17 @@
         if ( !CanInput || isCompleted )
             return;
         
+        // Play keypad beep
+        if ( TaskProgressBridge.KeypadSound != null )
+        {
+            var handle = Sound.Play( TaskProgressBridge.KeypadSound );
+            if ( handle != null )
+            {
+                handle.ListenLocal = true;
+                handle.Volume = 1.0f;
+            }
+        }
+        
         // Flash the button
         LitButtons.Clear();
         LitButtons.Add( buttonIndex );

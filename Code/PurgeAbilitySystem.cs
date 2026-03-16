@@ -54,11 +54,20 @@ public static class PurgeAbilityRegistry
         },
         new PurgeAbilityData
         {
+            Id = "vanish",
+            Name = "VANISH",
+            Description = "Instantly teleport to a random location on the station. Reposition or escape after a kill.",
+            Icon = "ui/red-alert-vanish.png",
+            WinsRequired = 15,
+            Duration = 0f
+        },
+        new PurgeAbilityData
+        {
             Id = "mimic",
             Name = "MIMIC",
             Description = "Transform into a random alive citizen for a short duration. Copy their exact appearance and nametag.",
             Icon = "ui/red-alert-clone.png",
-            WinsRequired = 15,
+            WinsRequired = 20,
             Duration = 20f
         }
     };

@@ -227,6 +227,7 @@
         },
         "Role": "Citizen",
         "RunSpeed": 270,
+        "VanishCooldown": 90,
         "WalkSpeed": 200,
         "XRayDuration": 15
       },

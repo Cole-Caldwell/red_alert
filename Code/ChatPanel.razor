@@ -134,6 +134,16 @@
 			needsFocus = false;
 		}
 
+		// Enforce character limit while typing
+		if ( ShowInput && ChatInput != null )
+		{
+			int maxLen = ChatSystem.Instance?.MaxMessageLength ?? 100;
+			if ( ChatInput.Text != null && ChatInput.Text.Length > maxLen )
+			{
+				ChatInput.Text = ChatInput.Text.Substring( 0, maxLen );
+			}
+		}
+
 		if ( ShowInput && Input.Pressed( "chat" ) && ChatInput != null )
 		{
 			CurrentText = ChatInput.Text;

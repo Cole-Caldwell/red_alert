@@ -496,6 +496,13 @@ public partial class GameManager : Component
 			Log.Error( "No players to assign roles to!" );
 			return;
 		}
+
+		if ( playersForRoles.Count < 2 )
+		{
+			Log.Error( $"[AssignRoles] Only {playersForRoles.Count} player - need at least 2. Aborting to lobby." );
+			ReturnToLobby();
+			return;
+		}
 		
 		// DEBUG: Force local player as Anomaly for testing
 		if ( ForceLocalPlayerAsAnomaly )
@@ -636,7 +643,8 @@ public partial class GameManager : Component
 		// Teleport alive players to meeting room
 		TeleportAlivePlayersToMeeting();
 		
-		ShowVotingUI( body );
+		string reporterName = reporter != null ? GetPlayerDisplayName( reporter ) : "Unknown";
+		ShowVotingUI( body, reporterName );
 		EnableChatForAlive();
 	}
 
@@ -657,7 +665,7 @@ public partial class GameManager : Component
 			"Task Slider Match UI",
 			"Task Collect Samples UI",
 			"Task Memory Match UI",
-			"Task Wire Connect UI",
+			"Task Decrypt UI",
 			"Task Progress UI"
 		};
 
@@ -771,7 +779,7 @@ public partial class GameManager : Component
 		spawnedBodies.Add( body );
 	}
 
-	private void ShowVotingUI( DeadBody body )
+	private void ShowVotingUI( DeadBody body, string reporterName = "Unknown" )
 	{
 		// ALWAYS activate voting timer on host, even if host player is dead
 		if ( Networking.IsHost )
@@ -814,11 +822,11 @@ public partial class GameManager : Component
 		string bodyInfo;
 		if ( body != null && body.IsValid() )
 		{
-			bodyInfo = $"{body.VictimName} was found dead! Role: {body.VictimRole}";
+			bodyInfo = $"{reporterName} reported a body! {body.VictimName} was found dead.";
 		}
 		else
 		{
-			bodyInfo = "Emergency meeting called!";
+			bodyInfo = $"{reporterName} called an emergency meeting!";
 		}
 		
 		votingUI.SetBodyInfo( bodyInfo );

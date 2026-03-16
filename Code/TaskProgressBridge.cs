@@ -2,6 +2,12 @@ using Sandbox;
 
 public static class TaskProgressBridge
 {
+
+	public static SoundEvent KeypadSound { get; set; }
+	public static SoundEvent MatchCorrectSound { get; set; }
+	public static SoundEvent MatchIncorrectSound { get; set; }
+	public static SoundEvent SliderMatchSound { get; set; }
+	
 	public class TaskProgressData
 	{
 		public string TaskName { get; set; } = "";

@@ -14,7 +14,7 @@ public class TaskData
 	{
 		ProgressBar,     // Hold E to fill bar
 		ButtonSequence,  // Press buttons in order
-		WireConnect,     // Connect wires (future)
+		Decrypt,         // Follow keypad crack number order
 		SliderMatch,      // Match slider position
 		CollectSamples,   // Click moving targets
 		MemoryMatch      // Memory card matching

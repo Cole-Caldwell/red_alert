@@ -17,6 +17,36 @@ public partial class ReadyTerminal : Component, Component.ITriggerListener
 
 	protected override void OnUpdate()
 	{
+		// Clean up disconnected players from ready list (host only)
+		if ( Networking.IsHost && ReadyPlayers.Count > 0 )
+		{
+			var connectedIds = Scene.GetAllComponents<PlayerController>()
+				.Where( p => p.GameObject.Network.Owner != null )
+				.Select( p => p.GameObject.Network.Owner.SteamId.ToString() )
+				.ToHashSet();
+
+			var staleIds = ReadyPlayers.Where( id => !connectedIds.Contains( id ) ).ToList();
+			
+			if ( staleIds.Count > 0 )
+			{
+				foreach ( var id in staleIds )
+				{
+					ReadyPlayers.Remove( id );
+					Log.Info( $"[ReadyTerminal] Removed disconnected player {id} from ready list" );
+				}
+
+				ReadyCount = ReadyPlayers.Count;
+				UpdateReadyCountRpc( ReadyPlayers.Count );
+				SyncReadyListRpc( ReadyPlayers.ToList() );
+
+				// Cancel countdown if we drop below threshold
+				if ( CountdownActive && ReadyPlayers.Count < RequiredPlayers )
+				{
+					CancelCountdown();
+				}
+			}
+		}
+
 		// Display countdown if active
 		if ( CountdownActive )
 		{
@@ -211,18 +241,34 @@ public partial class ReadyTerminal : Component, Component.ITriggerListener
 	{
 		if ( !Networking.IsHost )
 			return;
-		
+
+		// Validate ready list against currently connected players
+		var connectedIds = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p.GameObject.Network.Owner != null )
+			.Select( p => p.GameObject.Network.Owner.SteamId.ToString() )
+			.ToHashSet();
+
+		var validReadyList = ReadyPlayers.Where( id => connectedIds.Contains( id ) ).ToList();
+
+		Log.Info( $"[StartGame] Ready: {ReadyPlayers.Count}, Valid: {validReadyList.Count}, Connected: {connectedIds.Count}" );
+
+		// Don't start if not enough valid players
+		if ( validReadyList.Count < RequiredPlayers )
+		{
+			Log.Warning( $"[StartGame] Not enough valid ready players ({validReadyList.Count}/{RequiredPlayers}) - cancelling" );
+			CancelCountdown();
+			ResetTerminalRpc();
+			return;
+		}
+
 		Log.Info( "Enough players ready! Starting game..." );
-		
-		// Pass the list of ready player IDs to GameManager
-		var readyList = ReadyPlayers.ToList();
-		
+
 		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 		if ( gameManager != null )
 		{
-			gameManager.StartGameFromLobby( readyList );
+			gameManager.StartGameFromLobby( validReadyList );
 		}
-		
+
 		ResetTerminalRpc();
 	}
 

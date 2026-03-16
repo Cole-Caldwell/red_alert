@@ -1,0 +1,621 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .board-panel {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.94);
+        }
+
+        .board-panel.hidden {
+            display: none;
+        }
+
+        .board-container {
+            width: 1100px;
+            max-height: 860px;
+            background-color: rgb(6, 8, 22);
+            border: 1px solid rgba(0, 180, 220, 0.4);
+            border-radius: 8px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 120px rgba(0, 140, 200, 0.08), 0 0 40px rgba(0, 0, 0, 0.9);
+        }
+
+        /* === HEADER === */
+        .board-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 36px;
+            background-color: rgba(0, 20, 45, 0.7);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.15);
+            position: relative;
+        }
+
+        .header-glow {
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0, 180, 220, 0), rgba(0, 180, 220, 0.6), rgba(0, 220, 255, 0.8), rgba(0, 180, 220, 0.6), rgba(0, 180, 220, 0));
+            box-shadow: 0 0 12px rgba(0, 180, 220, 0.3);
+            animation: header-shimmer 4s ease-in-out infinite;
+        }
+
+        @@keyframes header-shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        .board-header-left {
+            flex-direction: column;
+        }
+
+        .board-title {
+            font-size: 28px;
+            font-weight: 900;
+            color: rgb(200, 235, 255);
+            letter-spacing: 8px;
+            font-family: Consolas;
+        }
+
+        .board-subtitle {
+            font-size: 11px;
+            color: rgba(0, 180, 220, 0.35);
+            letter-spacing: 5px;
+            margin-top: 4px;
+            font-family: Consolas;
+        }
+
+        .player-count-badge {
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 20px;
+            background-color: rgba(0, 100, 160, 0.08);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 4px;
+        }
+
+        .player-count-number {
+            font-size: 22px;
+            font-weight: 900;
+            color: rgb(0, 210, 250);
+            font-family: Consolas;
+        }
+
+        .player-count-label {
+            font-size: 9px;
+            color: rgba(0, 180, 220, 0.4);
+            font-family: Consolas;
+            letter-spacing: 3px;
+        }
+
+        /* === TABLE HEADER === */
+        .table-header {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 44px;
+            background-color: rgba(0, 6, 18, 0.95);
+        }
+
+        .col-rank {
+            min-width: 70px;
+        }
+
+        .col-name {
+            flex-grow: 1;
+        }
+
+        .col-stat {
+            min-width: 200px;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .table-header-text {
+            font-size: 10px;
+            font-weight: 800;
+            color: rgba(0, 200, 240, 0.35);
+            letter-spacing: 4px;
+            font-family: Consolas;
+        }
+
+        /* === PLAYER LIST === */
+        .player-list {
+            flex-direction: column;
+            flex-grow: 1;
+            background-color: rgba(6, 8, 22, 1);
+            padding: 6px 0px;
+        }
+
+        /* === PLAYER ROW === */
+        .player-row {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 44px;
+            margin: 2px 12px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-row:hover {
+            background-color: rgba(0, 100, 160, 0.08);
+        }
+
+        .player-row.is-local {
+            background-color: rgba(0, 140, 200, 0.06);
+        }
+
+        .player-row.is-local::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background-color: rgba(0, 200, 240, 0.7);
+            box-shadow: 0 0 8px rgba(0, 200, 240, 0.4);
+            animation: local-pulse 3s ease-in-out infinite;
+        }
+
+        @@keyframes local-pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* === RANK === */
+        .rank-wrap {
+            min-width: 70px;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .rank-badge {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(40, 50, 70, 0.2);
+            border: 1px solid rgba(80, 100, 130, 0.1);
+        }
+
+        .rank-badge.rank-1 {
+            background-color: rgba(255, 200, 40, 0.08);
+            border-color: rgba(255, 200, 40, 0.3);
+            box-shadow: 0 0 12px rgba(255, 200, 40, 0.1);
+        }
+
+        .rank-badge.rank-2 {
+            background-color: rgba(180, 190, 210, 0.06);
+            border-color: rgba(180, 190, 210, 0.2);
+        }
+
+        .rank-badge.rank-3 {
+            background-color: rgba(205, 140, 60, 0.06);
+            border-color: rgba(205, 140, 60, 0.2);
+        }
+
+        .rank-text {
+            font-size: 14px;
+            font-weight: 900;
+            color: rgba(100, 120, 150, 0.4);
+            font-family: Consolas;
+        }
+
+        .rank-badge.rank-1 .rank-text {
+            color: rgb(255, 210, 60);
+        }
+
+        .rank-badge.rank-2 .rank-text {
+            color: rgba(200, 210, 225, 0.7);
+        }
+
+        .rank-badge.rank-3 .rank-text {
+            color: rgba(210, 150, 70, 0.7);
+        }
+
+        /* === PLAYER INFO === */
+        .player-info {
+            flex-grow: 1;
+            flex-direction: row;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .player-avatar img {
+            width: 100%;
+            height: 100%;
+        }
+
+        .avatar-border {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            border: 2px solid rgba(0, 160, 220, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        .player-row:hover .avatar-border {
+            border-color: rgba(0, 200, 240, 0.4);
+        }
+
+        .avatar-fallback {
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 80, 140, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-letter {
+            font-size: 18px;
+            font-weight: 900;
+            color: rgba(0, 200, 240, 0.6);
+            font-family: Consolas;
+        }
+
+        .player-name-wrap {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .player-name-text {
+            font-size: 16px;
+            font-weight: 700;
+            color: rgba(210, 225, 240, 0.9);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .player-total-wins {
+            font-size: 11px;
+            color: rgba(0, 190, 230, 0.45);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .local-tag {
+            font-size: 9px;
+            font-weight: 800;
+            color: rgba(0, 200, 240, 0.6);
+            background-color: rgba(0, 120, 180, 0.08);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 3px;
+            padding: 2px 10px;
+            letter-spacing: 2px;
+            font-family: Consolas;
+            animation: you-pulse 3s ease-in-out infinite;
+        }
+
+        @@keyframes you-pulse {
+            0%, 100% { opacity: 0.6; box-shadow: 0 0 0px rgba(0, 200, 240, 0); }
+            50% { opacity: 1; box-shadow: 0 0 8px rgba(0, 200, 240, 0.15); }
+        }
+
+        /* === STAT COLUMNS === */
+        .stat-col {
+            min-width: 200px;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: 900;
+            font-family: Consolas;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        .stat-number.citizen-num {
+            color: rgba(80, 220, 120, 0.5);
+        }
+
+        .stat-number.citizen-num.bright {
+            color: rgb(80, 220, 120);
+            text-shadow: 0 0 8px rgba(80, 220, 120, 0.3);
+        }
+
+        .stat-number.anomaly-num {
+            color: rgba(255, 80, 80, 0.5);
+        }
+
+        .stat-number.anomaly-num.bright {
+            color: rgb(255, 80, 80);
+            text-shadow: 0 0 8px rgba(255, 80, 80, 0.3);
+        }
+
+        /* === EMPTY SLOT === */
+        .empty-row {
+            flex-direction: row;
+            align-items: center;
+            padding: 12px 44px;
+            margin: 2px 12px;
+            border-radius: 4px;
+            opacity: 0.3;
+        }
+
+        .empty-row.next-slot {
+            opacity: 0.5;
+            border: 1px solid rgba(0, 180, 220, 0.06);
+        }
+
+        .empty-rank-badge {
+            width: 36px;
+            height: 36px;
+            min-width: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .empty-rank-text {
+            font-size: 14px;
+            font-weight: 900;
+            color: rgba(50, 60, 80, 0.3);
+            font-family: Consolas;
+        }
+
+        .empty-name {
+            flex-grow: 1;
+        }
+
+        .empty-text {
+            font-size: 12px;
+            color: rgba(60, 80, 110, 0.3);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .empty-dash {
+            min-width: 200px;
+            justify-content: center;
+        }
+
+        .empty-dash-text {
+            font-size: 14px;
+            color: rgba(40, 50, 70, 0.2);
+            font-family: Consolas;
+        }
+
+        /* === FOOTER === */
+        .board-footer {
+            padding: 12px 36px;
+            background-color: rgba(0, 6, 18, 0.9);
+            border-top: 1px solid rgba(0, 180, 220, 0.08);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: rgba(100, 120, 150, 0.3);
+            font-family: Consolas;
+        }
+
+        .footer-key {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.4);
+            background-color: rgba(0, 100, 160, 0.08);
+            border: 1px solid rgba(0, 180, 220, 0.15);
+            border-radius: 3px;
+            padding: 3px 10px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="board-panel @(IsVisible ? "" : "hidden")">
+        <div class="board-container">
+
+            <!-- HEADER -->
+            <div class="board-header">
+                <div class="board-header-left">
+                    <label class="board-title">CREW MANIFEST</label>
+                    <label class="board-subtitle">NEXUS-7 STATION</label>
+                </div>
+                <div class="player-count-badge">
+                    <label class="player-count-number">@PlayerCount / 10</label>
+                    <label class="player-count-label">CREW</label>
+                </div>
+                <div class="header-glow"></div>
+            </div>
+
+            <!-- TABLE HEADER -->
+            <div class="table-header">
+                <div class="col-rank">
+                    <label class="table-header-text">RANK</label>
+                </div>
+                <div class="col-name">
+                    <label class="table-header-text">CREW MEMBER</label>
+                </div>
+                <div class="col-stat">
+                    <label class="table-header-text">CITIZEN WINS</label>
+                </div>
+                <div class="col-stat">
+                    <label class="table-header-text">ANOMALY WINS</label>
+                </div>
+            </div>
+
+            <!-- PLAYER LIST -->
+            <div class="player-list">
+                @for ( int i = 0; i < 10; i++ )
+                {
+                    var index = i;
+                    if ( index < Players.Count )
+                    {
+                        var player = Players[index];
+                        var rankBadgeClass = index == 0 ? "rank-1" : index == 1 ? "rank-2" : index == 2 ? "rank-3" : "";
+                        var isLocal = player.IsLocal;
+                        var initial = player.Name.Length > 0 ? player.Name.Substring( 0, 1 ).ToUpper() : "?";
+                        var citizenBright = player.CitizenWins > 0 ? "bright" : "";
+                        var anomalyBright = player.AnomalyWins > 0 ? "bright" : "";
+
+                        <div class="player-row @(isLocal ? "is-local" : "")">
+                            <div class="rank-wrap">
+                                <div class="rank-badge @rankBadgeClass">
+                                    <label class="rank-text">@((index + 1).ToString())</label>
+                                </div>
+                            </div>
+                            <div class="player-info">
+                                <div class="player-avatar">
+                                    @if ( player.SteamId > 0 )
+                                    {
+                                        <img src="avatar:@player.SteamId" />
+                                    }
+                                    else
+                                    {
+                                        <div class="avatar-fallback">
+                                            <label class="avatar-letter">@initial</label>
+                                        </div>
+                                    }
+                                    <div class="avatar-border"></div>
+                                </div>
+                                <div class="player-name-wrap">
+                                    <label class="player-name-text">@player.Name</label>
+                                    <label class="player-total-wins">@player.TotalWins TOTAL WINS</label>
+                                </div>
+                                @if ( isLocal )
+                                {
+                                    <label class="local-tag">YOU</label>
+                                }
+                            </div>
+                            <div class="stat-col">
+                                <label class="stat-number citizen-num @citizenBright">@player.CitizenWins</label>
+                            </div>
+                            <div class="stat-col">
+                                <label class="stat-number anomaly-num @anomalyBright">@player.AnomalyWins</label>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        var isNextSlot = index == Players.Count;
+
+                        <div class="empty-row @(isNextSlot ? "next-slot" : "")">
+                            <div class="empty-rank-badge">
+                                <label class="empty-rank-text">@((index + 1).ToString())</label>
+                            </div>
+                            <div class="empty-name">
+                                <label class="empty-text">@(isNextSlot ? "NEXT SLOT" : "")</label>
+                            </div>
+                            <div class="empty-dash">
+                                <label class="empty-dash-text">—</label>
+                            </div>
+                            <div class="empty-dash">
+                                <label class="empty-dash-text">—</label>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- FOOTER -->
+            <div class="board-footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">TAB</label>
+                <label class="footer-text">to close</label>
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsVisible { get; set; } = false;
+    public List<PlayerEntry> Players { get; set; } = new();
+    public int PlayerCount => Players.Count;
+    public int MaxCitizenWins { get; set; } = 1;
+    public int MaxAnomalyWins { get; set; } = 1;
+
+    protected override void OnUpdate()
+    {
+        if ( Input.Pressed( "score" ) )
+        {
+            IsVisible = !IsVisible;
+            StateHasChanged();
+        }
+
+        RefreshPlayers();
+    }
+
+    private void RefreshPlayers()
+    {
+        Players.Clear();
+
+        var bridgeData = PlayerBoardBridge.GetPlayerData();
+
+        foreach ( var data in bridgeData )
+        {
+            var entry = new PlayerEntry
+            {
+                Name = data.Name,
+                CitizenWins = data.CitizenWins,
+                AnomalyWins = data.AnomalyWins,
+                IsLocal = data.IsLocal,
+                SteamId = data.SteamId
+            };
+            Players.Add( entry );
+        }
+
+        // Calculate max for bar scaling
+        MaxCitizenWins = 1;
+        MaxAnomalyWins = 1;
+        foreach ( var p in Players )
+        {
+            if ( p.CitizenWins > MaxCitizenWins ) MaxCitizenWins = p.CitizenWins;
+            if ( p.AnomalyWins > MaxAnomalyWins ) MaxAnomalyWins = p.AnomalyWins;
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        var hash = System.HashCode.Combine( IsVisible, PlayerCount, MaxCitizenWins, MaxAnomalyWins );
+        foreach ( var p in Players )
+        {
+            hash = System.HashCode.Combine( hash, p.Name, p.CitizenWins, p.AnomalyWins );
+        }
+        return hash;
+    }
+
+    public class PlayerEntry
+    {
+        public string Name { get; set; } = "";
+        public int CitizenWins { get; set; } = 0;
+        public int AnomalyWins { get; set; } = 0;
+        public int TotalWins => CitizenWins + AnomalyWins;
+        public bool IsLocal { get; set; } = false;
+        public ulong SteamId { get; set; } = 0;
+    }
+}
