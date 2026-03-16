@@ -95,11 +95,10 @@ public static class PlayerBoardBridge
 
             // Update the cached data with the fetched stats
             cachedPlayers = new List<PlayerData>( players );
-            //Log.Info( $"[PlayerBoard] Fetched stats for {players.Count} players" );
         }
         catch ( System.Exception e )
         {
-            //Log.Warning( $"[PlayerBoard] Failed to fetch stats: {e.Message}" );
+            Log.Warning( $"[PlayerBoard] Failed to fetch stats: {e.Message}" );
         }
     }
     

@@ -43,8 +43,6 @@ public sealed class SecurityCamera : Component
             ImageFormat.RGBA8888,
             new Vector2( RenderResolution )
         );
-
-        //Log.Info( $"[SecurityCamera] {CameraId} ({DisplayName}) initialized at {RenderResolution}x{RenderResolution}" );
     }
 
     protected override void OnUpdate()

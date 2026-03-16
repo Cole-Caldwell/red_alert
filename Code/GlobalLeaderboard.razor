@@ -429,6 +429,7 @@
 @code {
     public bool IsLoading { get; set; } = true;
     public List<LeaderboardEntry> Entries { get; set; } = new();
+	private static readonly ulong ExcludedSteamId = 76561198202178696;
 
     private float lastRefreshTime = -999f;
     private float refreshInterval = 60f;
@@ -506,6 +507,7 @@
             }
 
             var sorted = playerMap.Values
+				.Where( e => e.SteamId != ExcludedSteamId )
                 .OrderByDescending( e => e.TotalWins )
                 .ThenByDescending( e => e.CitizenWins )
                 .ToList();

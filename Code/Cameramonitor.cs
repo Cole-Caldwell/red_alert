@@ -27,7 +27,6 @@ public sealed class CameraMonitor : Component
 			return;
 
 		isConnected = true;
-		//Log.Info( $"[CameraMonitor] Connected to camera {CameraId} ({linkedCamera.DisplayName})" );
 	}
 
 	public void ShowPanel()
@@ -43,8 +42,6 @@ public sealed class CameraMonitor : Component
 		screenPanel.Transform = new Transform( WorldPosition, WorldRotation );
 		screenPanel.CameraTexture = linkedCamera?.RenderTexture;
 		panelVisible = true;
-
-		//Log.Info( $"[CameraMonitor] Panel shown for {CameraId}" );
 	}
 
 	public void HidePanel()
@@ -56,7 +53,6 @@ public sealed class CameraMonitor : Component
 		}
 
 		panelVisible = false;
-		//Log.Info( $"[CameraMonitor] Panel hidden for {CameraId}" );
 	}
 
 	protected override void OnUpdate()

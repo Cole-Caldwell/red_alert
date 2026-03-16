@@ -26,8 +26,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 			controlledCameras = allCameras.Where( c => CameraIds.Contains( c.CameraId ) ).ToList();
 
 		controlledCameras = controlledCameras.OrderBy( c => c.CameraId ).ToList();
-
-		//Log.Info( $"[CameraStation] Managing {controlledCameras.Count} cameras" );
 	}
 
 	public bool TryInteract( PlayerController player )
@@ -42,7 +40,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 		// If someone else is using it, deny
 		if ( IsOccupied )
 		{
-			//Log.Info( $"[CameraStation] {player.PlayerName} tried to use station but {OccupantName} is using it" );
 			return true;
 		}
 
@@ -67,8 +64,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 		controlledCameras[currentCameraIndex].Activate();
 		var newMonitor = monitors.FirstOrDefault( m => m.CameraId == controlledCameras[currentCameraIndex].CameraId );
 		newMonitor?.ShowPanel();
-
-		//Log.Info( $"[CameraStation] Switched to {controlledCameras[currentCameraIndex].DisplayName} ({currentCameraIndex + 1}/{controlledCameras.Count})" );
 
 		if ( CycleCameraSound != null )
 			Sound.Play( CycleCameraSound, WorldPosition );
@@ -95,8 +90,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 				.FirstOrDefault( m => m.CameraId == controlledCameras[0].CameraId );
 			monitor?.ShowPanel();
 		}
-
-		//Log.Info( $"[CameraStation] {player.PlayerName} mounted - viewing {controlledCameras[0]?.DisplayName} (1/{controlledCameras.Count})" );
 	}
 
 	public void Unmount()
@@ -119,8 +112,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 
 		// Sync unoccupied state
 		BroadcastOccupied( false, "" );
-
-		//Log.Info( $"[CameraStation] {playerName} unmounted" );
 	}
 
 	[Rpc.Broadcast]
@@ -139,7 +130,6 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 		// Only unmount if this player is the one mounted
 		if ( mountedPlayer == player )
 		{
-			//Log.Info( $"[CameraStation] {player.PlayerName} left trigger area - auto unmounting" );
 			Unmount();
 		}
 	}
@@ -158,7 +148,7 @@ public sealed class CameraStation : Component, Component.ITriggerListener
 		if ( localPlayer == null ) return;
 
 		float distance = Vector3.DistanceBetween( localPlayer.WorldPosition, WorldPosition );
-		float gizmoRange = 300f; // Adjust this value as needed
+		float gizmoRange = 300f;
 
 		if ( distance > gizmoRange ) return;
 

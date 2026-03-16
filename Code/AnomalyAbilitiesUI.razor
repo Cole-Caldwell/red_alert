@@ -117,7 +117,7 @@
     private float purgeCooldown = 120f;
     private float lastPurgeTime = -999f;
     
-    // NEW: Kill cooldown tracking
+    // Kill cooldown tracking
     private bool isKillOnCooldown = false;
     private string killCooldownText = "";
     private float killCooldownRemaining = 0f;
@@ -141,7 +141,7 @@
             cooldownText = "";
         }
         
-        // NEW: Calculate kill cooldown
+        // Calculate kill cooldown
         float timeSinceKill = Time.Now - lastKillTime;
         killCooldownRemaining = killCooldown - timeSinceKill;
         
@@ -165,7 +165,7 @@
         lastPurgeTime = lastUseTime;
     }
     
-    // NEW: Method to set kill cooldown
+    // Method to set kill cooldown
     public void SetKillCooldown(float cooldown, float lastUseTime)
     {
         killCooldown = cooldown;

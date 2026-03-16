@@ -71,9 +71,6 @@ public partial class CountdownUI : Component
 		var terminal = Scene.GetAllComponents<ReadyTerminal>().FirstOrDefault();
 		if ( terminal == null ) return 0f;
 
-		// Access the synced CountdownTimer via reflection or direct access
-		// Since CountdownTimer is a synced property, we need to read it
-		// We'll use a static bridge approach
 		return CountdownBridge.TimeRemaining;
 	}
 
@@ -118,7 +115,7 @@ public partial class CountdownUI : Component
 
 		Vector3 centerPos = camera.WorldPosition + camera.WorldRotation.Forward * 400f;
 
-		// Scale and fade effect — number starts big and fades
+		// Scale and fade effect - number starts big and fades
 		float fadeAlpha = countdownFadeTimer / 0.9f;
 		float scale = 100f + (1f - fadeAlpha) * 20f;
 

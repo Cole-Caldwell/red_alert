@@ -15,14 +15,14 @@ public partial class PlayerController : Component
 	[Property, Sync] public string PlayerName { get; set; } = "Player";
 	[Property, Sync] public bool IsInGame { get; set; } = false;
 	[Property, Sync] public bool IsSpectating { get; set; } = false;
-	[Property] public GameObject RagdollPrefab { get; set; }  // Assign in inspector
+	[Property] public GameObject RagdollPrefab { get; set; }
 	[Property] public float XRayDuration { get; set; } = 20f;
 	[Property] public float VanishCooldown { get; set; } = 90f;
 	
 	// Kill System (Anomaly only)
 	[Property] public float KillCooldown { get; set; } = 10f;
 	[Property] public float KillRange { get; set; } = 150f;
-	[Property] public GameObject PlayerPrefab { get; set; }  // Reference to player prefab
+	[Property] public GameObject PlayerPrefab { get; set; }
 	private float lastKillTime = 0f;
 
 	// Purge System (Anomaly only)
@@ -38,7 +38,7 @@ public partial class PlayerController : Component
 	private float mimicEndTime = 0f;
 	private string originalName = "";
 
-	private float lastPurgeTime = -999f; // Start ready
+	private float lastPurgeTime = -999f;
 	private bool isBlinded = false;
 	private AnomalyAbilitiesUI anomalyUI = null;
 	public string EquippedPurgeAbility { get; set; } = "blind";
@@ -102,8 +102,6 @@ public partial class PlayerController : Component
 		voiceComponent = Components.Get<Voice>();
 		if ( voiceComponent != null )
 		{
-			// IMPORTANT: Don't disable voice on start!
-			// Let GameManager control it based on game state
 			// Start with voice ENABLED (lobby state)
 			voiceComponent.Enabled = true;
 			Log.Info( $"Voice component found for {PlayerName}, starting enabled" );
@@ -198,7 +196,7 @@ public partial class PlayerController : Component
 		HandleMovement();
 
 		// Handle E key press based on role
-		if ( Input.Pressed( "Use" ) ) // E key
+		if ( Input.Pressed( "Use" ) )
 		{
     		if ( Role == PlayerRole.Anomaly )
 			{
@@ -226,13 +224,6 @@ public partial class PlayerController : Component
 				AttemptPurge();
 			}
 		}
-
-		// Debug: Press Tab to see your role
-		if ( Input.Pressed( "Score" ) )
-		{
-			string roleText = Role == PlayerRole.Anomaly ? "You are the ANOMALY!" : "You are a Citizen";
-			Log.Info( roleText );
-		}
 	}
 
 	private void CheckReadyTerminal()
@@ -245,7 +236,7 @@ public partial class PlayerController : Component
 			
 			if ( distance <= 150f )
 			{
-				// Check if a game is in progress — offer spectating instead
+				// Check if a game is in progress - offer spectating instead
 				var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 				if ( gameManager != null && gameManager.CurrentState != GameManager.GameState.WaitingInLobby )
 				{
@@ -469,18 +460,13 @@ public partial class PlayerController : Component
 	[Rpc.Broadcast]
 	public void AssignRoleRpc( PlayerRole assignedRole )
 	{
-		//Log.Info( $"[AssignRoleRpc] IsHost: {Networking.IsHost}, PlayerName: {PlayerName}, AssignedRole: {assignedRole}" );
 		Role = assignedRole;
 		IsAlive = true;
-		//Log.Info( $"[AssignRoleRpc] Role set to: {Role}" );
 	}
 
 	[Rpc.Owner]
 	public void ShowRoleRevealRpc( PlayerRole assignedRole )
 	{
-		//Log.Info( $"[ShowRoleReveal] ENTERED - IsHost: {Networking.IsHost}, PlayerName: {PlayerName}, AssignedRole: {assignedRole}" );
-		//Log.Info( $"[ShowRoleReveal] IsHost: {Networking.IsHost}, PlayerName: {PlayerName}, AssignedRole: {assignedRole}" );
-
 		// Find GameManager to get sound events
 		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 		if ( gameManager == null )
@@ -522,12 +508,9 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	public void ShowTaskListRpc( List<TaskListBridge.TaskInfo> taskList, string activeTaskId )
 	{
-		//Log.Info( $"[ShowTaskListRpc] IsHost: {Networking.IsHost}, PlayerName: {PlayerName}, Tasks: {taskList?.Count ?? 0}, ActiveTaskId: '{activeTaskId}', Role: {Role}" );
-		
-		// CRITICAL: Anomalies don't get tasks!
+		// Anomalies don't get tasks
 		if ( Role == PlayerRole.Anomaly )
 		{
-			//Log.Info( $"[ShowTaskListRpc] {PlayerName} is Anomaly - clearing tasks" );
 			TaskListBridge.ClearTasks();
 			TaskListBridge.SetShowTasks( false );
 			CurrentActiveTaskId = "";
@@ -536,12 +519,10 @@ public partial class PlayerController : Component
 		
 		// Set the active task ID
 		CurrentActiveTaskId = activeTaskId;
-		//Log.Info( $"[ShowTaskListRpc] Set CurrentActiveTaskId to: '{CurrentActiveTaskId}'" );
 		
 		// If no tasks, hide the UI
 		if ( taskList == null || taskList.Count == 0 )
 		{
-			//Log.Info( $"[ShowTaskListRpc] No tasks for {PlayerName} - hiding UI" );
 			TaskListBridge.SetShowTasks( false );
 			return;
 		}
@@ -549,15 +530,11 @@ public partial class PlayerController : Component
 		// Update bridge with the provided task list
 		TaskListBridge.UpdateTasks( taskList );
 		TaskListBridge.SetShowTasks( true );
-		
-		//Log.Info( $"[ShowTaskListRpc] TaskListBridge updated with {taskList.Count} tasks for {PlayerName}" );
 	}
 
 	[Rpc.Broadcast]
 	public void AttemptStartTaskRpc( string taskId )
 	{
-		//Log.Info( $"[AttemptStartTaskRpc] IsHost: {Networking.IsHost}, PlayerName: {PlayerName}, TaskId: {taskId}" );
-		
 		// Only host validates and starts the task
 		if ( !Networking.IsHost )
 			return;
@@ -573,8 +550,6 @@ public partial class PlayerController : Component
 		bool canDoTask = taskManager.CanPlayerDoTask( this, taskId );
 		bool alreadyDoingTask = taskManager.IsPlayerDoingTask( this );
 		
-		//Log.Info( $"[AttemptStartTaskRpc] CanDoTask: {canDoTask}, AlreadyDoingTask: {alreadyDoingTask}" );
-		
 		if ( canDoTask && !alreadyDoingTask )
 		{
 			// Find the task station
@@ -583,7 +558,6 @@ public partial class PlayerController : Component
 			
 			if ( station != null )
 			{
-				//Log.Info( $"[AttemptStartTaskRpc] Starting task {taskId} for {PlayerName}" );
 				taskManager.StartTask( this, station );
 			}
 			else
@@ -600,8 +574,6 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	public void PlayTaskCompleteSoundRpc()
 	{
-		//Log.Info( $"[PlayTaskCompleteSoundRpc] IsHost: {Networking.IsHost}, PlayerName: {PlayerName}" );
-		
 		// Find TaskManager to get the sound
 		var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
 		if ( taskManager?.TaskCompleteSound != null )
@@ -639,8 +611,6 @@ public partial class PlayerController : Component
 
 	public bool AttemptKill()
 	{
-		//Log.Info( $"[DEBUG] AttemptKill called - Role: {Role}, IsAlive: {IsAlive}" );
-
 		// Only Anomalies can kill
 		if ( Role != PlayerRole.Anomaly )
 		{
@@ -672,7 +642,7 @@ public partial class PlayerController : Component
 			return false;
 		}
 
-		// Find nearby players to kill (include proxies - they represent real players!)
+		// Find nearby players to kill (include proxies)
 		var nearbyPlayers = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p != this )           // Not ourselves
 			.Where( p => p.IsAlive )          // Still alive
@@ -704,8 +674,6 @@ public partial class PlayerController : Component
 
 	private void AttemptPurge()
 	{
-		//Log.Info( $"[AttemptPurge] Anomaly {PlayerName} attempting purge" );
-		
 		// Check if game is active
 		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 		if ( gameManager == null || gameManager.CurrentState != GameManager.GameState.InGame )
@@ -725,7 +693,6 @@ public partial class PlayerController : Component
 		}
 		
 		// Execute purge
-		//Log.Info( $"[AttemptPurge] Purge activated by {PlayerName}!" );
 		lastPurgeTime = Time.Now;
 
 		// Update UI cooldown
@@ -753,7 +720,6 @@ public partial class PlayerController : Component
 	[Rpc.Broadcast]
 	public void KillPlayer( PlayerController target )
 	{
-		//Log.Info( $"[KillPlayer] Broadcast received on {(Networking.IsHost ? "HOST" : "CLIENT")}, target: {target?.PlayerName}, target valid: {target?.IsValid()}" );
 		if ( !target.IsAlive )
 			return;
 
@@ -772,25 +738,19 @@ public partial class PlayerController : Component
 				}
 			}
 		}
-		
-		//Log.Info( $"{target.PlayerName} has been killed!" );
 
 		// SAVE DEATH POSITION AND RENDERER BEFORE ANYTHING ELSE
 		var deathPosition = target.WorldPosition;
 		var deathRotation = target.WorldRotation;
 		var targetRenderer = target.GameObject.Components.GetInDescendants<SkinnedModelRenderer>();
-		//Log.Info( $"[KillPlayer] Death position saved: {deathPosition}" );
 
 		// ALL CLIENTS spawn their own ragdoll (local visual, no networking needed)
 		var playerWithPrefab = Scene.GetAllComponents<PlayerController>()
 			.FirstOrDefault( p => p.RagdollPrefab != null );
-		
-		//Log.Info( $"[KillPlayer] Running on {(Networking.IsHost ? "HOST" : "CLIENT")}, playerWithPrefab found: {playerWithPrefab != null}" );
 
 		if ( playerWithPrefab?.RagdollPrefab != null )
 		{
 			var ragdoll = playerWithPrefab.RagdollPrefab.Clone();
-			//Log.Info( $"[KillPlayer] Ragdoll cloned successfully on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
 			ragdoll.NetworkMode = NetworkMode.Never;
 			ragdoll.WorldPosition = deathPosition;
 			ragdoll.WorldRotation = deathRotation;
@@ -832,7 +792,6 @@ public partial class PlayerController : Component
 						
 						clothingCount++;
 					}
-					//Log.Info( $"[KillPlayer] Cloned {clothingCount} clothing items to ragdoll" );
 				}
 			}
 
@@ -846,7 +805,6 @@ public partial class PlayerController : Component
 				if ( targetRenderer != null )
 				{
 					modelPhysics.CopyBonesFrom( targetRenderer, true );
-					//Log.Info( "[KillPlayer] Copied bones from target to ragdoll" );
 				}
 			}
 
@@ -863,8 +821,6 @@ public partial class PlayerController : Component
 				var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 				gameManager?.RegisterDeadBody( ragdoll );
 			}
-
-			//Log.Info( $"[KillPlayer] Ragdoll spawn complete on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
 		}
 
 		// NOW ghost the player (after ragdoll has copied their bones)
@@ -887,8 +843,6 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	public void ShowDeathUIRpc()
 	{
-		//Log.Info( $"[ShowDeathUIRpc] Showing death UI for {PlayerName}" );
-		
 		// Create death UI
 		var uiObject = Scene.CreateObject();
 		uiObject.Name = "Death UI";
@@ -913,8 +867,6 @@ public partial class PlayerController : Component
 	[Rpc.Broadcast]
 	public void BecomeGhostRpc()
 	{
-		//Log.Info( $"[BecomeGhostRpc] Hiding {PlayerName} and disabling movement" );
-		
 		// DO NOT disable CharacterController - OnUpdate's !IsAlive check handles movement
 		// DO NOT disable Rigidbody
 		
@@ -991,8 +943,6 @@ public partial class PlayerController : Component
 					ui.Destroy();
 			}
 		}
-		
-		//Log.Info( $"[BecomeGhostRpc] Successfully ghosted {PlayerName}" );
 	}
 
 	[Rpc.Broadcast]
@@ -1121,7 +1071,6 @@ public partial class PlayerController : Component
 			foreach ( var collider in colliders )
 			{
 				collider.Enabled = false;
-				//Log.Info( $"[DisableCollidersRecursive] Disabled collider on {child.Name}: {collider.GetType().Name}" );
 			}
 			
 			// Continue recursively
@@ -1245,8 +1194,6 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	private void BlindPlayerRpc()
 	{
-		//Log.Info( $"[BlindPlayerRpc] Blinding citizen {PlayerName}" );
-		
 		isBlinded = true;
 		
 		// Play blinded sound
@@ -1522,8 +1469,6 @@ public partial class PlayerController : Component
 		{
 			anomalyUI.SetKillCooldown( duration, Time.Now );
 		}
-
-		//Log.Info( $"[ForceAbilityCooldown] {duration}s cooldown applied to kill and purge" );
 	}
 
 	[Rpc.Owner]
@@ -1549,8 +1494,6 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	public void HideAnomalyAbilitiesRpc()
 	{
-		//Log.Info( $"[HideAnomalyAbilitiesRpc] Hiding Anomaly abilities UI" );
-		
 		if ( anomalyUI != null && anomalyUI.IsValid() )
 		{
 			anomalyUI.GameObject.Destroy();
@@ -1562,14 +1505,11 @@ public partial class PlayerController : Component
 	{
 		await GameTask.DelaySeconds( PurgeDuration );
 		isBlinded = false;
-		//Log.Info( $"[RemoveBlindAfterDelay] Blind effect ended for {PlayerName}" );
 	}
 
 	[Rpc.Owner]
 	public void EndBlindEffectRpc()
 	{
-		//Log.Info( $"[EndBlindEffectRpc] Force-ending blind effect for {PlayerName}" );
-		
 		isBlinded = false;
 		
 		// Find and destroy blind overlay
@@ -1578,12 +1518,5 @@ public partial class PlayerController : Component
 		{
 			blindUI.GameObject.Destroy();
 		}
-	}
-
-	// Called when player reports a body (we'll implement this later)
-	public void ReportBody()
-	{
-		// TODO: Trigger emergency meeting
-		Log.Info( "Body reported!" );
 	}
 }

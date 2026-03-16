@@ -55,7 +55,6 @@ public sealed class TaskScreenDisplay : Component
 			if ( station != null )
 			{
 				ScreenTaskId = station.TaskId;
-				//Log.Info( $"[TaskScreenDisplay] Auto-detected TaskId: {ScreenTaskId}" );
 			}
 		}
 	}
@@ -96,11 +95,6 @@ public sealed class TaskScreenDisplay : Component
 		// Check if this TaskId is in the local player's assigned tasks
 		var matchingTask = tasks.FirstOrDefault( t => IsTaskIdMatch( t ) );
 
-		if ( matchingTask != null && Time.Now % 2f < Time.Delta )
-		{
-			//Log.Info( $"[TaskScreenDisplay] {ScreenTaskId} - IsCompleted: {matchingTask.IsCompleted}, IsActive: {matchingTask.IsActive}, localCompleted: {isCompleted}" );
-		}
-
 		if ( matchingTask == null )
 		{
 			// This station is not in the player's task list, hide screen
@@ -123,7 +117,6 @@ public sealed class TaskScreenDisplay : Component
 			if ( screenPanel != null )
 			{
 				screenPanel.CurrentState = TaskScreenPanel.ScreenState.Aligned;
-				//Log.Info( $"[TaskScreenDisplay] {ScreenTaskId} -> SIGNAL ALIGNED" );
 			}
 		}
 		else if ( !matchingTask.IsCompleted && !isCompleted )
@@ -146,7 +139,6 @@ public sealed class TaskScreenDisplay : Component
 			{
 				hasBeenDismissed = true;
 				HideScreen();
-				//Log.Info( $"[TaskScreenDisplay] {ScreenTaskId} -> Aligned timer expired, screen hidden" );
 			}
 		}
 	}
@@ -179,8 +171,6 @@ public sealed class TaskScreenDisplay : Component
 		isCompleted = false;
 
 		UpdatePanelTransform();
-
-		//Log.Info( $"[TaskScreenDisplay] Screen created for {ScreenTaskId}" );
 	}
 
 	private void HideScreen()
@@ -193,8 +183,6 @@ public sealed class TaskScreenDisplay : Component
 
 		isShowingScreen = false;
 		isCompleted = false;
-
-		//Log.Info( $"[TaskScreenDisplay] Screen hidden for {ScreenTaskId}" );
 	}
 
 	private void UpdatePanelTransform()
@@ -223,6 +211,5 @@ public sealed class TaskScreenDisplay : Component
 		{
 			display.HideScreen();
 		}
-		//Log.Info( "[TaskScreenDisplay] All task screens cleaned up" );
 	}
 }

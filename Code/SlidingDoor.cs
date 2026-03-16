@@ -42,7 +42,6 @@ public class SlidingDoor : Component
 			}
 
 			mapDoor.Destroy();
-			//Log.Info( $"[SlidingDoor] Destroyed map door: {MapDoorName}" );
 		}
 
 		// Use this DoorController's own position as the closed position
@@ -50,7 +49,6 @@ public class SlidingDoor : Component
 		openPosition = closedPosition + OpenOffset;
 
 		initialized = true;
-		//Log.Info( $"[SlidingDoor] {GameObject.Name} ready on {(Networking.IsHost ? "HOST" : "CLIENT")} at {closedPosition}" );
 		return true;
 	}
 
@@ -112,7 +110,6 @@ public class SlidingDoor : Component
 	[Rpc.Broadcast]
 	private void BroadcastSetOpen( bool open )
 	{
-		//Log.Info( $"[SlidingDoor] BroadcastSetOpen on {(Networking.IsHost ? "HOST" : "CLIENT")} - {GameObject.Name} = {open}" );
 		IsOpen = open;
 		closeTimer = 0f;
 	}
@@ -158,7 +155,6 @@ public class DoorTrigger : Component, Component.ITriggerListener
 		if ( player != null && player.IsAlive )
 		{
 			playersInside++;
-			//Log.Info( $"[DoorTrigger] Player {player.PlayerName} entered" );
 			door?.PlayerEntered();
 		}
 	}
@@ -172,7 +168,6 @@ public class DoorTrigger : Component, Component.ITriggerListener
 			if ( playersInside <= 0 )
 				playersInside = 0;
 
-			//Log.Info( $"[DoorTrigger] Player {player.PlayerName} exited" );
 			door?.PlayerExited();
 		}
 	}

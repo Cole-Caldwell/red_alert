@@ -14,7 +14,6 @@ public class TaskManager : Component
 	// Currently active task UI (one per player)
 	private Dictionary<PlayerController, GameObject> activeTaskUIs = new Dictionary<PlayerController, GameObject>();
 
-	// Add this property
 	[Property] public SoundEvent TaskCompleteSound { get; set; }
 	
 	protected override void OnStart()
@@ -44,8 +43,6 @@ public class TaskManager : Component
 		// Determine how many tasks to assign (max 3, but limited by available stations)
 		int tasksToAssign = System.Math.Min( 3, allStations.Count );
 		
-		//Log.Info( $"Found {allStations.Count} task stations, will assign {tasksToAssign} tasks per player" );
-		
 		// Get all players
 		var players = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p.GameObject.Network.Owner != null && p.IsInGame )
@@ -56,7 +53,6 @@ public class TaskManager : Component
 			// Only assign tasks to Citizens
 			if ( player.Role != PlayerController.PlayerRole.Citizen )
 			{
-				//Log.Info( $"{player.PlayerName} is Anomaly - no tasks assigned" );
 				continue;
 			}
 			
@@ -77,12 +73,6 @@ public class TaskManager : Component
 			}
 			
 			playerTasks[player] = assignedTasks;
-			
-			//Log.Info( $"Assigned {assignedTasks.Count} tasks to {player.PlayerName}:" );
-			foreach ( var task in assignedTasks )
-			{
-				//Log.Info( $"  {task.OrderIndex + 1}. {task.Task.TaskName}" );
-			}
 		}
 
 		// Tell each player to show their task list UI
@@ -97,13 +87,11 @@ public class TaskManager : Component
 			
 			if ( activeTask != null )
 			{
-				//Log.Info( $"Set {player.PlayerName}'s active task to: {activeTaskId}" );
+				Log.Info( $"Set {player.PlayerName}'s active task to: {activeTaskId}" );
 			}
 			
-			// Skip test dummies
 			if ( player.GameObject.Network.Owner == null )
 			{
-				//Log.Info( $"Skipping task UI for test dummy: {player.PlayerName}" );
 				continue;
 			}
 			
@@ -116,16 +104,7 @@ public class TaskManager : Component
 				IsActive = t.IsActive
 			} ).ToList();
 			
-			// Add detailed logging
-			//Log.Info( $"=== TASK UI RPC DEBUG ===" );
-			//Log.Info( $"Player: {player.PlayerName}" );
-			//Log.Info( $"IsProxy: {player.IsProxy}" );
-			//Log.Info( $"Owner: {player.GameObject.Network.Owner?.DisplayName}" );
-			//Log.Info( $"Sending {taskInfoList.Count} tasks via RPC with ActiveTaskId: '{activeTaskId}'..." );
-			
 			player.ShowTaskListRpc( taskInfoList, activeTaskId );
-			
-			//Log.Info( $"=== END DEBUG ===" );
 		}
 	}
 	
@@ -177,7 +156,7 @@ public class TaskManager : Component
 			station.TaskId, 
 			station.CompletionTime,
 			player.PlayerName,
-			ownerId  // NEW
+			ownerId
 		);
 
 		// Play looping task interaction sound
@@ -240,7 +219,7 @@ public class TaskManager : Component
 		{
 			uiObject.Name = "Task Decrypt UI";
 			TaskProgressBridge.KeypadSound = station.KeypadBeepSound;
-			var decryptUI = uiObject.Components.Create<TaskWireConnectUI>();
+			var decryptUI = uiObject.Components.Create<TaskDecryptUI>();
 			decryptUI.InitializeFromBridge( this );
 		}
 		else // ProgressBar
@@ -253,8 +232,6 @@ public class TaskManager : Component
 		}
 		
 		activeTaskUIs[player] = uiObject;
-		
-		//Log.Info( $"{player.PlayerName} (OwnerId: {ownerId}) started task: {station.TaskName} (Type: {taskData.Type})" );
 	}
 	
 	public void CompleteTask( PlayerController player, string taskId )
@@ -273,20 +250,16 @@ public class TaskManager : Component
 			completedTask.IsCompleted = true;
 			completedTask.IsActive = false;
 			
-			//Log.Info( $"[CompleteTask] {player.PlayerName} completed task: {taskId}" );
-			
 			// Activate next task
 			var nextTask = tasks.FirstOrDefault( t => !t.IsCompleted );
 			if ( nextTask != null )
 			{
 				nextTask.IsActive = true;
 				player.CurrentActiveTaskId = nextTask.Task.TaskId; // Update active task ID
-				//Log.Info( $"{player.PlayerName} completed task! Next task: {nextTask.Task.TaskName}" );
 			}
 			else
 			{
 				player.CurrentActiveTaskId = ""; // No more tasks
-				//Log.Info( $"{player.PlayerName} completed ALL tasks!" );
 			}
 			
 			// Remove active UI reference
@@ -312,7 +285,6 @@ public class TaskManager : Component
 				var newActiveTask = tasks.FirstOrDefault( t => t.IsActive );
 				string newActiveTaskId = newActiveTask?.Task.TaskId ?? "";
 				
-				//Log.Info( $"[CompleteTask] Sending updated task list to {player.PlayerName} ({taskInfoList.Count} tasks), NewActiveTaskId: '{newActiveTaskId}'" );
 				player.ShowTaskListRpc( taskInfoList, newActiveTaskId );
 			}
 		}
@@ -325,12 +297,9 @@ public class TaskManager : Component
 	[Rpc.Broadcast]
 	public void CompleteTaskByNetworkId( ulong ownerId, string taskId )
 	{
-		//Log.Info( $"[CompleteTaskByNetworkId] Called on IsHost: {Networking.IsHost}, OwnerId: {ownerId}, TaskId: {taskId}" );
-		
 		// Only host processes the completion
 		if ( !Networking.IsHost )
 		{
-			//Log.Info( $"[CompleteTaskByNetworkId] Not host - skipping" );
 			return;
 		}
 		
@@ -340,8 +309,6 @@ public class TaskManager : Component
 		
 		if ( player != null )
 		{
-			//Log.Info( $"[CompleteTaskByNetworkId] Found player: {player.PlayerName} (OwnerId: {ownerId}), calling CompleteTask" );
-
 			// Don't complete tasks for dead players
 			if ( !player.IsAlive )
 			{
@@ -354,7 +321,6 @@ public class TaskManager : Component
 			// Play completion sound - call RPC on the player object
 			if ( player.GameObject.Network.Owner != null )
 			{
-				//Log.Info( $"[CompleteTaskByNetworkId] Calling PlayTaskCompleteSoundRpc for {player.PlayerName}" );
 				player.PlayTaskCompleteSoundRpc();
 			}
 		}

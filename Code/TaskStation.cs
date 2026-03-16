@@ -28,16 +28,10 @@ public class TaskStation : Component, Component.ITriggerListener
 		// Only the local player checks for input
 		if ( playerNearby && nearbyPlayer != null && !nearbyPlayer.IsProxy )
 		{
-			// CRITICAL: Anomalies can't do tasks!
+			// Anomalies can't do tasks
 			if ( nearbyPlayer.Role == PlayerController.PlayerRole.Anomaly )
 			{
 				return; // Don't show prompt or allow interaction
-			}
-			
-			// Debug log the player's current active task
-			if ( Time.Now % 2f < Time.Delta ) // Every 2 seconds
-			{
-				//Log.Info( $"[TaskStation {TaskName}] Player nearby: {nearbyPlayer.PlayerName}, ActiveTaskId: '{nearbyPlayer.CurrentActiveTaskId}', ThisTaskId: '{TaskId}', Match: {nearbyPlayer.CurrentActiveTaskId == TaskId}" );
 			}
 			
 			// Check if this task matches the player's active task
@@ -56,8 +50,6 @@ public class TaskStation : Component, Component.ITriggerListener
 				// Check for E key press
 				if ( Input.Pressed( "Use" ) )
 				{
-					//Log.Info( $"[TaskStation] {nearbyPlayer.PlayerName} pressed E at {TaskName}" );
-					
 					// Call RPC on player to attempt starting task
 					nearbyPlayer.AttemptStartTaskRpc( TaskId );
 				}
@@ -84,7 +76,6 @@ public class TaskStation : Component, Component.ITriggerListener
 		{
 			playerNearby = true;
 			nearbyPlayer = player;
-			//Log.Info( $"[TaskStation] {player.PlayerName} entered trigger at {TaskName}" );
 		}
 	}
 	

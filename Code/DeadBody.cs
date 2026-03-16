@@ -11,8 +11,6 @@ public partial class DeadBody : Component
 
 	protected override void OnStart()
 	{
-		//Log.Info( $"DeadBody component added to {VictimName}'s ragdoll" );
-		// NO ragdoll creation - the player IS the ragdoll now!
 	}
 
 	protected override void OnUpdate()

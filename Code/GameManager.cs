@@ -8,7 +8,7 @@ public partial class GameManager : Component
 	// Game States
 	public enum GameState
 	{
-		WaitingInLobby,  // NEW - waiting for players to ready up
+		WaitingInLobby,  // waiting for players to ready up
 		Lobby,      // Waiting for players
 		InGame,     // Game is active
 		Voting,     // Emergency meeting / voting
@@ -21,7 +21,7 @@ public partial class GameManager : Component
 	// Player Management
 	[Property] public int MinPlayers { get; set; } = 1;  // Minimum players to start
 	[Property] public float LobbyTimer { get; set; } = 10f;  // Seconds before game starts
-	[Property] public int AnomalyCount { get; set; } = 1;  // Number of Anomalys
+	[Property] public int AnomalyCount { get; set; } = 1;
 	[Property] public bool ForceLocalPlayerAsAnomaly { get; set; } = false;
 	[Property] public float DiscussionTime { get; set; } = 15f;
 	[Property] public float VotingTime { get; set; } = 20f;
@@ -168,8 +168,6 @@ public partial class GameManager : Component
 				break;
 				
 			case GameState.GameOver:
-				UpdateGameOver();
-				
 				// Keep voice enabled during game over
 				if ( !IsVoiceEnabled() )
 				{
@@ -193,7 +191,7 @@ public partial class GameManager : Component
 		{
 			currentLobbyTime += Time.Delta;
 			
-			// Show countdown (we'll add UI later)
+			// Show countdown
 			if ( currentLobbyTime >= LobbyTimer )
 			{
 				// Broadcast game start to all clients
@@ -282,11 +280,6 @@ public partial class GameManager : Component
 		
 		// Then fetch real stats and update in-place
 		PlayerBoardBridge.FetchAllPlayerStats( playerDataList );
-	}
-
-	private void UpdateGameOver()
-	{
-		// End game logic will go here
 	}
 
 	[Rpc.Broadcast]
@@ -414,7 +407,7 @@ public partial class GameManager : Component
 			return;
 		}
 
-		// Get ALL players (including test dummies)
+		// Get ALL players
 		var allPlayerObjects = Scene.GetAllObjects( true )
 			.Where( obj => obj.Components.Get<PlayerController>() != null )
 			.ToList();
@@ -424,7 +417,7 @@ public partial class GameManager : Component
 		// Shuffle spawn points to randomize distribution
 		var shuffledSpawns = lobbySpawns.OrderBy( _ => Game.Random.Int( 0, 1000 ) ).ToList();
 		
-		// ONLY teleport - don't restore anything else (RestoreToLobbyRpc handles that)
+		// ONLY teleport - don't restore anything else (RestoreToLobbyRpc handles)
 		for ( int i = 0; i < allPlayerObjects.Count; i++ )
 		{
 			var playerObj = allPlayerObjects[i];
@@ -458,7 +451,7 @@ public partial class GameManager : Component
 
 	private void AssignRoles()
 	{
-		// CRITICAL: Only the host should assign roles
+		// Only the host should assign roles
 		if ( !Networking.IsHost )
 		{
 			Log.Info( "Not host - skipping role assignment" );
@@ -476,17 +469,11 @@ public partial class GameManager : Component
 			return;
 		}
 		
-		// CRITICAL FIX: Get players that have network owners (includes proxies!)
+		// Get players that have network owners (includes proxies)
 		// Proxies represent remote players on the host
 		var realPlayers = allPlayers
 			.Where( p => p.GameObject.Network.Owner != null && p.IsInGame )
 			.ToList();
-		
-		//Log.Info( $"Real players found: {realPlayers.Count}" );
-		foreach ( var p in realPlayers )
-		{
-			//Log.Info( $"  - {p.PlayerName}, IsInGame: {p.IsInGame}, IsProxy: {p.IsProxy}, Owner: {p.GameObject.Network.Owner?.DisplayName}" );
-		}
 		
 		var playersForRoles = new List<PlayerController>( realPlayers );
 		Log.Info( $"Players for role assignment: {playersForRoles.Count}" );
@@ -504,7 +491,7 @@ public partial class GameManager : Component
 			return;
 		}
 		
-		// DEBUG: Force local player as Anomaly for testing
+		// For testing: Force local player as Anomaly
 		if ( ForceLocalPlayerAsAnomaly )
 		{
 			// Find the host's local player (not a proxy)
@@ -514,7 +501,6 @@ public partial class GameManager : Component
 				localPlayer.Role = PlayerController.PlayerRole.Anomaly;
 				localPlayer.IsAlive = true;
 				
-				//Log.Info( $"[FORCED] {localPlayer.PlayerName} assigned as Anomaly" );
 				localPlayer.ShowRoleRevealRpc( localPlayer.Role );
 				
 				// Make other real players Citizens
@@ -523,54 +509,44 @@ public partial class GameManager : Component
 					player.Role = PlayerController.PlayerRole.Citizen;
 					player.IsAlive = true;
 					
-					//Log.Info( $"Sending role reveal to {player.PlayerName} (Owner: {player.GameObject.Network.Owner.DisplayName})" );
 					player.ShowRoleRevealRpc( player.Role );
 				}
 			}
 		}
 		
-		// CRITICAL: Ensure at least 1 anomaly is assigned
+		// Ensure at least 1 anomaly is assigned
 		int anomalyCount = System.Math.Min( AnomalyCount, playersForRoles.Count );
 		if ( anomalyCount < 1 )
 		{
-			//Log.Warning( "AnomalyCount was 0, forcing to 1!" );
 			anomalyCount = 1;
 		}
 		
 		// Shuffle players for random assignment
 		var shuffled = playersForRoles.OrderBy( x => Game.Random.Int( 0, 10000 ) ).ToList();
 		
-		//Log.Info( $"=== ROLE ASSIGNMENT (Anomalies: {anomalyCount} out of {shuffled.Count} players) ===" );
-		
 		// Assign Anomalies
 		for ( int i = 0; i < anomalyCount; i++ )
 		{
-			//Log.Info( $"[ASSIGNING ANOMALY] Index {i}, Player: {shuffled[i].PlayerName}, IsProxy: {shuffled[i].IsProxy}" );
-			
 			// Use RPC instead of direct assignment
 			shuffled[i].AssignRoleRpc( PlayerController.PlayerRole.Anomaly );
 			
 			// Show role reveal to all real players (including proxies)
 			if ( shuffled[i].GameObject.Network.Owner != null )
 			{
-				//Log.Info( $"[ANOMALY] {shuffled[i].PlayerName} (Owner: {shuffled[i].GameObject.Network.Owner.DisplayName}, IsProxy: {shuffled[i].IsProxy})" );
 				shuffled[i].ShowRoleRevealRpc( PlayerController.PlayerRole.Anomaly );
-				shuffled[i].ShowAnomalyAbilitiesRpc(); // NEW: Show abilities UI
+				shuffled[i].ShowAnomalyAbilitiesRpc(); // Show abilities UI
 			}
 		}
 
 		// Rest are Citizens
 		for ( int i = anomalyCount; i < shuffled.Count; i++ )
 		{
-			//Log.Info( $"[ASSIGNING CITIZEN] Index {i}, Player: {shuffled[i].PlayerName}, IsProxy: {shuffled[i].IsProxy}" );
-			
 			// Use RPC instead of direct assignment
 			shuffled[i].AssignRoleRpc( PlayerController.PlayerRole.Citizen );
 			
 			// Show role reveal to all real players (including proxies)
 			if ( shuffled[i].GameObject.Network.Owner != null )
 			{
-				//Log.Info( $"[CITIZEN] {shuffled[i].PlayerName} (Owner: {shuffled[i].GameObject.Network.Owner.DisplayName}, IsProxy: {shuffled[i].IsProxy})" );
 				shuffled[i].ShowRoleRevealRpc( PlayerController.PlayerRole.Citizen );
 			}
 		}
@@ -831,7 +807,7 @@ public partial class GameManager : Component
 		
 		votingUI.SetBodyInfo( bodyInfo );
 
-		// Build player data — only show in-game players
+		// Build player data - only show in-game players
 		var players = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p.IsInGame && !p.IsSpectating )
 			.ToList();
@@ -855,7 +831,7 @@ public partial class GameManager : Component
 		// Use the same name resolution as nametag
 		string name = player.GameObject.Root.Name.Replace( "Player - ", "" );
 		
-		// Fallback for test dummies or if name is empty
+		// Fallback if name is empty
 		if ( string.IsNullOrEmpty( name ) || name == player.GameObject.Root.Name )
 			name = player.PlayerName;
 		
@@ -882,8 +858,6 @@ public partial class GameManager : Component
 	[Rpc.Broadcast]
 	private void BroadcastVote( string voterName, string targetName )
 	{
-		//Log.Info( $"{voterName} voted for {targetName}" );
-		
 		// Update votes on ALL clients
 		playerVotes[voterName] = targetName;
 		
@@ -1007,17 +981,17 @@ public partial class GameManager : Component
 		// Handle based on result type
 		if ( resultType == "not-anomaly" && ejectedPlayer != null )
 		{
-			// Citizen voted out — kill them first, then show result after delay
+			// Citizen voted out - kill them first, then show result after delay
 			HandleCitizenEjection( ejectedPlayer, ejectedName, ejectedSteamId );
 		}
 		else if ( resultType == "was-anomaly" )
 		{
-			// Anomaly voted out — show result immediately, then end game
+			// Anomaly voted out - show result immediately, then end game
 			HandleAnomalyEjection( ejectedPlayer, ejectedName, ejectedSteamId );
 		}
 		else
 		{
-			// No one ejected — show result, then resume
+			// No one ejected - show result, then resume
 			HandleNoEjection();
 		}
 	}
@@ -1069,7 +1043,7 @@ public partial class GameManager : Component
 		if ( ChatSystem.Instance != null )
     		ChatSystem.Instance.ChatEnabled = false;
 
-		// Check win conditions — this will trigger EndGame -> ReturnToLobby
+		// Check win conditions - this will trigger EndGame -> ReturnToLobby
 		CheckWinConditions();
 
 		// If somehow no winner, resume game
@@ -1464,7 +1438,7 @@ public partial class GameManager : Component
 				if ( p.GameObject.Network.Owner != null )
 					p.SetInGameRpc( false );
 				else
-					p.IsInGame = false; // Test dummies - direct set is fine
+					p.IsInGame = false;
 			}
 		}
 		

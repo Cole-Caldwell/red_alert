@@ -5,8 +5,8 @@ using Sandbox;
 /// </summary>
 public class TaskData
 {
-	public string TaskId { get; set; } // Unique identifier (e.g., "download_data")
-	public string TaskName { get; set; } // Display name (e.g., "Download Space Station Data")
+	public string TaskId { get; set; } // Unique identifier
+	public string TaskName { get; set; } // Display name
 	public TaskType Type { get; set; }
 	public float CompletionTime { get; set; } // Seconds to complete
 	
