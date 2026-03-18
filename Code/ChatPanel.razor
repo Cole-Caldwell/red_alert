@@ -56,6 +56,44 @@
 			margin-top: 4px;
 		}
 
+		.chat-disabled-box {
+			flex-direction: row;
+			align-items: center;
+			gap: 10px;
+			padding: 8px 14px;
+			background-color: rgba(40, 8, 8, 0.85);
+			border: 1px solid rgba(255, 50, 50, 0.4);
+			border-radius: 4px;
+			box-shadow: 0 0 16px rgba(255, 40, 40, 0.1);
+			animation: comms-pulse 2.5s ease-in-out infinite;
+		}
+
+		.chat-disabled-icon {
+			font-size: 14px;
+			font-weight: 900;
+			color: rgba(255, 70, 70, 0.8);
+			font-family: Consolas;
+		}
+
+		.chat-disabled-text {
+			font-size: 11px;
+			font-weight: 700;
+			font-family: Consolas;
+			color: rgba(255, 120, 120, 0.7);
+			letter-spacing: 2px;
+		}
+
+		@@keyframes comms-pulse {
+			0%, 100% {
+				box-shadow: 0 0 8px rgba(255, 40, 40, 0.05);
+				border-color: rgba(255, 50, 50, 0.3);
+			}
+			50% {
+				box-shadow: 0 0 20px rgba(255, 40, 40, 0.2);
+				border-color: rgba(255, 50, 50, 0.6);
+			}
+		}
+
 		TextEntry {
 			width: 100%;
 			height: 32px;
@@ -106,9 +144,16 @@
 			{
 				<TextEntry @ref="ChatInput" Text=@CurrentText onsubmit=@OnChatSubmit></TextEntry>
 			}
-			else
+			else if ( ChatSystem.Instance?.ChatEnabled == true )
 			{
 				<label class="chat-hint">ENTER to chat</label>
+			}
+			else if ( IsChatDisabledInGame )
+			{
+				<div class="chat-disabled-box">
+					<label class="chat-disabled-icon">✕</label>
+					<label class="chat-disabled-text">COMMS DISABLED — GAME ACTIVE</label>
+				</div>
 			}
 		</div>
 	</div>
@@ -119,12 +164,24 @@
 	public bool ShowInput { get; set; } = false;
 	private TextEntry ChatInput { get; set; }
 	private bool needsFocus = false;
+	public bool IsChatDisabledInGame { get; set; } = false;
 
 	protected override void OnUpdate()
 	{
+		// If chat gets disabled while typing, close the input
+		if ( ShowInput && ChatSystem.Instance?.ChatEnabled != true )
+		{
+			CurrentText = "";
+			ShowInput = false;
+			ChatIndicatorBridge.SetTyping( false, Scene );
+		}
+
+		IsChatDisabledInGame = ChatSystem.Instance != null && !ChatSystem.Instance.ChatEnabled;
+
 		if ( !ShowInput && Input.Pressed( "chat" ) && ChatSystem.Instance?.ChatEnabled == true )
 		{
 			ShowInput = true;
+			ChatIndicatorBridge.SetTyping( true, Scene );
 			needsFocus = true;
 		}
 
@@ -155,6 +212,8 @@
 			
 			CurrentText = "";
 			ShowInput = false;
+
+			ChatIndicatorBridge.SetTyping( false, Scene );
 		}
 	}
 
@@ -170,12 +229,15 @@
 
 		CurrentText = "";
 		ShowInput = false;
+
+		ChatIndicatorBridge.SetTyping( false, Scene );
 	}
 
 	protected override int BuildHash()
 	{
 		var msgCount = ChatSystem.Instance?.Messages.Count ?? 0;
 		var timeHash = ((int)(Sandbox.Time.Now * 2)).ToString();
+		var chatEnabled = ChatSystem.Instance?.ChatEnabled ?? false;
 		return System.HashCode.Combine( CurrentText, ShowInput, msgCount, timeHash );
 	}
 }

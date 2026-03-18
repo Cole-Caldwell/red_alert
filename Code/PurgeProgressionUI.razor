@@ -5,105 +5,166 @@
 @inherits PanelComponent
 
 <root>
-	<style>
-		.prog-overlay {
-			position: absolute;
-			width: 100%;
-			height: 100%;
-			pointer-events: all;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			background-color: rgba(0, 0, 0, 0.88);
-			z-index: 500;
-		}
+    <style>
+        .prog-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.88);
+            z-index: 500;
+        }
 
-		.prog-overlay.hidden {
-			display: none;
-		}
+        .prog-overlay.hidden {
+            display: none;
+        }
 
-		.prog-container {
-			width: 1000px;
-			max-height: 850px;
-			background-color: rgb(12, 6, 8);
-			border: 2px solid rgba(200, 30, 30, 0.4);
-			border-radius: 6px;
-			flex-direction: column;
-			overflow: hidden;
-			box-shadow: 0 0 80px rgba(180, 20, 20, 0.15), 0 0 40px rgba(0, 0, 0, 0.8);
-		}
+        .prog-container {
+            width: 1000px;
+            max-height: 850px;
+            background-color: rgb(12, 6, 8);
+            border: 2px solid rgba(200, 30, 30, 0.4);
+            border-radius: 6px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 80px rgba(180, 20, 20, 0.15), 0 0 40px rgba(0, 0, 0, 0.8);
+        }
 
-		/* === HEADER === */
-		.prog-header {
-			flex-direction: row;
-			justify-content: space-between;
-			align-items: center;
-			padding: 22px 32px;
-			background-color: rgba(8, 8, 12, 0.95);
-			border-bottom: 2px solid rgba(200, 30, 30, 0.25);
-		}
+        /* === HEADER === */
+        .prog-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 22px 32px;
+            background-color: rgba(8, 8, 12, 0.95);
+            border-bottom: 2px solid rgba(200, 30, 30, 0.25);
+            position: relative;
+        }
 
-		.prog-header-left {
-			flex-direction: column;
-		}
+        .header-glow {
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(200, 30, 30, 0), rgba(200, 30, 30, 0.6), rgba(220, 50, 50, 0.8), rgba(200, 30, 30, 0.6), rgba(200, 30, 30, 0));
+            box-shadow: 0 0 12px rgba(200, 30, 30, 0.3);
+            animation: header-shimmer 4s ease-in-out infinite;
+        }
 
-		.prog-title {
-			font-size: 26px;
-			font-weight: 900;
-			color: rgb(240, 240, 245);
-			letter-spacing: 6px;
-			font-family: Consolas;
-			text-shadow: 0 0 20px rgba(200, 30, 30, 0.3);
-		}
+        @@keyframes header-shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
 
-		.prog-subtitle {
-			font-size: 11px;
-			color: rgba(200, 60, 60, 0.5);
-			letter-spacing: 4px;
-			margin-top: 4px;
-			font-family: Consolas;
-		}
+        .prog-header-left {
+            flex-direction: column;
+        }
 
-		.prog-wins-badge {
-			flex-direction: column;
-			align-items: center;
-			padding: 10px 20px;
-			background-color: rgba(10, 10, 14, 0.9);
-			border: 1px solid rgba(200, 80, 80, 0.6);
-			border-radius: 4px;
-		}
+        .prog-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: rgb(240, 240, 245);
+            letter-spacing: 6px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(200, 30, 30, 0.3);
+        }
 
-		.prog-wins-number {
-			font-size: 28px;
-			font-weight: 900;
-			color: rgb(240, 240, 245);
-			font-family: Consolas;
-		}
+        .prog-subtitle {
+            font-size: 11px;
+            color: rgba(200, 60, 60, 0.5);
+            letter-spacing: 4px;
+            margin-top: 4px;
+            font-family: Consolas;
+        }
 
-		.prog-wins-label {
-			font-size: 9px;
-			color: rgba(200, 80, 80, 0.6);
-			letter-spacing: 3px;
-			font-family: Consolas;
-		}
+        /* === EQUIPPED SECTION === */
+        .prog-equipped {
+            padding: 16px 32px;
+            background-color: rgba(8, 8, 12, 0.8);
+            border-bottom: 1px solid rgba(200, 30, 30, 0.1);
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+        }
 
-		/* === EQUIPPED SECTION === */
-		.prog-equipped {
-			padding: 18px 32px;
-			background-color: rgba(8, 8, 12, 0.8);
-			border-bottom: 1px solid rgba(200, 30, 30, 0.1);
-			flex-direction: row;
-			align-items: center;
-			gap: 16px;
-		}
+        .equipped-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(220, 220, 230, 0.5);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
 
-		.equipped-label {
-			font-size: 10px;
-			font-weight: 700;
-			color: rgba(220, 220, 230, 0.5);
-			letter-spacing: 3px;
-			font-family: Consolas;
-		}
+        .equipped-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: rgb(240, 240, 245);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        /* === ABILITY GRID === */
+        .prog-grid {
+            flex-direction: column;
+            padding: 20px 32px;
+            gap: 10px;
+            flex-grow: 1;
+            overflow-y: scroll;
+            max-height: 560px;
+        }
+
+        .ability-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 20px 24px;
+            min-height: 110px;
+            background-color: rgba(20, 8, 10, 0.8);
+            border: 1px solid rgba(200, 30, 30, 0.1);
+            border-radius: 4px;
+            gap: 20px;
+            transition: all 0.15s;
+            cursor: pointer;
+        }
+
+        .ability-card:hover {
+            background-color: rgba(40, 12, 14, 0.9);
+            border-color: rgba(200, 30, 30, 0.25);
+        }
+
+        .ability-card.equipped {
+            background-color: rgba(200, 30, 30, 0.08);
+            border-color: rgba(220, 60, 60, 0.4);
+            box-shadow: 0 0 16px rgba(200, 30, 30, 0.1);
+        }
+
+        /* Icon */
+        .ability-icon-wrap {
+            width: 64px;
+            height: 64px;
+            min-width: 64px;
+            background-color: rgba(200, 30, 30, 0.06);
+            border: 1px solid rgba(200, 30, 30, 0.15);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .ability-card.equipped .ability-icon-wrap {
+            background-color: rgba(200, 30, 30, 0.12);
+            border-color: rgba(220, 60, 60, 0.3);
+        }
+
+        .ability-icon-img {
+            width: 48px;
+            height: 48px;
+        }
 
 		.equipped-icon-img {
 			width: 28px;
@@ -111,347 +172,238 @@
 			border-radius: 4px;
 		}
 
-		.equipped-name {
-			font-size: 16px;
-			font-weight: 800;
-			color: rgb(240, 240, 245);
-			font-family: Consolas;
-			letter-spacing: 2px;
-		}
+        /* Info */
+        .ability-info {
+            flex-direction: column;
+            flex-grow: 1;
+            gap: 4px;
+        }
 
-		/* === ABILITY GRID === */
-		.prog-grid {
-			flex-direction: column;
-			padding: 20px 32px;
-			gap: 10px;
-			flex-grow: 1;
-			overflow-y: scroll;
-			max-height: 520px;
-		}
+        .ability-name {
+            font-size: 17px;
+            font-weight: 800;
+            color: rgba(220, 200, 200, 0.9);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
 
-		.ability-card {
-			flex-direction: row;
-			align-items: center;
-			padding: 20px 24px;
-			min-height: 110px;
-			background-color: rgba(20, 8, 10, 0.8);
-			border: 1px solid rgba(200, 30, 30, 0.1);
-			border-radius: 4px;
-			gap: 20px;
-			transition: all 0.15s;
-			cursor: pointer;
-		}
+        .ability-desc {
+            font-size: 12px;
+            color: rgba(180, 160, 160, 0.5);
+            font-family: Consolas;
+            margin-top: 2px;
+        }
 
-		.ability-card:hover {
-			background-color: rgba(40, 12, 14, 0.9);
-			border-color: rgba(200, 30, 30, 0.25);
-		}
+        .ability-stats {
+            flex-direction: row;
+            gap: 16px;
+            margin-top: 4px;
+        }
 
-		.ability-card.unlocked {
-			border-color: rgba(200, 30, 30, 0.2);
-		}
+        .ability-stat {
+            font-size: 11px;
+            font-weight: 700;
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
 
-		.ability-card.locked {
-			opacity: 0.4;
-			cursor: not-allowed;
-		}
+        .stat-duration {
+            color: rgba(200, 80, 80, 0.6);
+        }
 
-		.ability-card.equipped {
-			background-color: rgba(200, 30, 30, 0.08);
-			border-color: rgba(220, 60, 60, 0.4);
-			box-shadow: 0 0 16px rgba(200, 30, 30, 0.1);
-		}
+        .stat-cooldown {
+            color: rgba(160, 140, 180, 0.5);
+        }
 
-		/* Icon */
-		.ability-icon-wrap {
-			width: 64px;
-			height: 64px;
-			min-width: 64px;
-			background-color: rgba(200, 30, 30, 0.06);
-			border: 1px solid rgba(200, 30, 30, 0.15);
-			border-radius: 6px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			overflow: hidden;
-		}
+        /* Status badges */
+        .ability-status {
+            flex-shrink: 0;
+            min-width: 100px;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
 
-		.ability-card.equipped .ability-icon-wrap {
-			background-color: rgba(200, 30, 30, 0.12);
-			border-color: rgba(220, 60, 60, 0.3);
-		}
+        .status-badge {
+            font-size: 9px;
+            font-weight: 700;
+            font-family: Consolas;
+            letter-spacing: 2px;
+            padding: 4px 12px;
+            border-radius: 2px;
+        }
 
-		.ability-card.locked .ability-icon-wrap {
-			background-color: rgba(40, 40, 50, 0.3);
-			border-color: rgba(60, 60, 70, 0.2);
-		}
+        .status-badge.badge-equipped {
+            color: rgb(220, 60, 60);
+            background-color: rgba(200, 30, 30, 0.12);
+            border: 1px solid rgba(200, 30, 30, 0.3);
+        }
 
-		.ability-icon-img {
-			width: 48px;
-			height: 48px;
-		}
+        .status-badge.badge-equip {
+            color: rgba(180, 160, 160, 0.5);
+            border: 1px solid rgba(180, 160, 160, 0.15);
+        }
 
-		.ability-card.locked .ability-icon-img {
-			opacity: 0.3;
-		}
+        /* === COMING SOON === */
+        .coming-soon {
+            padding: 24px;
+            background-color: rgba(20, 8, 10, 0.4);
+            border: 1px solid rgba(200, 30, 30, 0.1);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-		/* Info */
-		.ability-info {
-			flex-direction: column;
-			flex-grow: 1;
-			gap: 6px;
-		}
+        .coming-soon-text {
+            font-size: 13px;
+            font-weight: 700;
+            font-family: Consolas;
+            color: rgba(140, 120, 120, 0.3);
+            letter-spacing: 4px;
+        }
 
-		.ability-name {
-			font-size: 17px;
-			font-weight: 800;
-			color: rgba(220, 200, 200, 0.9);
-			font-family: Consolas;
-			letter-spacing: 2px;
-		}
+        /* === FOOTER === */
+        .prog-footer {
+            padding: 14px 32px;
+            background-color: rgba(12, 4, 6, 0.9);
+            border-top: 1px solid rgba(200, 30, 30, 0.1);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
 
-		.ability-card.locked .ability-name {
-			color: rgba(120, 120, 130, 0.5);
-		}
+        .footer-text {
+            font-size: 11px;
+            color: rgba(140, 120, 120, 0.35);
+            font-family: Consolas;
+        }
 
-		.ability-desc {
-			font-size: 12px;
-			color: rgba(180, 160, 160, 0.5);
-			font-family: Consolas;
-			margin-top: 2px;
-		}
+        .footer-key {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(200, 60, 60, 0.4);
+            background-color: rgba(200, 30, 30, 0.06);
+            border: 1px solid rgba(200, 30, 30, 0.15);
+            border-radius: 3px;
+            padding: 3px 10px;
+            font-family: Consolas;
+        }
+    </style>
 
-		.ability-card.locked .ability-desc {
-			color: rgba(100, 100, 110, 0.35);
-		}
+    <div class="prog-overlay @(IsOpen ? "" : "hidden")">
+        <div class="prog-container">
 
-		.ability-duration {
-			font-size: 11px;
-			font-weight: 700;
-			color: rgba(200, 80, 80, 0.6);
-			font-family: Consolas;
-			margin-top: 2px;
-			letter-spacing: 1px;
-		}
+            <!-- HEADER -->
+            <div class="prog-header">
+                <div class="prog-header-left">
+                    <label class="prog-title">PURGE ABILITIES</label>
+                    <label class="prog-subtitle">SELECT YOUR LOADOUT</label>
+                </div>
+                <div class="header-glow"></div>
+            </div>
 
-		.ability-card.locked .ability-duration {
-			color: rgba(100, 100, 110, 0.3);
-		}
-
-		/* Status badges */
-		.ability-status {
-			flex-shrink: 0;
-			min-width: 100px;
-			flex-direction: column;
-			align-items: center;
-			gap: 4px;
-		}
-
-		.status-badge {
-			font-size: 9px;
-			font-weight: 700;
-			font-family: Consolas;
-			letter-spacing: 2px;
-			padding: 4px 12px;
-			border-radius: 2px;
-		}
-
-		.status-badge.badge-equipped {
-			color: rgb(220, 60, 60);
-			background-color: rgba(200, 30, 30, 0.12);
-			border: 1px solid rgba(200, 30, 30, 0.3);
-		}
-
-		.status-badge.badge-unlocked {
-			color: rgba(180, 160, 160, 0.5);
-			border: 1px solid rgba(180, 160, 160, 0.15);
-		}
-
-		.status-badge.badge-locked {
-			color: rgba(100, 100, 110, 0.4);
-			border: 1px solid rgba(60, 60, 70, 0.2);
-		}
-
-		.wins-req {
-			font-size: 10px;
-			font-family: Consolas;
-			color: rgba(200, 80, 80, 0.6);
-			letter-spacing: 1px;
-		}
-
-		.ability-card.locked .wins-req {
-			color: rgba(100, 100, 110, 0.35);
-		}
-
-		/* === COMING SOON === */
-		.coming-soon {
-			padding: 24px;
-			background-color: rgba(20, 8, 10, 0.4);
-			border: 1px solid rgba(200, 30, 30, 0.1);
-			border-radius: 4px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		}
-
-		.coming-soon-text {
-			font-size: 13px;
-			font-weight: 700;
-			font-family: Consolas;
-			color: rgba(140, 120, 120, 0.3);
-			letter-spacing: 4px;
-		}
-
-		/* === FOOTER === */
-		.prog-footer {
-			padding: 14px 32px;
-			background-color: rgba(12, 4, 6, 0.9);
-			border-top: 1px solid rgba(200, 30, 30, 0.1);
-			flex-direction: row;
-			justify-content: center;
-			align-items: center;
-			gap: 8px;
-		}
-
-		.footer-text {
-			font-size: 11px;
-			color: rgba(140, 120, 120, 0.35);
-			font-family: Consolas;
-		}
-
-		.footer-key {
-			font-size: 10px;
-			font-weight: 700;
-			color: rgba(200, 60, 60, 0.4);
-			background-color: rgba(200, 30, 30, 0.06);
-			border: 1px solid rgba(200, 30, 30, 0.15);
-			border-radius: 3px;
-			padding: 3px 10px;
-			font-family: Consolas;
-		}
-	</style>
-
-	<div class="prog-overlay @(IsOpen ? "" : "hidden")">
-		<div class="prog-container">
-
-			<!-- HEADER -->
-			<div class="prog-header">
-				<div class="prog-header-left">
-					<label class="prog-title">PURGE ABILITIES</label>
-					<label class="prog-subtitle">ANOMALY PROGRESSION</label>
-				</div>
-				<div class="prog-wins-badge">
-					<label class="prog-wins-number">@AnomalyWins</label>
-					<label class="prog-wins-label">ANOMALY WINS</label>
-				</div>
-			</div>
-
-			<!-- EQUIPPED -->
-			<div class="prog-equipped">
-				<label class="equipped-label">EQUIPPED</label>
+            <!-- EQUIPPED -->
+            <div class="prog-equipped">
+                <label class="equipped-label">EQUIPPED</label>
 				<img class="equipped-icon-img" src=@EquippedIcon />
-				<label class="equipped-name">@EquippedName</label>
-			</div>
+                <label class="equipped-name">@EquippedName</label>
+            </div>
 
-			<!-- ABILITY LIST -->
-			<div class="prog-grid">
-				@foreach ( var ability in Abilities )
-				{
-					var isUnlocked = AnomalyWins >= ability.WinsRequired;
-					var isEquipped = ability.Id == EquippedId;
-					var cardClass = isEquipped ? "equipped" : isUnlocked ? "unlocked" : "locked";
-					var durationText = $"DURATION: {ability.Duration:F0}s";
+            <!-- ABILITY LIST -->
+            <div class="prog-grid">
+                @foreach ( var ability in Abilities )
+                {
+                    var isEquipped = ability.Id == EquippedId;
+                    var cardClass = isEquipped ? "equipped" : "";
+                    var durationText = ability.Duration > 0 ? $"DURATION: {ability.Duration:F0}s" : "INSTANT";
+                    var cooldownText = $"COOLDOWN: {ability.Cooldown:F0}s";
 
-					<div class="ability-card @cardClass" onclick="@(() => TryEquip( ability.Id, isUnlocked ))">
-						<div class="ability-icon-wrap">
-							<img class="ability-icon-img" src=@ability.Icon />
-						</div>
-						<div class="ability-info">
-							<label class="ability-name">@ability.Name</label>
-							<label class="ability-desc">@ability.Description</label>
-							<label class="ability-duration">@durationText</label>
-						</div>
-						<div class="ability-status">
-							@if ( isEquipped )
-							{
-								<label class="status-badge badge-equipped">EQUIPPED</label>
-							}
-							else if ( isUnlocked )
-							{
-								<label class="status-badge badge-unlocked">EQUIP</label>
-							}
-							else
-							{
-								<label class="status-badge badge-locked">LOCKED</label>
-							}
-							<label class="wins-req">@ability.WinsRequired WINS</label>
-						</div>
-					</div>
-				}
+                    <div class="ability-card @cardClass" onclick="@(() => TryEquip( ability.Id ))">
+                        <div class="ability-icon-wrap">
+                            <img class="ability-icon-img" src=@ability.Icon />
+                        </div>
+                        <div class="ability-info">
+                            <label class="ability-name">@ability.Name</label>
+                            <label class="ability-desc">@ability.Description</label>
+                            <div class="ability-stats">
+                                <label class="ability-stat stat-duration">@durationText</label>
+                                <label class="ability-stat stat-cooldown">@cooldownText</label>
+                            </div>
+                        </div>
+                        <div class="ability-status">
+                            @if ( isEquipped )
+                            {
+                                <label class="status-badge badge-equipped">EQUIPPED</label>
+                            }
+                            else
+                            {
+                                <label class="status-badge badge-equip">EQUIP</label>
+                            }
+                        </div>
+                    </div>
+                }
 
-				<!-- COMING SOON -->
-				<div class="coming-soon">
-					<label class="coming-soon-text">MORE ABILITIES COMING SOON...</label>
-				</div>
-			</div>
+                <!-- COMING SOON -->
+                <div class="coming-soon">
+                    <label class="coming-soon-text">MORE ABILITIES COMING SOON...</label>
+                </div>
+            </div>
 
-			<!-- FOOTER -->
-			<div class="prog-footer">
-				<label class="footer-text">Press</label>
-				<label class="footer-key">E</label>
-				<label class="footer-text">to close</label>
-			</div>
+            <!-- FOOTER -->
+            <div class="prog-footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">E</label>
+                <label class="footer-text">to close</label>
+            </div>
 
-		</div>
-	</div>
+        </div>
+    </div>
 </root>
 
 @code {
-	public bool IsOpen { get; set; } = false;
-	public int AnomalyWins { get; set; } = 0;
-	public string EquippedId { get; set; } = "blind";
-	public string EquippedName { get; set; } = "BLACKOUT";
-	public string EquippedIcon { get; set; } = "";
-	public List<PurgeAbilityData> Abilities { get; set; } = new();
+    public bool IsOpen { get; set; } = false;
+    public string EquippedId { get; set; } = "blind";
+    public string EquippedName { get; set; } = "BLACKOUT";
+    public string EquippedIcon { get; set; } = "";
+    public List<PurgeAbilityData> Abilities { get; set; } = new();
 
-	protected override void OnStart()
-	{
-		PurgeProgressionBridge.Close();
-	}
+    protected override void OnStart()
+    {
+        PurgeProgressionBridge.Close();
+    }
 
-	protected override void OnUpdate()
-	{
-		IsOpen = PurgeProgressionBridge.IsOpen;
+    protected override void OnUpdate()
+    {
+        IsOpen = PurgeProgressionBridge.IsOpen;
+        if ( !IsOpen ) return;
 
-		if ( !IsOpen ) return;
+        EquippedId = PurgeProgressionBridge.EquippedAbilityId;
 
-		AnomalyWins = PurgeProgressionBridge.AnomalyWins;
-		EquippedId = PurgeProgressionBridge.EquippedAbilityId;
+        var equipped = PurgeAbilityRegistry.GetById( EquippedId );
+        if ( equipped != null )
+        {
+            EquippedName = equipped.Name;
+            EquippedIcon = equipped.Icon;
+        }
 
-		var equipped = PurgeAbilityRegistry.GetById( EquippedId );
-		if ( equipped != null )
-		{
-			EquippedName = equipped.Name;
-			EquippedIcon = equipped.Icon;
-		}
+        Abilities = PurgeAbilityRegistry.GetAll();
+    }
 
-		Abilities = PurgeAbilityRegistry.GetAll();
-	}
+    private void TryEquip( string abilityId )
+    {
+        if ( abilityId == EquippedId ) return;
 
-	private void TryEquip( string abilityId, bool isUnlocked )
-	{
-		if ( !isUnlocked ) return;
-		if ( abilityId == EquippedId ) return;
+        PurgeProgressionBridge.SetEquipped( abilityId );
+        PurgeProgressionBridge.PlayEquipSound = true;
+        EquippedId = abilityId;
 
-		PurgeProgressionBridge.SetEquipped( abilityId );
-		PurgeProgressionBridge.PlayEquipSound = true;
-		EquippedId = abilityId;
+        Log.Info( $"[Progression] Equipped ability: {abilityId}" );
+    }
 
-		Log.Info( $"[Progression] Equipped ability: {abilityId}" );
-	}
-
-	protected override int BuildHash()
-	{
-		return System.HashCode.Combine( IsOpen, AnomalyWins, EquippedId );
-	}
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsOpen, EquippedId );
+    }
 }

@@ -3,46 +3,64 @@
 @inherits PanelComponent
 
 <root>
-	<div class="nametag">
-		<span class="name">@DisplayName</span>
-	</div>
+    <div class="nametag-wrap">
+        <div class="nametag">
+            <span class="name">@DisplayName</span>
+        </div>
+
+        <div class="indicator-box voice-indicator @(IsSpeaking ? "" : "hidden")">
+            <label class="voice-icon">♪</label>
+        </div>
+
+        <div class="indicator-box chat-indicator @(IsTypingChat ? "" : "hidden")">
+            <div class="chat-dots">
+                <div class="chat-dot dot-1"></div>
+                <div class="chat-dot dot-2"></div>
+                <div class="chat-dot dot-3"></div>
+            </div>
+        </div>
+    </div>
 </root>
 
 @code {
-	public string DisplayName { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public bool IsSpeaking { get; set; } = false;
+    public bool IsTypingChat { get; set; } = false;
 
-	protected override void OnStart()
-	{
-		DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
-	}
+    protected override void OnStart()
+    {
+        DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+    }
 
-	protected override void OnUpdate()
-	{
-		DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+    protected override void OnUpdate()
+    {
+        DisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
 
-		var cam = Scene.Camera;
-		if ( cam is null ) return;
+        // Check states via bridge
+        IsSpeaking = NametagBridge.IsSpeaking( GameObject.Root );
+        IsTypingChat = NametagBridge.IsTyping( GameObject.Root );
 
-		// Check crouch state from the built-in PlayerController (synced to all clients)
-		float nametagHeight = 85f;
-		var sboxController = GameObject.Root.Components.Get<Sandbox.PlayerController>();
-		if ( sboxController != null && sboxController.IsDucking )
-		{
-			nametagHeight = 55f;
-		}
+        // Crouch support
+        float nametagHeight = 85f;
+        if ( NametagBridge.IsCrouching( GameObject.Root ) )
+        {
+            nametagHeight = 55f;
+        }
+        WorldPosition = GameObject.Root.WorldPosition + Vector3.Up * nametagHeight;
 
-		WorldPosition = GameObject.Root.WorldPosition + Vector3.Up * nametagHeight;
+        // Billboard
+        var cam = Scene.Camera;
+        if ( cam is null ) return;
 
-		// Billboard: always face the camera
-		var dirToCamera = cam.WorldPosition - WorldPosition;
-		if ( dirToCamera.LengthSquared > 0.01f )
-		{
-			WorldRotation = Rotation.LookAt( dirToCamera );
-		}
-	}
+        var dirToCamera = cam.WorldPosition - WorldPosition;
+        if ( dirToCamera.LengthSquared > 0.01f )
+        {
+            WorldRotation = Rotation.LookAt( dirToCamera );
+        }
+    }
 
-	protected override int BuildHash()
-	{
-		return System.HashCode.Combine( DisplayName );
-	}
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( DisplayName, IsSpeaking, IsTypingChat );
+    }
 }

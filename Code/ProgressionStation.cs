@@ -67,21 +67,11 @@ public class ProgressionStation : Component, Component.ITriggerListener
                 handle.Volume = 0.5f;
             }
         }
-        
-        // Get player's anomaly wins from the leaderboard cache
-        int anomalyWins = 0;
-        var bridgeData = PlayerBoardBridge.GetPlayerData();
-        var localData = bridgeData.FirstOrDefault( p => p.IsLocal );
-        if ( localData != null )
-        {
-            anomalyWins = localData.AnomalyWins;
-        }
 
         // Get currently equipped ability (stored locally)
         string equippedId = PurgeProgressionBridge.EquippedAbilityId;
 
-        PurgeProgressionBridge.Open( anomalyWins, equippedId );
-        Log.Info( $"[ProgressionStation] Opened with {anomalyWins} anomaly wins, equipped: {equippedId}" );
+        PurgeProgressionBridge.Open();
     }
 
     void ITriggerListener.OnTriggerEnter( Collider other )

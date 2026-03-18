@@ -1,34 +1,124 @@
 PlayerNametag {
-	position: absolute;
-	left: 0;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	justify-content: center;
-	align-items: center;
-	pointer-events: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.nametag-wrap {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
 }
 
 .nametag {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	padding: 8px 16px;
-	border-radius: 6px;
-	border: 2px solid rgba(0, 180, 220, 0.7);
-	background-color: rgba(10, 14, 39, 0.92);
-	box-shadow: 0 0 20px rgba(0, 160, 220, 0.4);
-	position: relative;
-	overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 2px solid rgba(0, 180, 220, 0.7);
+    background-color: rgba(10, 14, 39, 0.92);
+    box-shadow: 0 0 20px rgba(0, 160, 220, 0.4);
+    position: relative;
+    overflow: hidden;
 }
 
 .name {
-	font-size: 30px;
-	font-weight: 700;
-	color: rgb(200, 220, 240);
-	text-shadow: 0 0 8px rgba(0, 200, 240, 0.3);
-	letter-spacing: 1px;
-	font-family: Consolas, monospace;
-	white-space: nowrap;
-	z-index: 1;
+    font-size: 30px;
+    font-weight: 700;
+    color: rgb(200, 220, 240);
+    text-shadow: 0 0 8px rgba(0, 200, 240, 0.3);
+    letter-spacing: 1px;
+    font-family: Consolas, monospace;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+.indicator-box {
+    padding: 6px 10px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.indicator-box.hidden {
+    display: none;
+}
+
+.voice-indicator {
+    background-color: rgba(10, 40, 20, 0.92);
+    border: 2px solid rgba(60, 220, 100, 0.7);
+    animation: indicator-glow-green 1.2s ease-in-out infinite;
+}
+
+.voice-icon {
+    font-size: 20px;
+    color: rgb(60, 220, 100);
+}
+
+.chat-indicator {
+    background-color: rgba(40, 30, 10, 0.92);
+    border: 2px solid rgba(255, 200, 60, 0.7);
+    animation: indicator-glow-yellow 1.2s ease-in-out infinite;
+}
+
+.chat-dots {
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+}
+
+.chat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgb(255, 200, 60);
+}
+
+.chat-dot.dot-1 {
+    animation: dot-bounce 1s ease-in-out infinite;
+}
+
+.chat-dot.dot-2 {
+    animation: dot-bounce 1s ease-in-out 0.2s infinite;
+}
+
+.chat-dot.dot-3 {
+    animation: dot-bounce 1s ease-in-out 0.4s infinite;
+}
+
+@keyframes indicator-glow-green {
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(60, 220, 100, 0.3);
+        border-color: rgba(60, 220, 100, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(60, 220, 100, 0.7);
+        border-color: rgba(60, 220, 100, 0.9);
+    }
+}
+
+@keyframes indicator-glow-yellow {
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(255, 200, 60, 0.3);
+        border-color: rgba(255, 200, 60, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 200, 60, 0.7);
+        border-color: rgba(255, 200, 60, 0.9);
+    }
+}
+
+@keyframes dot-bounce {
+    0%, 100% { transform: translateY(0px); opacity: 0.5; }
+    50% { transform: translateY(-6px); opacity: 1; }
 }

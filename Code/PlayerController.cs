@@ -15,6 +15,7 @@ public partial class PlayerController : Component
 	[Property, Sync] public string PlayerName { get; set; } = "Player";
 	[Property, Sync] public bool IsInGame { get; set; } = false;
 	[Property, Sync] public bool IsSpectating { get; set; } = false;
+	[Property, Sync] public bool IsTyping { get; set; } = false;
 	[Property] public GameObject RagdollPrefab { get; set; }
 	[Property] public float XRayDuration { get; set; } = 20f;
 	[Property] public float VanishCooldown { get; set; } = 90f;

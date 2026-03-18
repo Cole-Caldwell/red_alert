@@ -202,6 +202,7 @@
         "IsAlive": true,
         "IsInGame": false,
         "IsSpectating": false,
+        "IsTyping": false,
         "JumpStrength": 300,
         "KillCooldown": 25,
         "KillRange": 150,

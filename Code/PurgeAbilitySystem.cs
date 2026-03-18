@@ -14,6 +14,7 @@ public class PurgeAbilityData
     public int WinsRequired { get; set; } = 0;
     public bool IsDefault { get; set; } = false;
     public float Duration { get; set; } = 10f;
+    public float Cooldown { get; set; } = 120f;
 }
 
 /// <summary>
@@ -32,7 +33,8 @@ public static class PurgeAbilityRegistry
             Icon = "ui/red-alert-blind_2.png",
             WinsRequired = 0,
             IsDefault = true,
-            Duration = 10f
+            Duration = 10f,
+            Cooldown = 120f
         },
         new PurgeAbilityData
         {
@@ -41,7 +43,8 @@ public static class PurgeAbilityRegistry
             Description = "Reset your kill cooldown instantly. Use after a kill to strike again immediately.",
             Icon = "ui/red-alert-doublekill.png",
             WinsRequired = 5,
-            Duration = 0f
+            Duration = 0f,
+            Cooldown = 120f
         },
         new PurgeAbilityData
         {
@@ -50,7 +53,8 @@ public static class PurgeAbilityRegistry
             Description = "See all living citizens through walls for a short duration. Coordinate your killings with ease.",
             Icon = "ui/red-alert-xray.png",
             WinsRequired = 10,
-            Duration = 20f
+            Duration = 20f,
+            Cooldown = 120f
         },
         new PurgeAbilityData
         {
@@ -59,7 +63,8 @@ public static class PurgeAbilityRegistry
             Description = "Instantly teleport to a random location on the station. Reposition or escape after a kill.",
             Icon = "ui/red-alert-vanish.png",
             WinsRequired = 15,
-            Duration = 0f
+            Duration = 0f,
+            Cooldown = 90f
         },
         new PurgeAbilityData
         {
@@ -68,7 +73,8 @@ public static class PurgeAbilityRegistry
             Description = "Transform into a random alive citizen for a short duration. Copy their exact appearance and nametag.",
             Icon = "ui/red-alert-clone.png",
             WinsRequired = 20,
-            Duration = 20f
+            Duration = 20f,
+            Cooldown = 120f
         }
     };
 
@@ -96,14 +102,11 @@ public static class PurgeAbilityRegistry
 public static class PurgeProgressionBridge
 {
     public static bool IsOpen { get; set; } = false;
-    public static int AnomalyWins { get; set; } = 0;
     public static string EquippedAbilityId { get; set; } = "blind";
     public static bool PlayEquipSound { get; set; } = false;
 
-    public static void Open( int wins, string equippedId )
+    public static void Open()
     {
-        AnomalyWins = wins;
-        EquippedAbilityId = equippedId;
         IsOpen = true;
     }
 
