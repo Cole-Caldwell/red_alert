@@ -225,34 +225,41 @@ public partial class GameManager : Component
 	{
 		if ( !votingUIActive ) return;
 
-		// Update timer
+		// Update timer (always, even if host is dead and has no UI)
 		votingTimer += Time.Delta;
-		
+
+		// Update UI if it exists (alive players only)
 		if ( votingUI != null )
 		{
-			// Discussion phase
 			if ( votingTimer < DiscussionTime )
 			{
 				votingUI.SetTimer( DiscussionTime - votingTimer );
 				votingUI.IsDiscussionPhase = true;
 			}
-			// Voting phase
 			else if ( votingTimer < DiscussionTime + VotingTime )
 			{
-				// Enable voting at start of voting phase
 				if ( votingUI.CanVote == false && votingUI.IsDiscussionPhase )
 				{
 					votingUI.EnableVoting();
 					Log.Info( "Voting phase started!" );
 				}
-				
 				votingUI.SetTimer( (DiscussionTime + VotingTime) - votingTimer );
-				
-				// Update vote counts
 				UpdateVoteDisplay();
 			}
-			// Time's up - tally votes
-			else
+		}
+
+		// Time's up — handle on all clients
+		if ( votingTimer >= DiscussionTime + VotingTime )
+		{
+			votingUIActive = false;
+			if ( votingUI != null )
+			{
+				votingUI.GameObject.Destroy();
+				votingUI = null;
+			}
+
+			// Only host tallies
+			if ( Networking.IsHost )
 			{
 				TallyVotes();
 			}
@@ -885,26 +892,19 @@ public partial class GameManager : Component
 		votingUI.UpdateVoteCounts( voteCounts );
 	}
 
-	[Rpc.Broadcast]
 	private void TallyVotes()
 	{
-		votingUIActive = false;
+		// HOST ONLY - decides the outcome and broadcasts results
 
-		// Count how many in-game alive players there are (for defaulting non-voters to skip)
 		var inGameAlivePlayers = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p.IsInGame && p.IsAlive )
 			.ToList();
 
 		int totalVoters = inGameAlivePlayers.Count;
-
-		// Count explicit skip votes
 		int skipVotes = playerVotes.Values.Count( v => v == "SKIP" );
-
-		// Non-voters default to skip
 		int nonVoters = totalVoters - playerVotes.Count;
 		skipVotes += nonVoters;
 
-		// Count player votes (excluding skips)
 		var voteCounts = playerVotes.Values
 			.Where( v => v != "SKIP" )
 			.GroupBy( v => v )
@@ -912,7 +912,6 @@ public partial class GameManager : Component
 			.OrderByDescending( x => x.Count )
 			.ToList();
 
-		// Determine result
 		string resultType = "no-eject";
 		string ejectedName = "";
 		ulong ejectedSteamId = 0;
@@ -921,11 +920,8 @@ public partial class GameManager : Component
 		if ( voteCounts.Any() && voteCounts[0].Count > 0 )
 		{
 			int topVoteCount = voteCounts[0].Count;
-
-			// Check for tie between top voted players
 			bool isTied = voteCounts.Count > 1 && voteCounts[1].Count == topVoteCount;
 
-			// Top voted player must have strictly more votes than skip votes AND no tie
 			if ( !isTied && topVoteCount > skipVotes )
 			{
 				string ejected = voteCounts[0].Name;
@@ -942,13 +938,9 @@ public partial class GameManager : Component
 					ejectedSteamId = ejectedPlayer.GameObject.Network.Owner?.SteamId ?? 0;
 
 					if ( ejectedPlayer.Role == PlayerController.PlayerRole.Anomaly )
-					{
 						resultType = "was-anomaly";
-					}
 					else
-					{
 						resultType = "not-anomaly";
-					}
 
 					Log.Info( $"{ejected} was a {ejectedPlayer.Role}!" );
 				}
@@ -961,37 +953,24 @@ public partial class GameManager : Component
 					Log.Info( $"Vote tied at {topVoteCount} votes each - no one ejected" );
 				else
 					Log.Info( $"Top vote ({topVoteCount}) did not exceed skips ({skipVotes}) - no one ejected" );
-
-				resultType = "no-eject";
 			}
 		}
 		else
 		{
 			Log.Info( "No one was ejected. (All skipped or no votes cast)" );
-			resultType = "no-eject";
-		}
-
-		// Destroy voting UI
-		if ( votingUI != null )
-		{
-			votingUI.GameObject.Destroy();
-			votingUI = null;
 		}
 
 		// Handle based on result type
 		if ( resultType == "not-anomaly" && ejectedPlayer != null )
 		{
-			// Citizen voted out - kill them first, then show result after delay
 			HandleCitizenEjection( ejectedPlayer, ejectedName, ejectedSteamId );
 		}
-		else if ( resultType == "was-anomaly" )
+		else if ( resultType == "was-anomaly" && ejectedPlayer != null )
 		{
-			// Anomaly voted out - show result immediately, then end game
 			HandleAnomalyEjection( ejectedPlayer, ejectedName, ejectedSteamId );
 		}
 		else
 		{
-			// No one ejected - show result, then resume
 			HandleNoEjection();
 		}
 	}
@@ -1013,14 +992,8 @@ public partial class GameManager : Component
 		// Clean up the vote-kill ragdoll
 		CleanupDeadBodies();
 
-		// Disable chat when resuming game
-		if ( ChatSystem.Instance != null )
-			ChatSystem.Instance.ChatEnabled = false;
-
-		// Teleport all in-game players back to game spawns
-		TeleportAlivePlayersToGame();
-		CurrentState = GameState.InGame;
-		ApplyStartCooldowns();
+		ResumeGameAfterMeetingRpc();
+    	ApplyStartCooldowns();
 	}
 
 	private async void HandleAnomalyEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
@@ -1049,8 +1022,7 @@ public partial class GameManager : Component
 		// If somehow no winner, resume game
 		if ( CurrentState != GameState.GameOver )
 		{
-			TeleportAlivePlayersToGame();
-			CurrentState = GameState.InGame;
+			ResumeGameAfterMeetingRpc();
 		}
 	}
 
@@ -1062,13 +1034,8 @@ public partial class GameManager : Component
 		// Wait for splash to finish
 		await GameTask.DelaySeconds( 2.5f );
 
-		if ( ChatSystem.Instance != null )
-    		ChatSystem.Instance.ChatEnabled = false;
-
-		// Teleport all in-game players back to game spawns
-		TeleportAlivePlayersToGame();
-		CurrentState = GameState.InGame;
-		ApplyStartCooldowns();
+		ResumeGameAfterMeetingRpc();
+    	ApplyStartCooldowns();
 	}
 
 	[Rpc.Broadcast]
@@ -1192,6 +1159,20 @@ public partial class GameManager : Component
 		splash.EjectedSteamId = ejectedSteamId;
 
 		Log.Info( $"[MeetingResult] Showing: {resultType}, Ejected: {ejectedName}" );
+	}
+
+	[Rpc.Broadcast]
+	private void ResumeGameAfterMeetingRpc()
+	{
+		// Teleport on all clients
+		TeleportAlivePlayersToGame();
+		
+		// Set state on all clients
+		CurrentState = GameState.InGame;
+		
+		// Disable chat on all clients
+		if ( ChatSystem.Instance != null )
+			ChatSystem.Instance.ChatEnabled = false;
 	}
 
 	[Rpc.Broadcast]
@@ -1397,7 +1378,6 @@ public partial class GameManager : Component
 		}
 	}
 
-	[Rpc.Broadcast]
 	private void ReturnToLobby()
 	{
 		Log.Info( "Returning to lobby..." );

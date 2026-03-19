@@ -304,71 +304,6 @@
             font-family: Consolas;
         }
 
-        /* === COMING SOON TAB === */
-        .coming-soon-text {
-            font-size: 17px;
-            line-height: 30px;
-            color: rgba(190, 200, 215, 0.85);
-            font-family: Consolas;
-        }
-
-        .map-list {
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 8px;
-            margin-left: 8px;
-        }
-
-        .map-item {
-            flex-direction: row;
-            align-items: center;
-            gap: 14px;
-            padding: 14px 22px;
-            background-color: rgba(0, 12, 32, 0.3);
-            border: 1px solid rgba(0, 180, 220, 0.08);
-            border-left: 3px solid rgba(0, 180, 220, 0.25);
-            border-radius: 4px;
-        }
-
-        .map-item-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: rgba(210, 225, 240, 0.95);
-            font-family: Consolas;
-        }
-
-        .map-item-status {
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            padding: 4px 10px;
-            border-radius: 2px;
-            margin-left: auto;
-            color: rgba(0, 180, 220, 0.6);
-            background-color: rgba(0, 120, 180, 0.1);
-            border: 1px solid rgba(0, 180, 220, 0.2);
-            font-family: Consolas;
-        }
-
-        .stay-tuned-bar {
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            padding: 18px;
-            margin-top: 12px;
-            background-color: rgba(0, 40, 80, 0.1);
-            border: 1px solid rgba(0, 180, 220, 0.1);
-            border-radius: 3px;
-        }
-
-        .stay-tuned-text {
-            font-size: 15px;
-            color: rgba(0, 200, 240, 0.6);
-            font-weight: 600;
-            letter-spacing: 3px;
-            font-family: Consolas;
-        }
-
         /* === CREDITS TAB === */
         .credit-card {
             background-color: rgba(0, 12, 32, 0.3);
@@ -491,10 +426,6 @@
                 <button class="tab-btn @(ActiveTab == "howto" ? "active" : "")"
                         onclick=@(() => SetTab("howto"))>
                     HOW TO PLAY
-                </button>
-                <button class="tab-btn @(ActiveTab == "comingsoon" ? "active" : "")"
-                        onclick=@(() => SetTab("comingsoon"))>
-                    COMING SOON
                 </button>
                 <button class="tab-btn @(ActiveTab == "credits" ? "active" : "")"
                         onclick=@(() => SetTab("credits"))>
@@ -619,43 +550,6 @@
                     </div>
                 </div>
 
-                <!-- COMING SOON -->
-                <div class="tab-page @(ActiveTab == "comingsoon" ? "" : "hidden")">
-                    <div class="section-header">
-                        <label class="heading">COMING SOON</label>
-                        <div class="heading-line"></div>
-                    </div>
-
-                    <label class="coming-soon-text">
-                        Red Alert is actively being developed. Here is a look at what is planned for future updates.
-                    </label>
-
-                    <div class="lore-block">
-                        <label class="lore-label label-cyan">NEW MAPS + MAP VOTING</label>
-                        <label class="lore-text">
-                            Additional station maps are in development, each with unique layouts, hazards, and strategic opportunities. A map voting system will allow players to choose which map to play before each round.
-                        </label>
-                    </div>
-
-                    <div class="lore-block">
-                        <label class="lore-label label-red">ANOMALY ABILITY PROGRESSION</label>
-                        <label class="lore-text">
-                            Anomalies will be able to rack up wins and unlock new abilities to equip. Progress through tiers of increasingly powerful tools of deception and elimination. Build your loadout and adapt your strategy.
-                        </label>
-                    </div>
-
-                    <div class="lore-block">
-                        <label class="lore-label label-green">EXPANDED CITIZEN TASKS</label>
-                        <label class="lore-text">
-                            More tasks and more unique task types are being developed for Citizens. Expect a wider variety of interactive challenges spread across the station to keep gameplay fresh every round.
-                        </label>
-                    </div>
-
-                    <div class="stay-tuned-bar">
-                        <label class="stay-tuned-text">MORE UPDATES COMING SOON</label>
-                    </div>
-                </div>
-
                 <!-- CREDITS -->
                 <div class="tab-page @(ActiveTab == "credits" ? "" : "hidden")">
                     <div class="section-header">
@@ -716,9 +610,7 @@
                     </div>
 
                     <div class="thanks-bar">
-                        <label class="thanks-heart">❤️</label>
                         <label class="thanks-text">Thank you for playing!</label>
-                        <label class="thanks-heart">❤️</label>
                     </div>
                 </div>
 

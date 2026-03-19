@@ -68,6 +68,16 @@ public static class PurgeAbilityRegistry
         },
         new PurgeAbilityData
         {
+            Id = "dissolve",
+            Name = "DISSOLVE",
+            Description = "Destroy the body of your most recent kill. The evidence vanishes — no body, no report, no trace.",
+            Icon = "",
+            WinsRequired = 0,
+            Duration = 0f,
+            Cooldown = 120f
+        },
+        new PurgeAbilityData
+        {
             Id = "mimic",
             Name = "MIMIC",
             Description = "Transform into a random alive citizen for a short duration. Copy their exact appearance and nametag.",

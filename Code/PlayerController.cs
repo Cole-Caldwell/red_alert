@@ -35,6 +35,8 @@ public partial class PlayerController : Component
 	[Property] public SoundEvent KillSound { get; set; }
 	[Property] public float MimicDuration { get; set; } = 15f;
 	
+	public string LastKillVictimName { get; set; } = "";
+
 	private bool mimicActive = false;
 	private float mimicEndTime = 0f;
 	private string originalName = "";
@@ -822,6 +824,12 @@ public partial class PlayerController : Component
 				var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
 				gameManager?.RegisterDeadBody( ragdoll );
 			}
+
+			// Track this kill for the dissolve ability (local anomaly only)
+			if ( !IsProxy && Role == PlayerRole.Anomaly )
+			{
+				LastKillVictimName = target.GameObject.Root.Name.Replace( "Player - ", "" );
+			}
 		}
 
 		// NOW ghost the player (after ragdoll has copied their bones)
@@ -1160,6 +1168,17 @@ public partial class PlayerController : Component
 			}
 		}
 
+		if ( abilityId == "dissolve" )
+		{
+			var localPlayer = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy );
+			
+			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			{
+				localPlayer.ActivateDissolve();
+			}
+		}
+
 		// Mimic: anomaly copies a random citizen's appearance
 		if ( abilityId == "mimic" )
 		{
@@ -1291,6 +1310,57 @@ public partial class PlayerController : Component
 		VanishTeleportRpc( targetSpawn.WorldPosition );
 		
 		Log.Info( $"[Vanish] Teleported to vanish spawn at {targetSpawn.WorldPosition}" );
+	}
+
+	public void ActivateDissolve()
+	{
+		if ( string.IsNullOrEmpty( LastKillVictimName ) )
+		{
+			Log.Warning( "[Dissolve] No recent kill to dissolve!" );
+			return;
+		}
+
+		DissolveBodyByNameRpc( LastKillVictimName );
+		LastKillVictimName = "";
+		
+		Log.Info( $"[Dissolve] Dissolving body of {LastKillVictimName}!" );
+	}
+
+	[Rpc.Broadcast]
+	private void DissolveBodyByNameRpc( string victimName )
+	{
+		// Find all ragdolls with a DeadBody component matching the victim name
+		var allObjects = Scene.GetAllObjects( true );
+		
+		foreach ( var obj in allObjects )
+		{
+			if ( !obj.IsValid() ) continue;
+			
+			var deadBody = obj.Components.Get<DeadBody>();
+			if ( deadBody != null && deadBody.VictimName == victimName )
+			{
+				obj.Destroy();
+				Log.Info( $"[Dissolve] Destroyed body of {victimName} on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
+				return;
+			}
+		}
+		
+		// Also check ragdoll-tagged objects without DeadBody (fallback)
+		var ragdolls = allObjects.Where( obj => obj.Tags.Has( "ragdoll" ) ).ToList();
+		foreach ( var ragdoll in ragdolls )
+		{
+			if ( !ragdoll.IsValid() ) continue;
+			
+			var deadBody = ragdoll.Components.Get<DeadBody>();
+			if ( deadBody != null && deadBody.VictimName == victimName )
+			{
+				ragdoll.Destroy();
+				Log.Info( $"[Dissolve] Destroyed tagged body of {victimName} on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
+				return;
+			}
+		}
+		
+		Log.Warning( $"[Dissolve] Could not find body of {victimName}" );
 	}
 
 	[Rpc.Broadcast]

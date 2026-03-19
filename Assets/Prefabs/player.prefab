@@ -188,6 +188,7 @@
         "OnComponentFixedUpdate": null,
         "OnComponentStart": null,
         "OnComponentUpdate": null,
+        "RemoveUnownedItems": true,
         "Source": "OwnerConnection",
         "WorkshopItems": []
       },
