@@ -188,7 +188,7 @@
         "OnComponentFixedUpdate": null,
         "OnComponentStart": null,
         "OnComponentUpdate": null,
-        "RemoveUnownedItems": true,
+        "RemoveUnownedItems": false,
         "Source": "OwnerConnection",
         "WorkshopItems": []
       },
@@ -338,7 +338,7 @@
       },
       {
         "__type": "PlayerClothing",
-        "__guid": "429339de-4fea-49fd-ae6d-fa14b8632401",
+        "__guid": "93d46a21-22dc-4313-a1c7-d38028451495",
         "__enabled": true,
         "Flags": 0,
         "BodyRenderer": {

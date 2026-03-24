@@ -27,6 +27,7 @@ public partial class GameManager : Component
 	[Property] public float VotingTime { get; set; } = 20f;
 	[Property] public Vector3 LobbySpawnArea { get; set; } = Vector3.Zero;
 	[Property] public Vector3 GameSpawnArea { get; set; } = Vector3.Zero;
+	
 	[Property] public SoundEvent CitizenRoleSound { get; set; }
 	[Property] public SoundEvent AnomalyRoleSound { get; set; }
 	[Property] public SoundEvent EmergencyMeetingSound { get; set; }
@@ -34,6 +35,7 @@ public partial class GameManager : Component
 	[Property] public SoundEvent MeetingResultSound { get; set; }
 	[Property] public SoundEvent CitizensWinSound { get; set; }
 	[Property] public SoundEvent AnomalyWinSound { get; set; }
+	[Property] public SoundEvent CreditsSummarySound { get; set; }
 	
 	private float votingTimer = 0f;
 	private Dictionary<string, string> playerVotes = new Dictionary<string, string>();
@@ -448,6 +450,16 @@ public partial class GameManager : Component
 		Log.Info( $"Game Starting! (IsHost: {Networking.IsHost})" );
 		CurrentState = GameState.InGame;
 		gameStartTime = Time.Now;
+
+		// Reset round tracking for all players
+		var allPlayers = Scene.GetAllComponents<PlayerController>().ToList();
+		foreach ( var p in allPlayers )
+		{
+			p.RoundKills = 0;
+			p.RoundTasksCompleted = 0;
+			p.RoundCorrectVotes = 0;
+			p.RoundWon = false;
+		}
 		
 		// Only the host should assign roles
 		if ( Networking.IsHost )
@@ -960,6 +972,29 @@ public partial class GameManager : Component
 			Log.Info( "No one was ejected. (All skipped or no votes cast)" );
 		}
 
+		// Track correct votes — check who voted for ANY anomaly this meeting
+		var anomalyNames = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p.IsInGame && p.Role == PlayerController.PlayerRole.Anomaly )
+			.Select( p => GetPlayerDisplayName( p ) )
+			.ToHashSet();
+
+		foreach ( var kvp in playerVotes )
+		{
+			if ( kvp.Value == "SKIP" ) continue;
+			
+			// If this player voted for an anomaly, give them a correct vote
+			if ( anomalyNames.Contains( kvp.Value ) )
+			{
+				var voter = inGameAlivePlayers
+					.FirstOrDefault( p => GetPlayerDisplayName( p ) == kvp.Key );
+				if ( voter != null )
+				{
+					voter.RoundCorrectVotes++;
+					Log.Info( $"[Credits] {kvp.Key} voted correctly for anomaly {kvp.Value}!" );
+				}
+			}
+		}
+
 		// Handle based on result type
 		if ( resultType == "not-anomaly" && ejectedPlayer != null )
 		{
@@ -1314,6 +1349,19 @@ public partial class GameManager : Component
 			votingUI = null;
 		}
 
+		// Mark winners
+		foreach ( var player in players )
+		{
+			if ( !player.IsInGame ) continue;
+
+			player.RoundRole = player.Role;
+			
+			if ( winner == "CITIZENS" && player.Role == PlayerController.PlayerRole.Citizen )
+				player.RoundWon = true;
+			else if ( winner == "ANOMALY" && player.Role == PlayerController.PlayerRole.Anomaly )
+				player.RoundWon = true;
+		}
+
 		// Wait then return to lobby and show win screen
 		EndGameAfterDelay( winner );
 	}
@@ -1327,10 +1375,62 @@ public partial class GameManager : Component
 
 		PlayerBoardBridge.InvalidateCache();
 
+		// Host sends credit data to each player
+		if ( Networking.IsHost )
+		{
+			var players = Scene.GetAllComponents<PlayerController>()
+				.Where( p => p.GameObject.Network.Owner != null && p.IsInGame )
+				.ToList();
+
+			foreach ( var player in players )
+			{
+				int killCredits = player.RoundKills * 15;
+				int taskCredits = player.RoundTasksCompleted * 10;
+				int voteCredits = player.RoundCorrectVotes * 20;
+				int winCredits = 0;
+
+				if ( player.RoundWon )
+				{
+					if ( player.RoundRole == PlayerController.PlayerRole.Citizen )
+						winCredits = 30;
+					else if ( player.RoundRole == PlayerController.PlayerRole.Anomaly )
+						winCredits = 100;
+				}
+
+				int totalCredits = killCredits + taskCredits + voteCredits + winCredits;
+
+				player.ReceiveRoundCreditsRpc(
+					player.RoundKills, killCredits,
+					player.RoundTasksCompleted, taskCredits,
+					player.RoundCorrectVotes, voteCredits,
+					player.RoundWon, winCredits,
+					totalCredits
+				);
+			}
+		}
+
 		// Wait for players to see the result
 		await GameTask.DelaySeconds( 2f );
 
 		ReturnToLobby();
+
+		// Show credits after players are back in lobby
+    	await GameTask.DelaySeconds( 1f );
+
+		// Show credits UI on all clients
+    	ShowPendingCreditsForAllRpc();
+	}
+
+	[Rpc.Broadcast]
+	private void ShowPendingCreditsForAllRpc()
+	{
+		var localPlayer = Scene.GetAllComponents<PlayerController>()
+			.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
+
+		if ( localPlayer != null )
+		{
+			localPlayer.ShowPendingCreditsUI();
+		}
 	}
 
 	private void ShowGameOverUI( string winner )

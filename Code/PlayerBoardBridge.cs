@@ -10,6 +10,7 @@ public static class PlayerBoardBridge
         public string Name { get; set; } = "";
         public int CitizenWins { get; set; } = 0;
         public int AnomalyWins { get; set; } = 0;
+        public int Credits { get; set; } = 0;
         public int TotalWins => CitizenWins + AnomalyWins;
         public bool IsLocal { get; set; } = false;
         public Connection Connection { get; set; }
@@ -66,6 +67,10 @@ public static class PlayerBoardBridge
             anomalyBoard.MaxEntries = 50;
             await anomalyBoard.Refresh();
 
+            var creditsBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "credits" );
+            creditsBoard.MaxEntries = 50;
+            await creditsBoard.Refresh();
+
             foreach ( var player in players )
             {
                 int citizenWins = 0;
@@ -85,6 +90,15 @@ public static class PlayerBoardBridge
                     if ( entry.SteamId == (long)player.SteamId )
                     {
                         anomalyWins = (int)entry.Value;
+                        break;
+                    }
+                }
+
+                foreach ( var entry in creditsBoard.Entries )
+                {
+                    if ( entry.SteamId == (long)player.SteamId )
+                    {
+                        player.Credits = (int)entry.Value;
                         break;
                     }
                 }

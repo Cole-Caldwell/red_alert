@@ -1,0 +1,259 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <style>
+        .credits-stack {
+            position: absolute;
+            left: 32px;
+            top: 35%;
+            flex-direction: column;
+            pointer-events: none;
+            z-index: 800;
+        }
+
+        .credit-line {
+            flex-direction: row;
+            align-items: center;
+            padding: 8px 20px;
+            margin-bottom: 6px;
+            background-color: rgba(6, 8, 22, 0.85);
+            border-left: 2px solid rgba(255, 200, 50, 0.5);
+            border-radius: 2px;
+            opacity: 0;
+            transform: translateX(-200px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .credit-line.visible {
+            opacity: 1;
+            transform: translateX(0px);
+        }
+
+        .credit-line.fading {
+            opacity: 0;
+            transform: translateX(-200px);
+        }
+
+        .credit-line-icon {
+            font-size: 14px;
+            color: rgba(255, 200, 50, 0.6);
+            min-width: 24px;
+            font-family: Consolas;
+        }
+
+        .credit-line-desc {
+            font-size: 13px;
+            color: rgba(200, 215, 235, 0.7);
+            font-family: Consolas;
+            flex-grow: 1;
+            margin-right: 16px;
+        }
+
+        .credit-line-amount {
+            font-size: 14px;
+            font-weight: 800;
+            color: rgba(255, 210, 60, 0.9);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .credit-total-line {
+            flex-direction: row;
+            align-items: center;
+            padding: 10px 20px;
+            margin-top: 4px;
+            background-color: rgba(255, 200, 50, 0.06);
+            border-left: 2px solid rgba(255, 200, 50, 0.8);
+            border-radius: 2px;
+            opacity: 0;
+            transform: translateX(-200px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .credit-total-line.visible {
+            opacity: 1;
+            transform: translateX(0px);
+        }
+
+        .credit-total-line.fading {
+            opacity: 0;
+            transform: translateX(-200px);
+        }
+
+        .credit-total-label {
+            font-size: 14px;
+            font-weight: 800;
+            color: rgba(255, 200, 50, 0.9);
+            letter-spacing: 3px;
+            font-family: Consolas;
+            flex-grow: 1;
+        }
+
+        .credit-total-amount {
+            font-size: 18px;
+            font-weight: 900;
+            color: rgb(255, 215, 60);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+    </style>
+
+    <div class="credits-stack">
+        @foreach ( var line in Lines )
+        {
+            var lineClass = IsFading ? "fading" : (line.IsVisible ? "visible" : "");
+            <div class="credit-line @lineClass">
+                <label class="credit-line-icon">@line.Icon</label>
+                <label class="credit-line-desc">@line.Description</label>
+                <label class="credit-line-amount">+@line.Amount</label>
+            </div>
+        }
+
+        @if ( Total > 0 )
+        {
+            var totalClass = IsFading ? "fading" : (TotalVisible ? "visible" : "");
+            <div class="credit-total-line @totalClass">
+                <label class="credit-total-label">TOTAL</label>
+                <label class="credit-total-amount">+@Total</label>
+            </div>
+        }
+    </div>
+</root>
+
+@code {
+    public List<CreditLine> Lines { get; set; } = new();
+    public int Total { get; set; } = 0;
+    public bool IsFading { get; set; } = false;
+    public int VisibleCount { get; set; } = 0;
+    public bool TotalVisible { get; set; } = false;
+
+    private float timer = 0f;
+    private float revealTimer = 0f;
+    private float revealInterval = 0.3f;
+    private bool started = false;
+    private bool soundPlayed = false;
+    private bool allRevealed = false;
+
+    public class CreditLine
+    {
+        public string Icon { get; set; } = "";
+        public string Description { get; set; } = "";
+        public int Amount { get; set; } = 0;
+        public bool IsVisible { get; set; } = false;
+    }
+
+    public void ShowSummary( int kills, int killCreds, int tasks, int taskCreds, int votes, int voteCreds, bool won, int winCreds, int total )
+    {
+        Lines.Clear();
+
+        if ( kills > 0 )
+        {
+            Lines.Add( new CreditLine
+            {
+                Icon = "✦",
+                Description = $"Kills x{kills}",
+                Amount = killCreds
+            } );
+        }
+
+        if ( tasks > 0 )
+        {
+            Lines.Add( new CreditLine
+            {
+                Icon = "✦",
+                Description = $"Tasks Completed x{tasks}",
+                Amount = taskCreds
+            } );
+        }
+
+        if ( votes > 0 )
+        {
+            Lines.Add( new CreditLine
+            {
+                Icon = "✦",
+                Description = $"Correct Votes x{votes}",
+                Amount = voteCreds
+            } );
+        }
+
+        if ( won )
+        {
+            Lines.Add( new CreditLine
+            {
+                Icon = "★",
+                Description = "Victory",
+                Amount = winCreds
+            } );
+        }
+
+        if ( total == 0 )
+        {
+            Lines.Add( new CreditLine
+            {
+                Icon = "—",
+                Description = "No credits earned",
+                Amount = 0
+            } );
+        }
+
+        Total = total;
+        started = true;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( !started ) return;
+
+        timer += Time.Delta;
+
+        // Play sound when first line slides in
+        if ( !soundPlayed && VisibleCount > 0 )
+        {
+            soundPlayed = true;
+            CreditsSummaryBridge.PlaySound( Scene );
+        }
+
+        // Stagger reveal each line
+        if ( !allRevealed )
+        {
+            revealTimer += Time.Delta;
+            if ( revealTimer >= revealInterval && VisibleCount < Lines.Count )
+            {
+                Lines[VisibleCount].IsVisible = true;
+                VisibleCount++;
+                revealTimer = 0f;
+            }
+
+            // Show total after all lines revealed
+            if ( VisibleCount >= Lines.Count && !TotalVisible )
+            {
+                revealTimer += Time.Delta;
+                if ( revealTimer >= revealInterval )
+                {
+                    TotalVisible = true;
+                    allRevealed = true;
+                }
+            }
+        }
+
+        // Start fading at 5 seconds
+        if ( timer >= 5f && !IsFading )
+        {
+            IsFading = true;
+        }
+
+        // Destroy at 7 seconds
+        if ( timer >= 7f )
+        {
+            if ( GameObject.IsValid() )
+                GameObject.Destroy();
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( Total, VisibleCount, TotalVisible, IsFading );
+    }
+}

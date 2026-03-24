@@ -248,6 +248,7 @@ public class TaskManager : Component
 		if ( completedTask != null )
 		{
 			completedTask.IsCompleted = true;
+			player.RoundTasksCompleted++;
 			completedTask.IsActive = false;
 			
 			// Activate next task

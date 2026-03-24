@@ -119,7 +119,7 @@
         }
 
         .col-stat {
-            min-width: 200px;
+            min-width: 140px;
             flex-direction: column;
             align-items: center;
         }
@@ -322,7 +322,7 @@
 
         /* === STAT COLUMNS === */
         .stat-col {
-            min-width: 200px;
+            min-width: 140px;
             flex-direction: row;
             align-items: center;
             justify-content: center;
@@ -332,8 +332,6 @@
             font-size: 18px;
             font-weight: 900;
             font-family: Consolas;
-            min-width: 40px;
-            text-align: right;
         }
 
         .stat-number.citizen-num {
@@ -352,6 +350,15 @@
         .stat-number.anomaly-num.bright {
             color: rgb(255, 80, 80);
             text-shadow: 0 0 8px rgba(255, 80, 80, 0.3);
+        }
+
+        .stat-number.credits-num {
+            color: rgba(255, 200, 50, 0.5);
+        }
+
+        .stat-number.credits-num.bright {
+            color: rgb(255, 210, 60);
+            text-shadow: 0 0 8px rgba(255, 200, 50, 0.3);
         }
 
         /* === EMPTY SLOT === */
@@ -397,7 +404,7 @@
         }
 
         .empty-dash {
-            min-width: 200px;
+            min-width: 140px;
             justify-content: center;
         }
 
@@ -466,6 +473,9 @@
                 <div class="col-stat">
                     <label class="table-header-text">ANOMALY WINS</label>
                 </div>
+                <div class="col-stat">
+                    <label class="table-header-text">CREDITS</label>
+                </div>
             </div>
 
             <!-- PLAYER LIST -->
@@ -517,6 +527,9 @@
                             <div class="stat-col">
                                 <label class="stat-number anomaly-num @anomalyBright">@player.AnomalyWins</label>
                             </div>
+                            <div class="stat-col">
+                                <label class="stat-number credits-num @(player.Credits > 0 ? "bright" : "")">@player.Credits.ToString("N0")</label>
+                            </div>
                         </div>
                     }
                     else
@@ -529,6 +542,9 @@
                             </div>
                             <div class="empty-name">
                                 <label class="empty-text">@(isNextSlot ? "NEXT SLOT" : "")</label>
+                            </div>
+                            <div class="empty-dash">
+                                <label class="empty-dash-text">—</label>
                             </div>
                             <div class="empty-dash">
                                 <label class="empty-dash-text">—</label>
@@ -583,6 +599,7 @@
                 Name = data.Name,
                 CitizenWins = data.CitizenWins,
                 AnomalyWins = data.AnomalyWins,
+                Credits = data.Credits,
                 IsLocal = data.IsLocal,
                 SteamId = data.SteamId
             };
@@ -604,7 +621,7 @@
         var hash = System.HashCode.Combine( IsVisible, PlayerCount, MaxCitizenWins, MaxAnomalyWins );
         foreach ( var p in Players )
         {
-            hash = System.HashCode.Combine( hash, p.Name, p.CitizenWins, p.AnomalyWins );
+            hash = System.HashCode.Combine( hash, p.Name, p.CitizenWins, p.AnomalyWins, p.Credits );
         }
         return hash;
     }
@@ -617,5 +634,6 @@
         public int TotalWins => CitizenWins + AnomalyWins;
         public bool IsLocal { get; set; } = false;
         public ulong SteamId { get; set; } = 0;
+        public int Credits { get; set; } = 0;
     }
 }

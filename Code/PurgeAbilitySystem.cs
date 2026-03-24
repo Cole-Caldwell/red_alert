@@ -71,7 +71,7 @@ public static class PurgeAbilityRegistry
             Id = "dissolve",
             Name = "DISSOLVE",
             Description = "Destroy the body of your most recent kill. The evidence vanishes — no body, no report, no trace.",
-            Icon = "",
+            Icon = "ui/red-alert-dissolve.png",
             WinsRequired = 0,
             Duration = 0f,
             Cooldown = 120f

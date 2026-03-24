@@ -19,6 +19,21 @@ public partial class PlayerController : Component
 	[Property] public GameObject RagdollPrefab { get; set; }
 	[Property] public float XRayDuration { get; set; } = 20f;
 	[Property] public float VanishCooldown { get; set; } = 90f;
+
+	// Round tracking for currency
+	public int RoundKills { get; set; } = 0;
+	public int RoundTasksCompleted { get; set; } = 0;
+	public int RoundCorrectVotes { get; set; } = 0;
+	public bool RoundWon { get; set; } = false;
+	public PlayerRole RoundRole { get; set; } = PlayerRole.Citizen;
+
+	// Saved credit data from host
+	private int savedKills, savedKillCredits;
+	private int savedTasks, savedTaskCredits;
+	private int savedVotes, savedVoteCredits;
+	private bool savedWon;
+	private int savedWinCredits, savedTotalCredits;
+	private bool hasPendingCredits = false;
 	
 	// Kill System (Anomaly only)
 	[Property] public float KillCooldown { get; set; } = 10f;
@@ -669,6 +684,7 @@ public partial class PlayerController : Component
 				}
 
 				Log.Info( "Kill successful!" );
+				RoundKills++;
 				return true;
 			}
 		}
@@ -1589,5 +1605,49 @@ public partial class PlayerController : Component
 		{
 			blindUI.GameObject.Destroy();
 		}
+	}
+
+	[Rpc.Owner]
+	public void ReceiveRoundCreditsRpc( int kills, int killCreds, int tasks, int taskCreds, int votes, int voteCreds, bool won, int winCreds, int total )
+	{
+		// Persist to stats immediately while data is fresh
+		if ( total > 0 )
+		{
+			Sandbox.Services.Stats.Increment( "credits", total );
+			Log.Info( $"[Credits] Awarded {total} credits" );
+		}
+
+		// Save for UI display after lobby return
+		savedKills = kills;
+		savedKillCredits = killCreds;
+		savedTasks = tasks;
+		savedTaskCredits = taskCreds;
+		savedVotes = votes;
+		savedVoteCredits = voteCreds;
+		savedWon = won;
+		savedWinCredits = winCreds;
+		savedTotalCredits = total;
+		hasPendingCredits = true;
+	}
+
+	public void ShowPendingCreditsUI()
+	{
+		if ( !hasPendingCredits ) return;
+		hasPendingCredits = false;
+
+		CreditsSummaryBridge.CreditSound = Scene.GetAllComponents<GameManager>().FirstOrDefault()?.CreditsSummarySound;
+
+		var uiObject = Scene.CreateObject();
+		uiObject.Name = "Credits Summary UI";
+		var screenPanel = uiObject.Components.Create<ScreenPanel>();
+		screenPanel.ZIndex = 800;
+		var summaryUI = uiObject.Components.Create<CreditsSummaryUI>();
+		summaryUI.ShowSummary(
+			savedKills, savedKillCredits,
+			savedTasks, savedTaskCredits,
+			savedVotes, savedVoteCredits,
+			savedWon, savedWinCredits,
+			savedTotalCredits
+		);
 	}
 }
