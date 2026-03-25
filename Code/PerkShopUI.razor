@@ -1,0 +1,581 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .perk-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 500;
+        }
+
+        .perk-overlay.hidden {
+            display: none;
+        }
+
+        .perk-container {
+            width: 1300px;
+            height: 880px;
+            background-color: rgb(14, 12, 10);
+            border: 1px solid rgba(180, 160, 120, 0.2);
+            border-radius: 6px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+        }
+
+        /* === ANIMATIONS === */
+        @@keyframes header-shimmer {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+
+        @@keyframes equipped-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(255, 200, 50, 0.1); }
+            50% { box-shadow: 0 0 20px rgba(255, 200, 50, 0.25); }
+        }
+
+        /* === HEADER === */
+        .perk-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 32px;
+            background-color: rgba(20, 18, 14, 0.9);
+            border-bottom: 1px solid rgba(180, 160, 120, 0.1);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .header-glow {
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(180, 160, 120, 0), rgba(200, 180, 100, 0.6), rgba(220, 200, 120, 0.8), rgba(200, 180, 100, 0.6), rgba(180, 160, 120, 0));
+            box-shadow: 0 0 12px rgba(200, 180, 100, 0.3);
+            animation: header-shimmer 4s ease-in-out infinite;
+        }
+
+        .perk-header-left { flex-direction: column; }
+
+        .perk-title {
+            font-size: 24px;
+            font-weight: 900;
+            color: rgb(230, 220, 200);
+            letter-spacing: 6px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(200, 180, 100, 0.2);
+        }
+
+        .perk-subtitle {
+            font-size: 10px;
+            color: rgba(180, 160, 120, 0.35);
+            letter-spacing: 4px;
+            font-family: Consolas;
+            margin-top: 4px;
+        }
+
+        .balance-badge {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background-color: rgba(255, 200, 50, 0.04);
+            border: 1px solid rgba(255, 200, 50, 0.2);
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(255, 200, 50, 0.1);
+        }
+
+        .balance-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255, 200, 50, 0.5);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .balance-amount {
+            font-size: 20px;
+            font-weight: 900;
+            color: rgb(255, 210, 60);
+            font-family: Consolas;
+            text-shadow: 0 0 10px rgba(255, 210, 60, 0.4);
+        }
+
+        /* === TABS === */
+        .perk-tabs {
+            flex-direction: row;
+            padding: 0 32px;
+            background-color: rgba(10, 8, 6, 0.9);
+            border-bottom: 1px solid rgba(180, 160, 120, 0.08);
+            flex-shrink: 0;
+        }
+
+        .perk-tab {
+            padding: 14px 28px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            font-family: Consolas;
+            color: rgba(160, 150, 130, 0.35);
+        }
+
+        .perk-tab:hover { color: rgba(220, 210, 190, 0.7); }
+
+        .perk-tab.active {
+            color: rgb(0, 200, 240);
+            border-bottom: 2px solid rgb(0, 200, 240);
+        }
+
+        .perk-tab.tab-citizen.active { color: rgb(80, 220, 120); border-bottom-color: rgb(80, 220, 120); }
+        .perk-tab.tab-anomaly.active { color: rgb(255, 80, 80); border-bottom-color: rgb(255, 80, 80); }
+        .perk-tab.tab-universal.active { color: rgb(200, 190, 160); border-bottom-color: rgb(200, 190, 160); }
+
+        /* === SCROLL AREA === */
+        .perk-scroll { flex-grow: 1; overflow-y: scroll; padding: 24px 32px 40px 32px; flex-direction: column; background-color: rgba(14, 12, 10, 1); }
+
+        .tier-section { flex-direction: column; margin-bottom: 24px; flex-shrink: 0; }
+
+        .tier-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            font-family: Consolas;
+            color: rgba(200, 190, 160, 0.5);
+        }
+
+        .tier-header-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+            position: relative;
+        }
+
+        .tier-divider {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(180, 160, 120, 0), rgba(180, 160, 120, 0.3), rgba(180, 160, 120, 0));
+        }
+
+        .tier-separator {
+            font-size: 10px;
+            color: rgba(180, 170, 140, 0.25);
+            font-family: Consolas;
+        }
+
+        .tier-cost-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255, 200, 50, 0.4);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        /* === PERK CARDS === */
+        .perk-card {
+            flex-direction: row;
+            align-items: center;
+            padding: 18px 22px;
+            margin-bottom: 10px;
+            background-color: rgba(14, 12, 8, 0.5);
+            border: 1px solid rgba(180, 160, 120, 0.06);
+            border-radius: 4px;
+            cursor: pointer;
+            gap: 18px;
+            min-height: 82px;
+            flex-shrink: 0;
+        }
+
+        .perk-card:hover {
+            background-color: rgba(24, 20, 14, 0.7);
+            border-color: rgba(180, 160, 120, 0.15);
+        }
+
+        .perk-card.equipped {
+            background-color: rgba(255, 200, 50, 0.03);
+            border-color: rgba(255, 200, 50, 0.35);
+            animation: equipped-pulse 3s ease-in-out infinite;
+        }
+
+        .perk-card.cant-afford { opacity: 0.4; }
+
+        /* Tier accent borders */
+        .perk-card.tier-cheap { border-left: 3px solid rgba(180, 170, 140, 0.3); }
+        .perk-card.tier-mid { border-left: 3px solid rgba(0, 180, 220, 0.5); }
+        .perk-card.tier-expensive { border-left: 3px solid rgba(160, 80, 220, 0.5); }
+        .perk-card.tier-premium { border-left: 3px solid rgba(255, 200, 50, 0.6); }
+
+        /* Tier hover glows */
+        .perk-card.tier-cheap:hover { box-shadow: 0 0 15px rgba(180, 170, 140, 0.15); border-color: rgba(180, 170, 140, 0.2); }
+        .perk-card.tier-mid:hover { box-shadow: 0 0 15px rgba(0, 180, 220, 0.15); border-color: rgba(0, 180, 220, 0.25); }
+        .perk-card.tier-expensive:hover { box-shadow: 0 0 15px rgba(160, 80, 220, 0.15); border-color: rgba(160, 80, 220, 0.25); }
+        .perk-card.tier-premium:hover { box-shadow: 0 0 20px rgba(255, 200, 50, 0.2); border-color: rgba(255, 200, 50, 0.3); }
+
+        .perk-icon-wrap {
+            width: 48px;
+            height: 48px;
+            min-width: 48px;
+            background-color: rgba(180, 160, 120, 0.05);
+            border: 1px solid rgba(180, 160, 120, 0.1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .perk-icon-text {
+            font-size: 22px;
+            color: rgba(200, 180, 140, 0.4);
+            font-family: Consolas;
+        }
+
+        .perk-info { flex-direction: column; flex-grow: 1; gap: 4px; }
+
+        .perk-name-row { flex-direction: row; align-items: center; gap: 10px; }
+
+        .perk-name {
+            font-size: 15px;
+            font-weight: 800;
+            color: rgba(230, 220, 200, 0.9);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .perk-type-badge {
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-family: Consolas;
+        }
+
+        .badge-active { color: rgba(0, 200, 240, 0.6); border: 1px solid rgba(0, 180, 220, 0.2); }
+        .badge-passive { color: rgba(255, 200, 50, 0.6); border: 1px solid rgba(255, 200, 50, 0.2); }
+
+        .perk-desc {
+            font-size: 12px;
+            color: rgba(180, 170, 150, 0.5);
+            font-family: Consolas;
+        }
+
+        .perk-right { flex-direction: column; align-items: center; gap: 6px; min-width: 100px; }
+
+        .perk-cost {
+            font-size: 16px;
+            font-weight: 800;
+            color: rgba(255, 210, 60, 0.8);
+            font-family: Consolas;
+        }
+
+        /* === STATUS BADGES === */
+        .perk-status {
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 4px 14px;
+            border-radius: 2px;
+            font-family: Consolas;
+        }
+
+        .status-equipped {
+            color: rgb(0, 220, 255);
+            background-color: rgba(0, 120, 180, 0.12);
+            border: 1px solid rgba(0, 180, 220, 0.4);
+            box-shadow: 0 0 10px rgba(0, 200, 240, 0.15);
+        }
+
+        .status-equip {
+            color: rgba(180, 170, 150, 0.4);
+            border: 1px solid rgba(180, 170, 150, 0.15);
+        }
+
+        .status-equip:hover {
+            color: rgba(220, 210, 190, 0.7);
+            border-color: rgba(180, 170, 150, 0.3);
+            box-shadow: 0 0 8px rgba(180, 170, 150, 0.1);
+        }
+
+        .status-locked {
+            color: rgba(255, 80, 80, 0.5);
+            border: 1px solid rgba(255, 80, 80, 0.15);
+            box-shadow: 0 0 8px rgba(255, 80, 80, 0.08);
+        }
+
+        /* === EQUIPPED BAR === */
+        .equipped-bar {
+            padding: 12px 32px;
+            background-color: rgba(10, 8, 6, 0.8);
+            border-top: 1px solid rgba(180, 160, 120, 0.08);
+            flex-direction: row;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .equipped-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: rgba(255, 200, 50, 0.45);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .equipped-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: rgba(230, 220, 200, 0.9);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .equipped-none {
+            font-size: 12px;
+            color: rgba(120, 110, 90, 0.3);
+            font-family: Consolas;
+        }
+
+        .unequip-btn {
+            margin-left: auto;
+            padding: 6px 16px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            font-family: Consolas;
+            color: rgba(255, 80, 80, 0.6);
+            border: 1px solid rgba(255, 80, 80, 0.2);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .unequip-btn:hover {
+            color: rgba(255, 80, 80, 0.9);
+            border-color: rgba(255, 80, 80, 0.4);
+            background-color: rgba(255, 80, 80, 0.05);
+        }
+
+        /* === FOOTER === */
+        .perk-footer {
+            padding: 12px 32px;
+            background-color: rgba(8, 6, 4, 0.9);
+            border-top: 1px solid rgba(180, 160, 120, 0.06);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .footer-text { font-size: 11px; color: rgba(140, 130, 110, 0.3); font-family: Consolas; }
+        .footer-key { font-size: 10px; font-weight: 700; color: rgba(200, 180, 140, 0.4); background-color: rgba(180, 160, 120, 0.06); border: 1px solid rgba(180, 160, 120, 0.12); border-radius: 3px; padding: 3px 8px; font-family: Consolas; }
+    </style>
+
+    <div class="perk-overlay @(IsOpen ? "" : "hidden")">
+        <div class="perk-container">
+
+            <div class="perk-header">
+                <div class="perk-header-left">
+                    <label class="perk-title">PERK SHOP</label>
+                    <label class="perk-subtitle">ONE PERK PER ROUND — CHARGED ON USE</label>
+                </div>
+                <div class="balance-badge">
+                    <label class="balance-label">CREDITS</label>
+                    <label class="balance-amount">@Balance.ToString("N0")</label>
+                </div>
+                <div class="header-glow"></div>
+            </div>
+
+            <div class="perk-tabs">
+                <div class="perk-tab tab-citizen @(ActiveTab == "citizen" ? "active" : "")"
+                     onclick="@(() => SetTab("citizen"))">CITIZEN</div>
+                <div class="perk-tab tab-anomaly @(ActiveTab == "anomaly" ? "active" : "")"
+                     onclick="@(() => SetTab("anomaly"))">ANOMALY</div>
+                <div class="perk-tab tab-universal @(ActiveTab == "universal" ? "active" : "")"
+                     onclick="@(() => SetTab("universal"))">UNIVERSAL</div>
+            </div>
+
+            <div class="perk-scroll">
+                @foreach ( var tierGroup in FilteredPerks )
+                {
+                    var tierClass = tierGroup.TierKey;
+
+                    <div class="tier-section">
+                        <div class="tier-header-row">
+                            <label class="tier-label">@tierGroup.Label</label>
+                            <label class="tier-separator">—</label>
+                            <label class="tier-cost-label">@tierGroup.Cost.ToString("N0") CREDITS</label>
+                            <div class="tier-divider"></div>
+                        </div>
+                        @foreach ( var perk in tierGroup.Perks )
+                        {
+                            var isEquipped = perk.Id == EquippedId;
+                            var canAfford = Balance >= perk.Cost || isEquipped;
+                            var cardClass = isEquipped ? "equipped" : (!canAfford ? "cant-afford" : "");
+                            var activeBadge = perk.Activation == PerkActivation.Active ? "badge-active" : "badge-passive";
+                            var activeLabel = perk.Activation == PerkActivation.Active ? "ACTIVE" : "PASSIVE";
+
+                            <div class="perk-card tier-@tierClass @cardClass" onclick="@(() => TryEquip(perk))">
+                                <div class="perk-icon-wrap">
+                                    <label class="perk-icon-text">◆</label>
+                                </div>
+                                <div class="perk-info">
+                                    <div class="perk-name-row">
+                                        <label class="perk-name">@perk.Name</label>
+                                        <label class="perk-type-badge @activeBadge">@activeLabel</label>
+                                    </div>
+                                    <label class="perk-desc">@perk.Description</label>
+                                </div>
+                                <div class="perk-right">
+                                    <label class="perk-cost">@perk.Cost.ToString("N0")</label>
+                                    @if ( isEquipped )
+                                    {
+                                        <label class="perk-status status-equipped">EQUIPPED</label>
+                                    }
+                                    else if ( !canAfford )
+                                    {
+                                        <label class="perk-status status-locked">LOCKED</label>
+                                    }
+                                    else
+                                    {
+                                        <label class="perk-status status-equip">EQUIP</label>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="equipped-bar">
+                <label class="equipped-label">EQUIPPED</label>
+                @if ( !string.IsNullOrEmpty( EquippedId ) )
+                {
+                    <label class="equipped-name">@EquippedName</label>
+                    <div class="unequip-btn" onclick="@Unequip">UNEQUIP</div>
+                }
+                else
+                {
+                    <label class="equipped-none">No perk equipped</label>
+                }
+            </div>
+
+            <div class="perk-footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">E</label>
+                <label class="footer-text">to close</label>
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsOpen { get; set; } = false;
+    public string ActiveTab { get; set; } = "citizen";
+    public string EquippedId { get; set; } = "";
+    public string EquippedName { get; set; } = "";
+    public int Balance { get; set; } = 0;
+    public List<TierGroup> FilteredPerks { get; set; } = new();
+
+    public class TierGroup
+    {
+        public string Label { get; set; } = "";
+        public string TierKey { get; set; } = "";
+        public int Cost { get; set; } = 0;
+        public List<PerkData> Perks { get; set; } = new();
+    }
+
+    protected override void OnStart()
+    {
+        PerkBridge.Close();
+    }
+
+    protected override void OnUpdate()
+    {
+        IsOpen = PerkBridge.IsOpen;
+        if ( !IsOpen ) return;
+
+        EquippedId = PerkBridge.EquippedPerkId;
+        Balance = PerkBridge.CachedBalance;
+
+        var equipped = PerkRegistry.GetById( EquippedId );
+        EquippedName = equipped?.Name ?? "";
+
+        RefreshPerks();
+    }
+
+    private void RefreshPerks()
+    {
+        FilteredPerks.Clear();
+
+        PerkRole roleFilter;
+        if ( ActiveTab == "citizen" ) roleFilter = PerkRole.CitizenOnly;
+        else if ( ActiveTab == "anomaly" ) roleFilter = PerkRole.AnomalyOnly;
+        else roleFilter = PerkRole.Universal;
+
+        var perks = PerkRegistry.GetByRole( roleFilter );
+
+        var tiers = perks
+            .GroupBy( p => p.Tier )
+            .OrderBy( g => g.Key )
+            .ToList();
+
+        foreach ( var tier in tiers )
+        {
+            FilteredPerks.Add( new TierGroup
+            {
+                Label = PerkRegistry.GetTierLabel( tier.Key ),
+                TierKey = tier.Key.ToString().ToLower(),
+                Cost = tier.First().Cost,
+                Perks = tier.OrderBy( p => p.Name ).ToList()
+            } );
+        }
+    }
+
+    private void SetTab( string tab )
+    {
+        ActiveTab = tab;
+    }
+
+    private void TryEquip( PerkData perk )
+    {
+        if ( perk.Id == EquippedId ) return;
+        if ( Balance < perk.Cost ) return;
+
+        PerkBridge.EquipPerk( perk.Id );
+        PerkBridge.PlayEquipSound = true;
+        EquippedId = perk.Id;
+
+        Log.Info( $"[PerkShop] Equipped: {perk.Name} ({perk.Cost} credits)" );
+    }
+
+    private void Unequip()
+    {
+        PerkBridge.UnequipPerk();
+        EquippedId = "";
+        Log.Info( "[PerkShop] Unequipped perk" );
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsOpen, ActiveTab, EquippedId, Balance );
+    }
+}

@@ -1,0 +1,1019 @@
+@using Sandbox
+@using Sandbox.UI
+@inherits PanelComponent
+
+<root>
+    <style>
+        /* === OVERLAY === */
+        .info-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.92);
+            z-index: 500;
+        }
+
+        .info-overlay.hidden { display: none; }
+
+        /* === ANIMATIONS === */
+        @@keyframes header-shimmer {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        @@keyframes tab-glow {
+            0%, 100% { box-shadow: 0 0 8px rgba(0, 180, 220, 0.1); }
+            50% { box-shadow: 0 0 16px rgba(0, 180, 220, 0.25); }
+        }
+
+        /* === CONTAINER === */
+        .info-container {
+            width: 1500px;
+            height: 920px;
+            background-color: rgb(6, 8, 18);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 4px;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 80px rgba(0, 120, 200, 0.12), 0 0 200px rgba(0, 0, 0, 0.8);
+        }
+
+        /* === HEADER === */
+        .info-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 36px;
+            background-color: rgba(4, 10, 28, 0.95);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.12);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .header-glow {
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0, 180, 220, 0), rgba(0, 180, 220, 0.5), rgba(0, 220, 255, 0.7), rgba(0, 180, 220, 0.5), rgba(0, 180, 220, 0));
+            box-shadow: 0 0 12px rgba(0, 180, 220, 0.3);
+            animation: header-shimmer 4s ease-in-out infinite;
+        }
+
+        .header-left {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-logo {
+            width: 42px;
+            height: 42px;
+        }
+
+        .header-title-group { flex-direction: column; }
+
+        .header-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: rgb(200, 230, 255);
+            letter-spacing: 8px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(0, 150, 220, 0.25);
+        }
+
+        .header-sub {
+            font-size: 11px;
+            color: rgba(0, 180, 220, 0.35);
+            letter-spacing: 4px;
+            margin-top: 3px;
+            font-family: Consolas;
+        }
+
+        .close-btn {
+            width: 36px;
+            height: 36px;
+            background-color: rgba(255, 50, 50, 0.05);
+            border: 1px solid rgba(255, 60, 60, 0.2);
+            color: rgba(255, 80, 80, 0.5);
+            font-size: 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(255, 40, 40, 0.15);
+            border-color: rgba(255, 80, 80, 0.5);
+            color: rgba(255, 100, 100, 0.9);
+        }
+
+        /* === BODY LAYOUT (SIDE TABS + CONTENT) === */
+        .info-body {
+            flex-direction: row;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        /* === SIDE TABS === */
+        .side-tabs {
+            width: 220px;
+            min-width: 220px;
+            flex-direction: column;
+            padding: 20px 0;
+            background-color: rgba(4, 6, 16, 0.95);
+            border-right: 1px solid rgba(0, 180, 220, 0.08);
+            flex-shrink: 0;
+            gap: 4px;
+        }
+
+        .side-tab {
+            padding: 16px 28px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            font-family: Consolas;
+            color: rgba(120, 150, 180, 0.35);
+            flex-shrink: 0;
+        }
+
+        .side-tab:hover {
+            color: rgba(160, 200, 240, 0.7);
+            background-color: rgba(0, 80, 140, 0.06);
+        }
+
+        .side-tab.active {
+            color: rgb(0, 200, 240);
+            border-left: 3px solid rgb(0, 200, 240);
+            background-color: rgba(0, 120, 180, 0.06);
+            animation: tab-glow 3s ease-in-out infinite;
+        }
+
+        .tab-divider {
+            height: 1px;
+            margin: 12px 28px;
+            background: linear-gradient(90deg, rgba(0, 180, 220, 0.15), rgba(0, 180, 220, 0));
+        }
+
+        .tab-version {
+            margin-top: auto;
+            padding: 16px 28px;
+            font-size: 10px;
+            color: rgba(80, 100, 130, 0.25);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        /* === SCROLL CONTENT === */
+        .info-scroll {
+            flex-grow: 1;
+            overflow-y: scroll;
+            padding: 32px 40px 48px 40px;
+            flex-direction: column;
+            background-color: rgba(6, 8, 18, 1);
+        }
+
+        .tab-hidden { display: none; }
+
+        /* === SECTION === */
+        .section {
+            flex-direction: column;
+            margin-bottom: 28px;
+            flex-shrink: 0;
+        }
+
+        .section-header {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .section-icon {
+            font-size: 18px;
+            min-width: 24px;
+        }
+
+        .icon-cyan { color: rgba(0, 200, 240, 0.6); }
+        .icon-green { color: rgba(70, 230, 70, 0.6); }
+        .icon-red { color: rgba(255, 70, 70, 0.6); }
+        .icon-gold { color: rgba(255, 200, 50, 0.6); }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            font-family: Consolas;
+            color: rgba(0, 200, 240, 0.85);
+            text-shadow: 0 0 12px rgba(0, 180, 220, 0.15);
+        }
+
+        .section-title.title-green { color: rgba(70, 230, 70, 0.85); text-shadow: 0 0 12px rgba(70, 230, 70, 0.15); }
+        .section-title.title-red { color: rgba(255, 70, 70, 0.85); text-shadow: 0 0 12px rgba(255, 70, 70, 0.15); }
+        .section-title.title-gold { color: rgba(255, 200, 50, 0.85); text-shadow: 0 0 12px rgba(255, 200, 50, 0.15); }
+
+        .section-line {
+            flex-grow: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(0, 180, 220, 0.25), rgba(0, 180, 220, 0));
+        }
+
+        .section-line.line-green { background: linear-gradient(90deg, rgba(70, 230, 70, 0.2), rgba(70, 230, 70, 0)); }
+        .section-line.line-red { background: linear-gradient(90deg, rgba(255, 70, 70, 0.2), rgba(255, 70, 70, 0)); }
+        .section-line.line-gold { background: linear-gradient(90deg, rgba(255, 200, 50, 0.2), rgba(255, 200, 50, 0)); }
+
+        /* === CONTENT BLOCK === */
+        .content-block {
+            background-color: rgba(8, 14, 32, 0.6);
+            border: 1px solid rgba(0, 180, 220, 0.06);
+            border-left: 3px solid rgba(0, 180, 220, 0.25);
+            border-radius: 3px;
+            padding: 22px 28px;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+            flex-shrink: 0;
+        }
+
+        .content-block.block-green {
+            border-left-color: rgba(70, 230, 70, 0.4);
+            background-color: rgba(8, 20, 12, 0.5);
+        }
+
+        .content-block.block-red {
+            border-left-color: rgba(255, 70, 70, 0.4);
+            background-color: rgba(20, 8, 10, 0.5);
+        }
+
+        .content-block.block-gold {
+            border-left-color: rgba(255, 200, 50, 0.4);
+            background-color: rgba(20, 16, 8, 0.5);
+        }
+
+        .content-block.block-purple {
+            border-left-color: rgba(160, 80, 220, 0.4);
+            background-color: rgba(16, 8, 24, 0.5);
+        }
+
+        .block-label {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .label-cyan { color: rgba(0, 200, 240, 0.8); }
+        .label-green { color: rgba(70, 230, 70, 0.8); }
+        .label-red { color: rgba(255, 70, 70, 0.8); }
+        .label-gold { color: rgba(255, 200, 50, 0.8); }
+        .label-purple { color: rgba(160, 80, 220, 0.8); }
+
+        .block-text {
+            font-size: 16px;
+            line-height: 32px;
+            color: rgba(180, 195, 215, 0.85);
+            font-family: Consolas;
+        }
+
+        /* === INFO CARD (bullet replacement) === */
+        .info-card {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 18px;
+            padding: 16px 22px;
+            margin-bottom: 8px;
+            background-color: rgba(8, 14, 28, 0.4);
+            border: 1px solid rgba(0, 180, 220, 0.04);
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .info-card:hover {
+            background-color: rgba(12, 20, 36, 0.6);
+            border-color: rgba(0, 180, 220, 0.1);
+        }
+
+        .info-card.card-green { border-left: 2px solid rgba(70, 230, 70, 0.3); }
+        .info-card.card-red { border-left: 2px solid rgba(255, 70, 70, 0.3); }
+        .info-card.card-gold { border-left: 2px solid rgba(255, 200, 50, 0.3); }
+        .info-card.card-cyan { border-left: 2px solid rgba(0, 180, 220, 0.3); }
+
+        .card-icon {
+            font-size: 14px;
+            margin-top: 3px;
+            min-width: 16px;
+        }
+
+        .card-body { flex-direction: column; flex-grow: 1; gap: 4px; }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .card-desc {
+            font-size: 15px;
+            line-height: 28px;
+            color: rgba(160, 175, 200, 0.7);
+            font-family: Consolas;
+        }
+
+        .card-key {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.6);
+            background-color: rgba(0, 120, 180, 0.08);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 2px;
+            padding: 4px 10px;
+            font-family: Consolas;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* === ALERT BOX === */
+        .alert-box {
+            background-color: rgba(160, 0, 0, 0.1);
+            border: 1px solid rgba(255, 50, 50, 0.25);
+            border-radius: 3px;
+            padding: 18px 28px;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.05);
+        }
+
+        .alert-icon {
+            font-size: 18px;
+            color: rgba(255, 80, 80, 0.6);
+        }
+
+        .alert-text {
+            font-size: 16px;
+            font-weight: 800;
+            color: rgb(255, 80, 80);
+            letter-spacing: 6px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
+            font-family: Consolas;
+        }
+
+        /* === TWO COLUMN === */
+        .two-col {
+            flex-direction: row;
+            gap: 14px;
+            flex-shrink: 0;
+            margin-bottom: 14px;
+        }
+
+        .col {
+            flex: 1;
+            flex-direction: column;
+        }
+
+        .col .content-block {
+            margin-bottom: 0;
+            flex-grow: 1;
+        }
+
+        /* === DIVIDER === */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, rgba(0, 180, 220, 0), rgba(0, 180, 220, 0.12), rgba(0, 180, 220, 0));
+            margin-bottom: 28px;
+            flex-shrink: 0;
+        }
+
+        /* === CREDIT CARDS === */
+        .credit-card {
+            background-color: rgba(8, 14, 32, 0.5);
+            border: 1px solid rgba(0, 180, 220, 0.06);
+            border-radius: 3px;
+            flex-direction: column;
+            overflow: hidden;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .credit-card-header {
+            padding: 14px 24px;
+            background-color: rgba(0, 30, 60, 0.15);
+            border-bottom: 1px solid rgba(0, 180, 220, 0.06);
+        }
+
+        .credit-card-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: rgba(0, 200, 240, 0.6);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .credit-card-body {
+            padding: 16px 24px;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .credit-line {
+            flex-direction: row;
+            gap: 12px;
+        }
+
+        .credit-label {
+            font-size: 15px;
+            color: rgba(120, 140, 170, 0.5);
+            min-width: 130px;
+            font-family: Consolas;
+        }
+
+        .credit-value {
+            font-size: 15px;
+            color: rgba(190, 205, 225, 0.8);
+            font-family: Consolas;
+        }
+
+        .thanks-bar {
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            padding: 32px;
+            margin-top: 12px;
+            flex-shrink: 0;
+        }
+
+        .thanks-text {
+            font-size: 18px;
+            color: rgba(180, 200, 230, 0.6);
+            font-weight: 600;
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .thanks-heart {
+            color: rgb(255, 80, 120);
+            font-size: 18px;
+        }
+
+        /* === FOOTER === */
+        .info-footer {
+            padding: 12px 36px;
+            background-color: rgba(4, 6, 14, 0.9);
+            border-top: 1px solid rgba(0, 180, 220, 0.06);
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: rgba(100, 120, 150, 0.35);
+            font-family: Consolas;
+        }
+
+        .footer-key {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.4);
+            background-color: rgba(0, 120, 180, 0.06);
+            border: 1px solid rgba(0, 180, 220, 0.15);
+            border-radius: 3px;
+            padding: 3px 10px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="info-overlay @(IsVisible ? "" : "hidden")">
+        <div class="info-container">
+
+            <!-- HEADER -->
+            <div class="info-header">
+                <div class="header-left">
+                    <img class="header-logo" src="ui/redalert.png" />
+                    <div class="header-title-group">
+                        <label class="header-title">RED ALERT</label>
+                        <label class="header-sub">NEXUS-7 STATION // CLASSIFIED BRIEFING</label>
+                    </div>
+                </div>
+                <button class="close-btn" onclick=@ClosePanel>✕</button>
+                <div class="header-glow"></div>
+            </div>
+
+            <!-- BODY: SIDE TABS + CONTENT -->
+            <div class="info-body">
+
+                <!-- SIDE TABS -->
+                <div class="side-tabs">
+                    <div class="side-tab @(ActiveTab == "description" ? "active" : "")"
+                         onclick="@(() => SetTab("description"))">DESCRIPTION</div>
+                    <div class="side-tab @(ActiveTab == "howto" ? "active" : "")"
+                         onclick="@(() => SetTab("howto"))">HOW TO PLAY</div>
+                    <div class="tab-divider"></div>
+                    <div class="side-tab @(ActiveTab == "coming" ? "active" : "")"
+                         onclick="@(() => SetTab("coming"))">COMING SOON</div>
+                    <div class="side-tab @(ActiveTab == "credits" ? "active" : "")"
+                         onclick="@(() => SetTab("credits"))">CREDITS</div>
+                    <label class="tab-version">v0.4.0</label>
+                </div>
+
+                <!-- ==================== DESCRIPTION ==================== -->
+                <div class="info-scroll @(ActiveTab == "description" ? "" : "tab-hidden")">
+
+                    <!-- LORE -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-cyan">✦</label>
+                            <label class="section-title">EXPERIMENTAL PROTOCOL BREACH</label>
+                            <div class="section-line"></div>
+                        </div>
+
+                        <div class="content-block">
+                            <label class="block-label label-cyan">NEXUS-7 STATION // YEAR 2486</label>
+                            <label class="block-text">Deep space research station NEXUS-7 was conducting classified experiments on interdimensional parasitic entities. Something went catastrophically wrong. An unknown organism escaped containment and has infected one or more crew members. The infection is undetectable. The host retains full cognitive function while becoming a lethal predator. Station command has initiated RED ALERT protocol.</label>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- CITIZENS -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-green">✦</label>
+                            <label class="section-title title-green">THE CITIZENS</label>
+                            <div class="section-line line-green"></div>
+                        </div>
+
+                        <div class="content-block block-green">
+                            <label class="block-label label-green">YOUR ROLE AS A CITIZEN</label>
+                            <label class="block-text">You are a crew member aboard NEXUS-7. Your primary objective is survival. Identify and eject the Anomaly before the crew is wiped out. Citizens are the majority, but the Anomaly has the advantage of surprise and lethal abilities.</label>
+                        </div>
+
+                        <div class="info-card card-green">
+                            <label class="card-icon icon-green">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-green">COMPLETE TASKS</label>
+                                <label class="card-desc">Navigate to task stations across the map and complete minigames. Each citizen is assigned 3 tasks per round. If all alive citizens finish their tasks, citizens win immediately.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-green">
+                            <label class="card-icon icon-green">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-green">REPORT DEAD BODIES</label>
+                                <label class="card-desc">When you find a fallen crew member, report them to trigger an emergency meeting. The crew can then discuss and vote on who they suspect.</label>
+                            </div>
+                            <label class="card-key">R</label>
+                        </div>
+
+                        <div class="info-card card-green">
+                            <label class="card-icon icon-green">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-green">CALL EMERGENCY MEETINGS</label>
+                                <label class="card-desc">Press the emergency button at the station center to force a meeting without finding a body. Has a 90-second cooldown after each use. Use it when you have critical information.</label>
+                            </div>
+                            <label class="card-key">R</label>
+                        </div>
+
+                        <div class="info-card card-green">
+                            <label class="card-icon icon-green">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-green">VOTE DURING MEETINGS</label>
+                                <label class="card-desc">Click on a player to vote for their ejection. If the crew successfully ejects the Anomaly, citizens win. A wrong vote removes an innocent crew member. Vote carefully.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-green">
+                            <label class="card-icon icon-green">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-green">USE SECURITY CAMERAS</label>
+                                <label class="card-desc">Sit at the camera station to monitor other areas of the station remotely. Watch for suspicious movement or kills happening out of your line of sight.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- ANOMALY -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-red">✦</label>
+                            <label class="section-title title-red">THE ANOMALY</label>
+                            <div class="section-line line-red"></div>
+                        </div>
+
+                        <div class="content-block block-red">
+                            <label class="block-label label-red">YOUR ROLE AS THE ANOMALY</label>
+                            <label class="block-text">You are the infected host. Your objective is to eliminate all citizens before they identify you. Blend in with the crew, fake tasks, and strike when alone with a target. Deception is your greatest weapon. Suspicion is your greatest enemy.</label>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">KILL CITIZENS</label>
+                                <label class="card-desc">Approach a citizen and eliminate them. There is a cooldown between kills. Plan your timing carefully and make sure no witnesses are nearby.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">PURGE ABILITIES</label>
+                                <label class="card-desc">Activate your equipped purge ability for the upper hand. Blackout blinds all citizens. Double Kill resets your cooldown. X-Ray reveals positions through walls. Vanish teleports you. Dissolve destroys a body. Mimic copies another player.</label>
+                            </div>
+                            <label class="card-key">F</label>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">BLEND IN</label>
+                                <label class="card-desc">Move with the group, pretend to do tasks at stations, and build trust. The best Anomaly is one that nobody suspects until it is too late.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">MANIPULATE MEETINGS</label>
+                                <label class="card-desc">Deflect blame, cast suspicion on innocents, and provide false alibis. During voting, lie convincingly to survive. A well-timed accusation can turn the crew against each other.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">WIN CONDITION</label>
+                                <label class="card-desc">Anomalies win when the number of alive anomalies equals or exceeds the number of alive citizens. Eliminate enough crew and the station falls.</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <div class="alert-box">
+                        <label class="alert-icon">⚠</label>
+                        <label class="alert-text">THE ANOMALY IS AMONG YOU</label>
+                        <label class="alert-icon">⚠</label>
+                    </div>
+                </div>
+
+                <!-- ==================== HOW TO PLAY ==================== -->
+                <div class="info-scroll @(ActiveTab == "howto" ? "" : "tab-hidden")">
+
+                    <!-- LOBBY -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-cyan">✦</label>
+                            <label class="section-title">THE LOBBY</label>
+                            <div class="section-line"></div>
+                        </div>
+
+                        <div class="content-block">
+                            <label class="block-label label-cyan">PREPARING FOR DEPLOYMENT</label>
+                            <label class="block-text">When you join the server, you spawn in the station lobby. This is your staging area before each round. Use this time to prepare your loadout, customize your appearance, and coordinate with other players.</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">READY TERMINAL</label>
+                                <label class="card-desc">Walk up to the ready terminal and interact to toggle your ready status. Once all players are ready, a countdown begins and the round starts.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-gold">
+                            <label class="card-icon icon-gold">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-gold">PERK SHOP</label>
+                                <label class="card-desc">Visit the perk station to spend credits earned from previous rounds on powerful one-use perks. Equip one perk per round. It is charged on use, not on purchase. Change your selection freely before the round starts.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-red">
+                            <label class="card-icon icon-red">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-red">PURGE ABILITY SELECTION</label>
+                                <label class="card-desc">Visit the ability terminal to choose your purge ability loadout. This only takes effect if you are assigned the Anomaly role. Unlock new abilities by winning rounds as the Anomaly.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">VOICE CHAT</label>
+                                <label class="card-desc">Voice chat is enabled in the lobby so you can communicate freely with all players before the round begins.</label>
+                            </div>
+                            <label class="card-key">V</label>
+                        </div>
+
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- THE GAME -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-cyan">✦</label>
+                            <label class="section-title">THE GAME</label>
+                            <div class="section-line"></div>
+                        </div>
+
+                        <div class="content-block">
+                            <label class="block-label label-cyan">ROUND START</label>
+                            <label class="block-text">When the round begins, all players are teleported to the main station and assigned their roles secretly. You will see a brief role reveal showing whether you are a Citizen or the Anomaly. Voice chat is disabled during gameplay. You must rely on observation alone.</label>
+                        </div>
+
+                        <div class="two-col">
+                            <div class="col">
+                                <div class="content-block block-green">
+                                    <label class="block-label label-green">CITIZEN GAMEPLAY</label>
+                                    <label class="block-text">You are assigned 3 tasks at specific stations. A compass guides you to your next task. Walk to the station, interact, and complete the minigame. Types include progress bars, button sequences, decryption keypads, slider matching, sample collection, and memory matching.</label>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="content-block block-red">
+                                    <label class="block-label label-red">ANOMALY GAMEPLAY</label>
+                                    <label class="block-text">Your kill activates when near a citizen. After a kill, the victim drops as a reportable body. Manage your kill cooldown, use your purge ability for the upper hand, and always have an alibi ready. Getting caught near a body is usually game over.</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">REPORTING BODIES</label>
+                                <label class="card-desc">When you find a dead crew member, report them to immediately trigger an emergency meeting. All players are teleported to the meeting area to discuss.</label>
+                            </div>
+                            <label class="card-key">R</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">EMERGENCY BUTTON</label>
+                                <label class="card-desc">A central button on the station forces a meeting without needing to find a body. Has a 90-second cooldown after each use. Use it when you witness something suspicious.</label>
+                            </div>
+                            <label class="card-key">R</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">CAMERA STATION</label>
+                                <label class="card-desc">Security cameras let you monitor areas remotely. Sit at the station and cycle through camera feeds to watch for suspicious activity from a safe location.</label>
+                            </div>
+                            <label class="card-key">E</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">DEAD PLAYERS</label>
+                                <label class="card-desc">If you die, you become a spectator and can watch the remaining players. Dead players cannot communicate with or be seen by living players.</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- MEETINGS -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-cyan">✦</label>
+                            <label class="section-title">THE MEETING ROOM</label>
+                            <div class="section-line"></div>
+                        </div>
+
+                        <div class="content-block">
+                            <label class="block-label label-cyan">DISCUSSION AND VOTING</label>
+                            <label class="block-text">Emergency meetings are triggered by reporting a body or pressing the emergency button. All living players are teleported to the meeting area. Meetings have two phases: a discussion period with voice chat, followed by a voting period.</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">DISCUSSION PHASE</label>
+                                <label class="card-desc">Voice chat activates for all alive players. Share what you saw, where you were, and who you suspect. Listen carefully. The Anomaly will try to deflect and create confusion.</label>
+                            </div>
+                            <label class="card-key">V</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">VOTING PHASE</label>
+                                <label class="card-desc">The voting UI appears after discussion. Click on a player's name to vote for their ejection, or choose to skip. You can change your vote before the timer expires. The player with the most votes is ejected.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">VOTE RESULTS</label>
+                                <label class="card-desc">If ejected, the player's role is revealed. If the vote is tied or skipped, no one is ejected. After the meeting, all players are teleported back to random positions on the station.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-cyan">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-cyan">TEXT CHAT</label>
+                                <label class="card-desc">You can type messages during meetings using the text chat system. Only alive in-game players can send messages during active meetings.</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-divider"></div>
+
+                    <!-- WIN CONDITIONS -->
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-gold">✦</label>
+                            <label class="section-title title-gold">GAME END CONDITIONS</label>
+                            <div class="section-line line-gold"></div>
+                        </div>
+
+                        <div class="two-col">
+                            <div class="col">
+                                <div class="content-block block-green">
+                                    <label class="block-label label-green">CITIZENS WIN IF</label>
+                                    <label class="block-text">All anomalies have been ejected through voting. The station is safe again.</label>
+                                    <label class="block-text">All alive citizens complete their assigned tasks. The station systems are restored.</label>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="content-block block-red">
+                                    <label class="block-label label-red">ANOMALY WINS IF</label>
+                                    <label class="block-text">The number of alive anomalies equals or exceeds the number of alive citizens. The crew has been overwhelmed and the station falls.</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-block block-gold">
+                            <label class="block-label label-gold">CREDITS AND REWARDS</label>
+                            <label class="block-text">After each round, you earn credits based on performance. Citizens earn credits for completing tasks, voting correctly, and winning. Anomalies earn credits for kills and winning. Spend credits in the Perk Shop on powerful one-use perks for future rounds.</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== COMING SOON ==================== -->
+                <div class="info-scroll @(ActiveTab == "coming" ? "" : "tab-hidden")">
+
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-gold">✦</label>
+                            <label class="section-title title-gold">IN DEVELOPMENT</label>
+                            <div class="section-line line-gold"></div>
+                        </div>
+
+                        <div class="content-block block-gold">
+                            <label class="block-label label-gold">PERK SYSTEM EXPANSION</label>
+                            <label class="block-text">The credit-based perk system is expanding with new perks across all tiers. Citizen perks include defensive abilities like Shield and Paranoia Immunity, plus intelligence tools like Tracker Tag and Reveal. Anomaly perks include Speed Boost and Quiet Steps. Universal perks like Second Chance and Emergency Recall work regardless of role. Future updates add activation keybindings, HUD indicators, and additional tiers.</label>
+                        </div>
+
+                        <div class="content-block block-purple">
+                            <label class="block-label label-purple">MAP VOTING AND NEW MAPS</label>
+                            <label class="block-text">A map voting system is in development allowing players to vote on which station to deploy to. New station layouts with different room configurations, camera placements, and task locations are being designed. Multiple map environments beyond the current space station are planned.</label>
+                        </div>
+
+                        <div class="content-block block-green">
+                            <label class="block-label label-green">EXPANDED CITIZEN TASKS</label>
+                            <label class="block-text">New task minigames are being developed. Current tasks include progress bars, button sequences, decryption keypads, slider matching, sample collection, and memory matching. Future tasks will introduce new mechanics and increase strategic depth of task routing across the station.</label>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- ==================== CREDITS ==================== -->
+                <div class="info-scroll @(ActiveTab == "credits" ? "" : "tab-hidden")">
+
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-cyan">✦</label>
+                            <label class="section-title">CREDITS</label>
+                            <div class="section-line"></div>
+                        </div>
+
+                        <div class="credit-card">
+                            <div class="credit-card-header">
+                                <label class="credit-card-title">MAP</label>
+                            </div>
+                            <div class="credit-card-body">
+                                <div class="credit-line">
+                                    <label class="credit-label">Map Name</label>
+                                    <label class="credit-value">Space Station</label>
+                                </div>
+                                <div class="credit-line">
+                                    <label class="credit-label">Created by</label>
+                                    <label class="credit-value">Pilgrim</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="credit-card">
+                            <div class="credit-card-header">
+                                <label class="credit-card-title">LOBBY PROPS</label>
+                            </div>
+                            <div class="credit-card-body">
+                                <div class="credit-line">
+                                    <label class="credit-label">Created by</label>
+                                    <label class="credit-value">Titanovsky, Pilgrim, and ReizeR</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="credit-card">
+                            <div class="credit-card-header">
+                                <label class="credit-card-title">MAP PROPS</label>
+                            </div>
+                            <div class="credit-card-body">
+                                <div class="credit-line">
+                                    <label class="credit-label">Created by</label>
+                                    <label class="credit-value">Baik, andiq, and Terry's group</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="credit-card">
+                            <div class="credit-card-header">
+                                <label class="credit-card-title">SOUNDS</label>
+                            </div>
+                            <div class="credit-card-body">
+                                <div class="credit-line">
+                                    <label class="credit-label">Source</label>
+                                    <label class="credit-value">All sounds freely downloaded from FreeSound</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="thanks-bar">
+                            <label class="thanks-text">Thank you for playing Red Alert</label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- FOOTER -->
+            <div class="info-footer">
+                <label class="footer-text">Press</label>
+                <label class="footer-key">Q</label>
+                <label class="footer-text">anytime to toggle this panel</label>
+            </div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public bool IsVisible { get; set; } = true;
+    public string ActiveTab { get; set; } = "description";
+
+    protected override void OnUpdate()
+    {
+        if ( Input.Pressed( "Menu" ) )
+        {
+            IsVisible = !IsVisible;
+            StateHasChanged();
+        }
+    }
+
+    private void SetTab( string tab )
+    {
+        ActiveTab = tab;
+        StateHasChanged();
+    }
+
+    private void ClosePanel()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsVisible, ActiveTab );
+    }
+}

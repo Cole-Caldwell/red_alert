@@ -199,6 +199,7 @@
         "Flags": 0,
         "BlindedSound": "sounds/anomalyblind.sound",
         "DeathSound": "sounds/deathsound.sound",
+        "EquippedPerkId": "",
         "Gravity": 800,
         "IsAlive": true,
         "IsInGame": false,
