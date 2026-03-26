@@ -2815,6 +2815,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -3165,6 +3166,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -3766,6 +3768,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -8317,6 +8320,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -8395,6 +8399,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -8473,6 +8478,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -8551,6 +8557,7 @@
                     "FontSize": 64,
                     "FontWeight": 800,
                     "FontItalic": false,
+                    "FontVariantNumeric": "Normal",
                     "LineHeight": 1,
                     "LetterSpacing": 10,
                     "WordSpacing": 0,
@@ -10393,7 +10400,7 @@
     "GameObjectSystems": {
       "Sandbox.Clutter.ClutterGridSystem": {
         "Storage": {
-          "$blob": "99650552-172e-4307-a6bb-7aeb2a5a7f1a"
+          "$blob": "00d49698-bb82-410a-b6b0-c476b45a7f27"
         }
       }
     }

@@ -208,6 +208,7 @@
         .icon-green { color: rgba(70, 230, 70, 0.6); }
         .icon-red { color: rgba(255, 70, 70, 0.6); }
         .icon-gold { color: rgba(255, 200, 50, 0.6); }
+        .icon-purple { color: rgba(140, 100, 255, 0.6); }
 
         .section-title {
             font-size: 18px;
@@ -221,6 +222,7 @@
         .section-title.title-green { color: rgba(70, 230, 70, 0.85); text-shadow: 0 0 12px rgba(70, 230, 70, 0.15); }
         .section-title.title-red { color: rgba(255, 70, 70, 0.85); text-shadow: 0 0 12px rgba(255, 70, 70, 0.15); }
         .section-title.title-gold { color: rgba(255, 200, 50, 0.85); text-shadow: 0 0 12px rgba(255, 200, 50, 0.15); }
+        .section-title.title-purple { color: rgba(140, 100, 255, 0.85); text-shadow: 0 0 12px rgba(140, 100, 255, 0.15); }
 
         .section-line {
             flex-grow: 1;
@@ -231,6 +233,38 @@
         .section-line.line-green { background: linear-gradient(90deg, rgba(70, 230, 70, 0.2), rgba(70, 230, 70, 0)); }
         .section-line.line-red { background: linear-gradient(90deg, rgba(255, 70, 70, 0.2), rgba(255, 70, 70, 0)); }
         .section-line.line-gold { background: linear-gradient(90deg, rgba(255, 200, 50, 0.2), rgba(255, 200, 50, 0)); }
+        .section-line.line-purple { background: linear-gradient(90deg, rgba(140, 100, 255, 0.2), rgba(140, 100, 255, 0)); }
+
+        /* === DISCORD INVITE === */
+        .discord-invite-box {
+            padding: 24px 32px;
+            background-color: rgba(88, 101, 242, 0.08);
+            border: 1px solid rgba(88, 101, 242, 0.3);
+            border-radius: 4px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-shrink: 0;
+            margin-top: 8px;
+        }
+
+        .discord-invite-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: rgba(140, 150, 255, 0.5);
+            letter-spacing: 4px;
+            font-family: Consolas;
+        }
+
+        .discord-invite-url {
+            font-size: 22px;
+            font-weight: 800;
+            color: rgba(140, 150, 255, 0.9);
+            font-family: Consolas;
+            letter-spacing: 2px;
+            text-shadow: 0 0 16px rgba(88, 101, 242, 0.3);
+        }
 
         /* === CONTENT BLOCK === */
         .content-block {
@@ -529,6 +563,9 @@
                          onclick="@(() => SetTab("coming"))">COMING SOON</div>
                     <div class="side-tab @(ActiveTab == "credits" ? "active" : "")"
                          onclick="@(() => SetTab("credits"))">CREDITS</div>
+                    <div class="tab-divider"></div>
+                    <div class="side-tab @(ActiveTab == "discord" ? "active" : "")"
+                         onclick="@(() => SetTab("discord"))">DISCORD</div>
                     <label class="tab-version">v0.4.0</label>
                 </div>
 
@@ -970,6 +1007,62 @@
 
                         <div class="thanks-bar">
                             <label class="thanks-text">Thank you for playing Red Alert</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== DISCORD ==================== -->
+                <div class="info-scroll @(ActiveTab == "discord" ? "" : "tab-hidden")">
+
+                    <div class="section">
+                        <div class="section-header">
+                            <label class="section-icon icon-purple">✦</label>
+                            <label class="section-title title-purple">JOIN THE COMMUNITY</label>
+                            <div class="section-line line-purple"></div>
+                        </div>
+
+                        <div class="content-block block-purple">
+                            <label class="block-label label-purple">RED ALERT DISCORD SERVER</label>
+                            <label class="block-text">Join our Discord server to connect with the Red Alert community. Whether you want to find people to play with, share your ideas, or just hang out, this is the place.</label>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-purple">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-purple">SUGGEST IDEAS</label>
+                                <label class="card-desc">Have an idea for a new ability, perk, task, or game mechanic? Share it with the community and the development team. The best suggestions get implemented.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-purple">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-purple">REPORT BUGS</label>
+                                <label class="card-desc">Found a bug or glitch? Let us know so we can fix it. Detailed reports with steps to reproduce help us squash issues faster.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-purple">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-purple">FIND PLAYERS</label>
+                                <label class="card-desc">Looking for a group to play with? Use the Discord to find other crew members and organize games. The more players, the better the experience.</label>
+                            </div>
+                        </div>
+
+                        <div class="info-card card-cyan">
+                            <label class="card-icon icon-purple">▸</label>
+                            <div class="card-body">
+                                <label class="card-title label-purple">STAY UPDATED</label>
+                                <label class="card-desc">Get notified about new updates, patch notes, and upcoming features before anyone else. Be the first to know what is coming to Red Alert.</label>
+                            </div>
+                        </div>
+
+                        <div class="section-divider"></div>
+
+                        <div class="discord-invite-box">
+                            <label class="discord-invite-label">INVITE LINK</label>
+                            <label class="discord-invite-url">discord.gg/7cuZbmFy</label>
                         </div>
                     </div>
                 </div>

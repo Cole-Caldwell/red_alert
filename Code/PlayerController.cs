@@ -22,7 +22,7 @@ public partial class PlayerController : Component
 	[Property] public float VanishCooldown { get; set; } = 90f;
 
 	// Round tracking for currency
-	public int RoundKills { get; set; } = 0;
+	[Sync] public int RoundKills { get; set; } = 0;
 	public int RoundTasksCompleted { get; set; } = 0;
 	public int RoundCorrectVotes { get; set; } = 0;
 	public bool RoundWon { get; set; } = false;
@@ -65,6 +65,13 @@ public partial class PlayerController : Component
 	// X-Ray tracking
 	private bool xRayActive = false;
 	private float xRayEndTime = 0f;
+
+	// Perk System
+	private bool perkActive = false;
+	private float perkEndTime = 0f;
+	private string activePerkId = "";
+	private float originalWalkSpeed = 0f;
+	private float originalRunSpeed = 0f;
 
 	// Movement Settings
 	[Property] public float WalkSpeed { get; set; } = 200f;
@@ -186,6 +193,16 @@ public partial class PlayerController : Component
 			}
 		}
 
+		// Check perk timer
+		if ( perkActive && Time.Now >= perkEndTime )
+		{
+			EndPerkEffect();
+		}
+
+		// Update perk bridge HUD state
+		PerkBridge.IsPerkActive = perkActive;
+		PerkBridge.PerkTimeRemaining = perkActive ? System.Math.Max( 0f, perkEndTime - Time.Now ) : 0f;
+
 		// Dead players can't move
 		if ( !IsAlive )
 		{
@@ -242,6 +259,12 @@ public partial class PlayerController : Component
 			{
 				AttemptPurge();
 			}
+		}
+
+		// Handle G key press for Perk activation
+		if ( Input.Pressed( "Drop" ) ) // G key
+		{
+			AttemptPerkActivation();
 		}
 	}
 
@@ -737,6 +760,175 @@ public partial class PlayerController : Component
 		}
 	}
 
+	// === PERK SYSTEM ===
+
+	private void AttemptPerkActivation()
+	{
+		// Must be in game
+		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
+		if ( gameManager == null || gameManager.CurrentState != GameManager.GameState.InGame )
+			return;
+
+		// Must have a perk equipped and not already used
+		if ( PerkBridge.PerkUsedThisRound || !PerkBridge.HasPerkEquipped() )
+			return;
+
+		var perk = PerkBridge.GetEquippedPerk();
+		if ( perk == null || perk.Activation != PerkActivation.Active )
+			return;
+
+		// Role check
+		if ( perk.Role == PerkRole.CitizenOnly && Role != PlayerRole.Citizen )
+			return;
+		if ( perk.Role == PerkRole.AnomalyOnly && Role != PlayerRole.Anomaly )
+			return;
+
+		// Quick Fix requires an assigned task
+		if ( perk.Id == "quick_fix" )
+		{
+			if ( string.IsNullOrEmpty( CurrentActiveTaskId ) )
+			{
+				Log.Info( "[Perk] Quick Fix failed - no active task" );
+				return;
+			}
+		}
+
+		// Mark perk as used and charge credits
+		PerkBridge.MarkPerkUsed();
+		activePerkId = perk.Id;
+		Sandbox.Services.Stats.Increment( "credits_spent", perk.Cost );
+		Log.Info( $"[Perk] Activated: {perk.Name} (charged {perk.Cost} credits)" );
+
+		// Execute the perk
+		switch ( perk.Id )
+		{
+			case "quiet_steps":
+				ActivateQuietSteps();
+				break;
+			case "speed_boost":
+				ActivateSpeedBoost();
+				break;
+			case "quick_fix":
+				ActivateQuickFix();
+				break;
+		}
+
+		// Unequip the perk so it won't be charged again next round
+		PerkBridge.UnequipPerk();
+		EquippedPerkId = "";
+	}
+
+	private void ActivateQuietSteps()
+	{
+		// Broadcast to all clients so nobody hears our footsteps
+		SetQuietStepsRpc( true );
+
+		perkActive = true;
+		perkEndTime = Time.Now + 30f;
+		Log.Info( "[Perk] Quiet Steps active for 30 seconds" );
+	}
+
+	[Rpc.Broadcast]
+	private void SetQuietStepsRpc( bool silent )
+	{
+		var footstepController = GameObject.Components.Get<Sandbox.PlayerController>();
+		if ( footstepController != null )
+		{
+			footstepController.EnableFootstepSounds = !silent;
+		}
+	}
+
+	private void ActivateSpeedBoost()
+	{
+		var footstepController = GameObject.Components.Get<Sandbox.PlayerController>();
+		if ( footstepController != null )
+		{
+			originalWalkSpeed = footstepController.WalkSpeed;
+			originalRunSpeed = footstepController.RunSpeed;
+			footstepController.WalkSpeed = originalWalkSpeed * 1.5f;
+			footstepController.RunSpeed = originalRunSpeed * 1.5f;
+		}
+
+		perkActive = true;
+		perkEndTime = Time.Now + 15f;
+		Log.Info( "[Perk] Speed Boost active for 15 seconds" );
+	}
+
+	private void ActivateQuickFix()
+	{
+		if ( string.IsNullOrEmpty( CurrentActiveTaskId ) ) return;
+
+		// Get our own network owner ID
+		ulong ownerId = GameObject.Network?.Owner?.SteamId ?? 0;
+		if ( ownerId == 0 ) return;
+
+		string taskId = CurrentActiveTaskId;
+
+		// Complete the task via the same host-authoritative path
+		var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
+		if ( taskManager != null )
+		{
+			taskManager.CompleteTaskByNetworkId( ownerId, taskId );
+		}
+
+		// Clear any open task minigame UI
+		TaskProgressBridge.ClearTask();
+
+		var taskMinigameNames = new[]
+		{
+			"Task Button Sequence UI",
+			"Task Slider Match UI",
+			"Task Collect Samples UI",
+			"Task Memory Match UI",
+			"Task Decrypt UI",
+			"Task Progress UI"
+		};
+
+		var taskUIs = Scene.GetAllObjects( true )
+			.Where( obj => taskMinigameNames.Contains( obj.Name ) )
+			.ToList();
+
+		foreach ( var ui in taskUIs )
+		{
+			if ( ui != null && ui.IsValid() )
+				ui.Destroy();
+		}
+
+		Log.Info( $"[Perk] Quick Fix - instantly completed task: {taskId}" );
+	}
+
+	public float GetPerkTimeRemaining()
+	{
+		if ( !perkActive ) return 0f;
+		return System.Math.Max( 0f, perkEndTime - Time.Now );
+	}
+
+	private void EndPerkEffect()
+	{
+		if ( !perkActive ) return;
+		perkActive = false;
+
+		switch ( activePerkId )
+		{
+			case "quiet_steps":
+				SetQuietStepsRpc( false );
+				Log.Info( "[Perk] Quiet Steps ended" );
+				break;
+
+			case "speed_boost":
+				var speedCtrl = GameObject.Components.Get<Sandbox.PlayerController>();
+				if ( speedCtrl != null )
+				{
+					speedCtrl.WalkSpeed = originalWalkSpeed;
+					speedCtrl.RunSpeed = originalRunSpeed;
+				}
+				Log.Info( "[Perk] Speed Boost ended" );
+				break;
+		}
+
+		activePerkId = "";
+	}
+
 	[Rpc.Broadcast]
 	public void KillPlayer( PlayerController target )
 	{
@@ -1072,7 +1264,23 @@ public partial class PlayerController : Component
 			anomalyUI.GameObject.Destroy();
 			anomalyUI = null;
 		}
-		
+
+		// Hide perk HUD and reset perk state
+		if ( perkHudUI != null && perkHudUI.IsValid() )
+		{
+			perkHudUI.GameObject.Destroy();
+			perkHudUI = null;
+		}
+		if ( perkActive )
+		{
+			EndPerkEffect();
+		}
+		perkActive = false;
+		activePerkId = "";
+		PerkBridge.IsPerkActive = false;
+		PerkBridge.PerkTimeRemaining = 0f;
+		PerkBridge.ActivePerkName = "";
+
 		Log.Info( $"[CleanupAllUI] All UI cleaned for {PlayerName}" );
 	}
 
@@ -1240,7 +1448,7 @@ public partial class PlayerController : Component
 			if ( handle != null )
 			{
 				handle.ListenLocal = true;
-				handle.Volume = 0.1f;
+				handle.Volume = 0.075f;
 			}
 		}
 		
@@ -1587,6 +1795,58 @@ public partial class PlayerController : Component
 			anomalyUI.GameObject.Destroy();
 			anomalyUI = null;
 		}
+	}
+
+	private PerkHudUI perkHudUI = null;
+
+	[Rpc.Owner]
+	public void ShowPerkHudRpc()
+	{
+		// Sync perk from local bridge to synced property
+		EquippedPerkId = PerkBridge.EquippedPerkId;
+		PerkBridge.ResetForNewRound();
+
+		if ( string.IsNullOrEmpty( EquippedPerkId ) ) return;
+
+		var perk = PerkRegistry.GetById( EquippedPerkId );
+		if ( perk == null ) return;
+
+		// Role validation — don't show HUD for wrong-role perks
+		if ( perk.Role == PerkRole.CitizenOnly && Role != PlayerRole.Citizen ) return;
+		if ( perk.Role == PerkRole.AnomalyOnly && Role != PlayerRole.Anomaly ) return;
+
+		// Store perk name for HUD display (persists after unequip)
+		PerkBridge.ActivePerkName = perk.Name;
+
+		if ( perkHudUI != null && perkHudUI.IsValid() )
+			return;
+
+		var uiObject = Scene.CreateObject();
+		uiObject.Name = "Perk HUD UI";
+		perkHudUI = uiObject.Components.Create<PerkHudUI>();
+
+		Log.Info( $"[Perk] HUD shown for perk: {perk.Name}" );
+	}
+
+	[Rpc.Owner]
+	public void HidePerkHudRpc()
+	{
+		if ( perkHudUI != null && perkHudUI.IsValid() )
+		{
+			perkHudUI.GameObject.Destroy();
+			perkHudUI = null;
+		}
+
+		// Reset perk state
+		if ( perkActive )
+		{
+			EndPerkEffect();
+		}
+		perkActive = false;
+		activePerkId = "";
+		PerkBridge.IsPerkActive = false;
+		PerkBridge.PerkTimeRemaining = 0f;
+		PerkBridge.ActivePerkName = "";
 	}
 
 	private async void RemoveBlindAfterDelay()

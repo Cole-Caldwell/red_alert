@@ -48,4 +48,9 @@ public static class PerkBridge
         if ( string.IsNullOrEmpty( EquippedPerkId ) ) return null;
         return PerkRegistry.GetById( EquippedPerkId );
     }
+
+    // HUD state — updated by PlayerController each frame, read by PerkHudUI.razor
+    public static bool IsPerkActive { get; set; } = false;
+    public static float PerkTimeRemaining { get; set; } = 0f;
+    public static string ActivePerkName { get; set; } = "";
 }

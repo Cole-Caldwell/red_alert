@@ -31,6 +31,10 @@ public class PerkStation : Component, Component.ITriggerListener
 
         if ( localPlayer == null ) return;
 
+        // Show interact prompt
+        Gizmo.Draw.Color = Color.Yellow;
+        Gizmo.Draw.Text( "Press E — Perk Shop", new Transform( WorldPosition + Vector3.Up * 50 ), "Consolas", 18 );
+
         // Don't allow during game
         var gm = Scene.GetAllComponents<GameManager>().FirstOrDefault();
         if ( gm != null && gm.CurrentState != GameManager.GameState.WaitingInLobby )

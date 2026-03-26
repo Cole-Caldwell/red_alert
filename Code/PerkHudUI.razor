@@ -1,0 +1,227 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <div class="perk-hud @StatusClass @SlideClass">
+        <div class="perk-key-wrap">
+            <div class="perk-key">G</div>
+        </div>
+        <div class="perk-info">
+            <div class="perk-label">PERK</div>
+            <div class="perk-name">@PerkName</div>
+            @if ( IsActive )
+            {
+                <div class="perk-timer">@TimerText</div>
+            }
+            else if ( IsUsed )
+            {
+                <div class="perk-status">USED</div>
+            }
+        </div>
+    </div>
+</root>
+
+<style>
+    .perk-hud {
+        position: absolute;
+        right: -300px;
+        top: 50%;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 18px 10px 12px;
+        background: linear-gradient(135deg, rgba(40, 40, 45, 0.85), rgba(25, 25, 30, 0.9));
+        border: 2px solid rgba(180, 180, 190, 0.35);
+        border-radius: 6px;
+        box-shadow: 0 0 16px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+        transition: right 0.5s ease-out, opacity 0.5s ease-out, border-color 0.3s, box-shadow 0.3s, background 0.3s;
+        opacity: 0;
+    }
+
+    .perk-hud.slide-in {
+        right: 20px;
+        opacity: 1;
+    }
+
+    .perk-hud.slide-out {
+        right: -300px;
+        opacity: 0;
+    }
+
+    .perk-hud.active {
+        border-color: rgba(0, 255, 140, 0.6);
+        box-shadow: 0 0 20px rgba(0, 255, 140, 0.2);
+        background: linear-gradient(135deg, rgba(0, 50, 30, 0.85), rgba(0, 30, 20, 0.9));
+    }
+
+    .perk-hud.used {
+        border-color: rgba(80, 80, 90, 0.3);
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, rgba(30, 30, 35, 0.7), rgba(20, 20, 25, 0.75));
+        opacity: 0.5;
+    }
+
+    .perk-key-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .perk-key {
+        width: 42px;
+        height: 42px;
+        background: rgba(80, 80, 90, 0.2);
+        border: 2px solid rgba(200, 200, 210, 0.45);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 900;
+        color: rgba(220, 220, 230, 0.9);
+        font-family: Consolas;
+        text-shadow: 0 0 6px rgba(200, 200, 210, 0.3);
+    }
+
+    .perk-hud.active .perk-key {
+        border-color: rgba(0, 255, 140, 0.5);
+        color: rgba(0, 255, 180, 0.95);
+        text-shadow: 0 0 8px rgba(0, 255, 140, 0.6);
+        background: rgba(0, 180, 100, 0.15);
+    }
+
+    .perk-hud.used .perk-key {
+        border-color: rgba(80, 80, 90, 0.25);
+        color: rgba(100, 100, 110, 0.4);
+        text-shadow: none;
+        background: rgba(40, 40, 45, 0.2);
+    }
+
+    .perk-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .perk-label {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(160, 160, 170, 0.4);
+        letter-spacing: 3px;
+        font-family: Consolas;
+    }
+
+    .perk-hud.active .perk-label {
+        color: rgba(0, 255, 140, 0.4);
+    }
+
+    .perk-hud.used .perk-label {
+        color: rgba(80, 80, 90, 0.3);
+    }
+
+    .perk-name {
+        font-size: 14px;
+        font-weight: 800;
+        color: rgba(220, 220, 230, 0.9);
+        letter-spacing: 2px;
+        font-family: Consolas;
+    }
+
+    .perk-hud.used .perk-name {
+        color: rgba(100, 100, 110, 0.4);
+    }
+
+    .perk-timer {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(0, 255, 140, 0.8);
+        font-family: Consolas;
+        letter-spacing: 1px;
+    }
+
+    .perk-status {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(100, 100, 110, 0.4);
+        font-family: Consolas;
+        letter-spacing: 2px;
+    }
+</style>
+
+@code {
+    public string PerkName { get; set; } = "";
+    public bool IsUsed { get; set; } = false;
+    public bool IsActive { get; set; } = false;
+    public string TimerText { get; set; } = "";
+    public string StatusClass { get; set; } = "";
+    public string SlideClass { get; set; } = "";
+
+    private float spawnTime;
+    private bool hasSlid = false;
+    private bool hasSlideOut = false;
+
+    protected override void OnStart()
+    {
+        var screenPanel = Components.Get<ScreenPanel>();
+        if ( screenPanel == null )
+        {
+            screenPanel = Components.Create<ScreenPanel>();
+        }
+        screenPanel.ZIndex = 100;
+
+        spawnTime = Time.Now;
+    }
+
+    protected override void OnUpdate()
+    {
+        PerkName = PerkBridge.ActivePerkName;
+        IsUsed = PerkBridge.PerkUsedThisRound;
+        IsActive = false;
+        TimerText = "";
+
+        // Read timed perk state from bridge
+        if ( IsUsed && PerkBridge.IsPerkActive && PerkBridge.PerkTimeRemaining > 0 )
+        {
+            IsActive = true;
+            TimerText = $"{(int)System.Math.Ceiling( PerkBridge.PerkTimeRemaining )}s";
+        }
+
+        // Slide in after 3 seconds
+        if ( !hasSlid && Time.Now - spawnTime >= 3f )
+        {
+            hasSlid = true;
+            SlideClass = "slide-in";
+        }
+
+        // Slide out when perk has been fully used (not active anymore)
+        if ( hasSlid && IsUsed && !IsActive && !hasSlideOut )
+        {
+            hasSlideOut = true;
+            SlideOutAfterDelay();
+        }
+
+        if ( IsActive )
+            StatusClass = "active";
+        else if ( IsUsed )
+            StatusClass = "used";
+        else
+            StatusClass = "";
+
+        StateHasChanged();
+    }
+
+    private async void SlideOutAfterDelay()
+    {
+        // Brief pause so player sees "USED" text
+        await GameTask.DelaySeconds( 1.5f );
+        SlideClass = "slide-out";
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( PerkName, IsUsed, IsActive, TimerText, SlideClass );
+    }
+}

@@ -570,6 +570,15 @@ public partial class GameManager : Component
 			}
 		}
 		
+		// Show perk HUD for all players with equipped perks
+		foreach ( var p in shuffled )
+		{
+			if ( p.GameObject.Network.Owner != null )
+			{
+				p.ShowPerkHudRpc();
+			}
+		}
+
 		Log.Info( "=== ROLE ASSIGNMENT COMPLETE ===" );
 
 		// Wait a moment for roles to sync before assigning tasks
@@ -1349,13 +1358,15 @@ public partial class GameManager : Component
 			votingUI = null;
 		}
 
-		// Mark winners
+		// Mark winners (only alive players get the win bonus)
 		foreach ( var player in players )
 		{
 			if ( !player.IsInGame ) continue;
 
 			player.RoundRole = player.Role;
-			
+
+			if ( !player.IsAlive ) continue;
+
 			if ( winner == "CITIZENS" && player.Role == PlayerController.PlayerRole.Citizen )
 				player.RoundWon = true;
 			else if ( winner == "ANOMALY" && player.Role == PlayerController.PlayerRole.Anomaly )
