@@ -36,6 +36,7 @@ public static class PerkBridge
     public static void ResetForNewRound()
     {
         PerkUsedThisRound = false;
+        IsPassivePerk = false;
     }
 
     public static bool HasPerkEquipped()
@@ -53,4 +54,5 @@ public static class PerkBridge
     public static bool IsPerkActive { get; set; } = false;
     public static float PerkTimeRemaining { get; set; } = 0f;
     public static string ActivePerkName { get; set; } = "";
+    public static bool IsPassivePerk { get; set; } = false;
 }

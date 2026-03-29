@@ -1,0 +1,144 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+    <div class="role-tag @RoleClass @AnimClass">
+        <div class="role-icon">◈</div>
+        <div class="role-text">@RoleText</div>
+    </div>
+</root>
+
+<style>
+    RoleRevealTag {
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        justify-content: center;
+        align-items: center;
+        pointer-events: none;
+    }
+
+    .role-tag {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 5px;
+        pointer-events: none;
+        transition: opacity 0.4s ease-out;
+        opacity: 0;
+    }
+
+    .role-tag.visible {
+        opacity: 1;
+    }
+
+    .role-tag.citizen {
+        background-color: rgba(0, 30, 50, 0.92);
+        border: 2px solid rgba(0, 200, 255, 0.7);
+        box-shadow: 0 0 16px rgba(0, 200, 255, 0.4);
+    }
+
+    .role-tag.anomaly {
+        background-color: rgba(50, 10, 10, 0.92);
+        border: 2px solid rgba(255, 60, 60, 0.7);
+        box-shadow: 0 0 16px rgba(255, 60, 60, 0.4);
+    }
+
+    .role-icon {
+        font-size: 22px;
+        font-weight: 700;
+    }
+
+    .citizen .role-icon {
+        color: rgba(0, 220, 255, 0.9);
+        text-shadow: 0 0 8px rgba(0, 200, 255, 0.5);
+    }
+
+    .anomaly .role-icon {
+        color: rgba(255, 80, 80, 0.9);
+        text-shadow: 0 0 8px rgba(255, 60, 60, 0.5);
+    }
+
+    .role-text {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        font-family: Consolas, monospace;
+        white-space: nowrap;
+    }
+
+    .citizen .role-text {
+        color: rgba(0, 220, 255, 0.95);
+        text-shadow: 0 0 10px rgba(0, 200, 255, 0.4);
+    }
+
+    .anomaly .role-text {
+        color: rgba(255, 80, 80, 0.95);
+        text-shadow: 0 0 10px rgba(255, 60, 60, 0.4);
+    }
+</style>
+
+@code {
+    public GameObject TargetPlayer { get; set; }
+    public bool IsAnomaly { get; set; } = false;
+
+    public string RoleText => IsAnomaly ? "ANOMALY" : "CITIZEN";
+    public string RoleClass => IsAnomaly ? "anomaly" : "citizen";
+    public string AnimClass { get; set; } = "";
+
+    private float spawnTime;
+    private bool hasAppeared = false;
+
+    protected override void OnStart()
+    {
+        spawnTime = Time.Now;
+    }
+
+    protected override void OnUpdate()
+    {
+        // Fade in after a brief delay
+        if ( !hasAppeared && Time.Now - spawnTime >= 0.3f )
+        {
+            hasAppeared = true;
+            AnimClass = "visible";
+        }
+
+        // Follow target player position (above their head, above the nametag)
+        if ( TargetPlayer != null && TargetPlayer.IsValid() )
+        {
+            float tagHeight = 100f;
+
+            // Check if crouching
+            var sboxController = TargetPlayer.Components.Get<Sandbox.PlayerController>();
+            if ( sboxController != null && sboxController.IsDucking )
+            {
+                tagHeight = 70f;
+            }
+
+            WorldPosition = TargetPlayer.WorldPosition + Vector3.Up * tagHeight;
+
+            // Billboard towards camera
+            var cam = Scene.Camera;
+            if ( cam != null )
+            {
+                var dirToCamera = cam.WorldPosition - WorldPosition;
+                if ( dirToCamera.LengthSquared > 0.01f )
+                {
+                    WorldRotation = Rotation.LookAt( dirToCamera );
+                }
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( RoleText, AnimClass );
+    }
+}

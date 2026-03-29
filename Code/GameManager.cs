@@ -650,6 +650,35 @@ public partial class GameManager : Component
 		string reporterName = reporter != null ? GetPlayerDisplayName( reporter ) : "Unknown";
 		ShowVotingUI( body, reporterName );
 		EnableChatForAlive();
+
+		// Host triggers Reveal perk for any player who has it equipped
+		if ( Networking.IsHost )
+		{
+			ActivateRevealPerks();
+		}
+	}
+
+	private void ActivateRevealPerks()
+	{
+		var alivePlayers = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p.IsAlive && p.IsInGame && p.GameObject.Network.Owner != null )
+			.ToList();
+
+		foreach ( var player in alivePlayers )
+		{
+			if ( player.EquippedPerkId != "reveal" ) continue;
+			if ( player.Role != PlayerController.PlayerRole.Citizen ) continue;
+
+			// Pick a random alive player that isn't the reveal user
+			var candidates = alivePlayers.Where( p => p != player ).ToList();
+			if ( candidates.Count == 0 ) continue;
+
+			var revealed = candidates[Game.Random.Next( candidates.Count )];
+			bool isAnomaly = revealed.Role == PlayerController.PlayerRole.Anomaly;
+
+			player.ActivateRevealPerkRpc( revealed, isAnomaly );
+			Log.Info( $"[Perk] Host triggered Reveal for {player.PlayerName} -> revealed {revealed.PlayerName} ({revealed.Role})" );
+		}
 	}
 
 	[Rpc.Broadcast]
@@ -1210,13 +1239,29 @@ public partial class GameManager : Component
 	{
 		// Teleport on all clients
 		TeleportAlivePlayersToGame();
-		
+
 		// Set state on all clients
 		CurrentState = GameState.InGame;
-		
+
 		// Disable chat on all clients
 		if ( ChatSystem.Instance != null )
 			ChatSystem.Instance.ChatEnabled = false;
+
+		// Clean up Reveal perk tags and used passive perk HUDs
+		var localPlayer = Scene.GetAllComponents<PlayerController>()
+			.FirstOrDefault( p => !p.IsProxy );
+		if ( localPlayer != null )
+		{
+			localPlayer.CleanupRevealTag();
+
+			// If passive perk was used during this meeting, slide out the HUD
+			if ( PerkBridge.IsPassivePerk && PerkBridge.PerkUsedThisRound )
+			{
+				PerkBridge.PerkUsedThisRound = true;
+				PerkBridge.IsPerkActive = false;
+				PerkBridge.PerkTimeRemaining = 0f;
+			}
+		}
 	}
 
 	[Rpc.Broadcast]

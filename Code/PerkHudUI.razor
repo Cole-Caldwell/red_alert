@@ -4,11 +4,14 @@
 
 <root>
     <div class="perk-hud @StatusClass @SlideClass">
-        <div class="perk-key-wrap">
-            <div class="perk-key">G</div>
-        </div>
+        @if ( !IsPassive )
+        {
+            <div class="perk-key-wrap">
+                <div class="perk-key">G</div>
+            </div>
+        }
         <div class="perk-info">
-            <div class="perk-label">PERK</div>
+            <div class="perk-label">@( IsPassive ? "PASSIVE PERK" : "PERK" )</div>
             <div class="perk-name">@PerkName</div>
             @if ( IsActive )
             {
@@ -155,6 +158,7 @@
     public string PerkName { get; set; } = "";
     public bool IsUsed { get; set; } = false;
     public bool IsActive { get; set; } = false;
+    public bool IsPassive { get; set; } = false;
     public string TimerText { get; set; } = "";
     public string StatusClass { get; set; } = "";
     public string SlideClass { get; set; } = "";
@@ -179,6 +183,7 @@
     {
         PerkName = PerkBridge.ActivePerkName;
         IsUsed = PerkBridge.PerkUsedThisRound;
+        IsPassive = PerkBridge.IsPassivePerk;
         IsActive = false;
         TimerText = "";
 
@@ -222,6 +227,6 @@
 
     protected override int BuildHash()
     {
-        return System.HashCode.Combine( PerkName, IsUsed, IsActive, TimerText, SlideClass );
+        return System.HashCode.Combine( PerkName, IsUsed, IsActive, IsPassive, TimerText, SlideClass );
     }
 }

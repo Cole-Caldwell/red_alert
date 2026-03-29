@@ -72,6 +72,8 @@ public partial class PlayerController : Component
 	private string activePerkId = "";
 	private float originalWalkSpeed = 0f;
 	private float originalRunSpeed = 0f;
+	private RoleRevealTag roleRevealTag = null;
+	private bool ironWillResistedThisRound = false;
 
 	// Movement Settings
 	[Property] public float WalkSpeed { get; set; } = 200f;
@@ -929,6 +931,46 @@ public partial class PlayerController : Component
 		activePerkId = "";
 	}
 
+	[Rpc.Owner]
+	public void ActivateRevealPerkRpc( PlayerController revealedPlayer, bool isAnomaly )
+	{
+		// Only process if we have Reveal equipped and haven't used it yet
+		if ( PerkBridge.PerkUsedThisRound || PerkBridge.EquippedPerkId != "reveal" )
+			return;
+
+		var revealPerk = PerkRegistry.GetById( "reveal" );
+		if ( revealPerk == null ) return;
+
+		// Mark perk as used and charge credits
+		PerkBridge.MarkPerkUsed();
+		Sandbox.Services.Stats.Increment( "credits_spent", revealPerk.Cost );
+		PerkBridge.UnequipPerk();
+		EquippedPerkId = "";
+
+		if ( revealedPlayer == null || !revealedPlayer.IsValid() ) return;
+
+		// Create the role reveal tag above the revealed player's head (local only)
+		var tagObj = Scene.CreateObject();
+		tagObj.Name = "Role Reveal Tag";
+		var worldPanel = tagObj.Components.Create<WorldPanel>();
+		worldPanel.PanelSize = new Vector2( 800, 100 );
+		worldPanel.RenderScale = 2f;
+		roleRevealTag = tagObj.Components.Create<RoleRevealTag>();
+		roleRevealTag.TargetPlayer = revealedPlayer.GameObject;
+		roleRevealTag.IsAnomaly = isAnomaly;
+
+		Log.Info( $"[Perk] Reveal activated - {revealedPlayer.PlayerName} is {(isAnomaly ? "ANOMALY" : "CITIZEN")}" );
+	}
+
+	public void CleanupRevealTag()
+	{
+		if ( roleRevealTag != null && roleRevealTag.IsValid() )
+		{
+			roleRevealTag.GameObject.Destroy();
+			roleRevealTag = null;
+		}
+	}
+
 	[Rpc.Broadcast]
 	public void KillPlayer( PlayerController target )
 	{
@@ -1439,8 +1481,28 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	private void BlindPlayerRpc()
 	{
+		// Iron Will already resisted a blind this round — ignore duplicate RPC calls
+		if ( ironWillResistedThisRound )
+			return;
+
+		// Iron Will: resist blackout effect
+		if ( !PerkBridge.PerkUsedThisRound && PerkBridge.EquippedPerkId == "iron_will" )
+		{
+			var ironWillPerk = PerkRegistry.GetById( "iron_will" );
+			if ( ironWillPerk != null )
+			{
+				ironWillResistedThisRound = true;
+				PerkBridge.MarkPerkUsed();
+				Sandbox.Services.Stats.Increment( "credits_spent", ironWillPerk.Cost );
+				PerkBridge.UnequipPerk();
+				EquippedPerkId = "";
+				Log.Info( "[Perk] Iron Will resisted blackout!" );
+			}
+			return;
+		}
+
 		isBlinded = true;
-		
+
 		// Play blinded sound
 		if ( BlindedSound != null )
 		{
@@ -1451,13 +1513,13 @@ public partial class PlayerController : Component
 				handle.Volume = 0.075f;
 			}
 		}
-		
+
 		// Create blind overlay UI
 		var uiObject = Scene.CreateObject();
 		uiObject.Name = "Blind Overlay UI";
 		var blindUI = uiObject.Components.Create<BlindOverlayUI>();
 		blindUI.StartBlind( PurgeDuration );
-		
+
 		// Auto-remove blind after duration
 		RemoveBlindAfterDelay();
 	}
@@ -1815,8 +1877,9 @@ public partial class PlayerController : Component
 		if ( perk.Role == PerkRole.CitizenOnly && Role != PlayerRole.Citizen ) return;
 		if ( perk.Role == PerkRole.AnomalyOnly && Role != PlayerRole.Anomaly ) return;
 
-		// Store perk name for HUD display (persists after unequip)
+		// Store perk name and type for HUD display (persists after unequip)
 		PerkBridge.ActivePerkName = perk.Name;
+		PerkBridge.IsPassivePerk = perk.Activation == PerkActivation.Passive;
 
 		if ( perkHudUI != null && perkHudUI.IsValid() )
 			return;
@@ -1844,9 +1907,12 @@ public partial class PlayerController : Component
 		}
 		perkActive = false;
 		activePerkId = "";
+		ironWillResistedThisRound = false;
 		PerkBridge.IsPerkActive = false;
 		PerkBridge.PerkTimeRemaining = 0f;
 		PerkBridge.ActivePerkName = "";
+		PerkBridge.IsPassivePerk = false;
+		CleanupRevealTag();
 	}
 
 	private async void RemoveBlindAfterDelay()
