@@ -1033,8 +1033,22 @@ public partial class GameManager : Component
 			}
 		}
 
+		// Second Chance perk: hide role if ejected player has it equipped
+		if ( ejectedPlayer != null && ejectedPlayer.EquippedPerkId == "second_chance" )
+		{
+			// Consume the perk and charge credits
+			ejectedPlayer.ConsumeSecondChancePerkRpc();
+
+			resultType = "second-chance";
+			Log.Info( $"[Perk] Second Chance activated for {ejectedName} - role hidden!" );
+		}
+
 		// Handle based on result type
-		if ( resultType == "not-anomaly" && ejectedPlayer != null )
+		if ( resultType == "second-chance" && ejectedPlayer != null )
+		{
+			HandleSecondChanceEjection( ejectedPlayer, ejectedName, ejectedSteamId );
+		}
+		else if ( resultType == "not-anomaly" && ejectedPlayer != null )
 		{
 			HandleCitizenEjection( ejectedPlayer, ejectedName, ejectedSteamId );
 		}
@@ -1096,6 +1110,44 @@ public partial class GameManager : Component
 		if ( CurrentState != GameState.GameOver )
 		{
 			ResumeGameAfterMeetingRpc();
+		}
+	}
+
+	private async void HandleSecondChanceEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
+	{
+		bool wasAnomaly = ejectedPlayer.Role == PlayerController.PlayerRole.Anomaly;
+
+		// Kill the player (ragdoll in meeting room, become ghost)
+		KillPlayerFromVote( ejectedPlayer );
+
+		// Wait for ragdoll to display
+		await GameTask.DelaySeconds( 5f );
+
+		// Show second-chance splash (role hidden)
+		ShowMeetingResultSplash( "second-chance", ejectedName, ejectedSteamId );
+
+		// Wait for splash to finish
+		await GameTask.DelaySeconds( 2.5f );
+
+		// Clean up ragdoll
+		CleanupDeadBodies();
+
+		if ( wasAnomaly )
+		{
+			if ( ChatSystem.Instance != null )
+				ChatSystem.Instance.ChatEnabled = false;
+
+			CheckWinConditions();
+
+			if ( CurrentState != GameState.GameOver )
+			{
+				ResumeGameAfterMeetingRpc();
+			}
+		}
+		else
+		{
+			ResumeGameAfterMeetingRpc();
+			ApplyStartCooldowns();
 		}
 	}
 

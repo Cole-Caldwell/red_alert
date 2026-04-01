@@ -198,6 +198,8 @@
         "__enabled": true,
         "Flags": 0,
         "BlindedSound": "sounds/anomalyblind.sound",
+        "DailyRewardSound": "sounds/dailywin.sound",
+        "DailySpinSound": "sounds/spinner.sound",
         "DeathSound": "sounds/deathsound.sound",
         "EquippedPerkId": "",
         "Gravity": 800,
@@ -216,6 +218,7 @@
         "OnComponentFixedUpdate": null,
         "OnComponentStart": null,
         "OnComponentUpdate": null,
+        "PerkActivateSound": "sounds/perkactivate.sound",
         "PlayerName": "Player",
         "PlayerPrefab": {
           "_type": "gameobject",

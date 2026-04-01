@@ -10375,6 +10375,24 @@
               ]
             }
           ]
+        },
+        {
+          "__guid": "9f0a19be-9ac6-482f-a168-99648b07ac8c",
+          "__version": 2,
+          "Flags": 0,
+          "Name": "EmergencyRecallSpawn",
+          "Position": "496.032,445.088,119.4729",
+          "Rotation": "0,0,0,1",
+          "Scale": "1,1,1",
+          "Tags": "emergencyrecall",
+          "Enabled": true,
+          "NetworkMode": 2,
+          "NetworkFlags": 0,
+          "NetworkOrphaned": 0,
+          "NetworkTransmit": true,
+          "OwnerTransfer": 1,
+          "Components": [],
+          "Children": []
         }
       ]
     }
@@ -10400,7 +10418,7 @@
     "GameObjectSystems": {
       "Sandbox.Clutter.ClutterGridSystem": {
         "Storage": {
-          "$blob": "0c352d70-7a5b-43f4-b1e3-0f723325267b"
+          "$blob": "3533caf4-fc57-470c-b78c-cd7902c360c1"
         }
       }
     }

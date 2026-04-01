@@ -1,0 +1,96 @@
+@using Sandbox;
+@using Sandbox.UI;
+@inherits PanelComponent
+
+<root>
+	<div class="shield-notify @FadeClass">
+		<div class="shield-line"></div>
+		<label class="shield-text">@Message</label>
+		<div class="shield-line"></div>
+	</div>
+</root>
+
+<style>
+	.shield-notify {
+		position: absolute;
+		left: 0;
+		top: 35%;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		pointer-events: none;
+		z-index: 4000;
+		opacity: 1;
+		transition: opacity 0.6s ease-out;
+	}
+
+	.shield-notify.fade-out {
+		opacity: 0;
+	}
+
+	.shield-line {
+		width: 400px;
+		height: 2px;
+		background-color: rgba(60, 160, 255, 0.5);
+		box-shadow: 0 0 20px rgba(60, 160, 255, 0.3);
+	}
+
+	.shield-text {
+		font-size: 28px;
+		font-weight: 900;
+		color: rgb(80, 180, 255);
+		letter-spacing: 6px;
+		font-family: Consolas;
+		text-shadow: 0 0 30px rgba(60, 160, 255, 0.6), 0 0 60px rgba(60, 140, 255, 0.3);
+		margin-top: 10px;
+		margin-bottom: 10px;
+	}
+</style>
+
+@code {
+	public string Message { get; set; } = "SHIELD ACTIVATED";
+	public string FadeClass { get; set; } = "";
+
+	private float startTime = 0f;
+	private bool isActive = true;
+
+	protected override void OnStart()
+	{
+		var screenPanel = Components.Get<ScreenPanel>();
+		if ( screenPanel == null )
+		{
+			screenPanel = Components.Create<ScreenPanel>();
+		}
+		screenPanel.ZIndex = 4000;
+
+		startTime = Time.Now;
+	}
+
+	protected override void OnUpdate()
+	{
+		if ( !isActive ) return;
+
+		float elapsed = Time.Now - startTime;
+
+		if ( elapsed < 2.0f )
+		{
+			FadeClass = "";
+		}
+		else if ( elapsed < 3.0f )
+		{
+			FadeClass = "fade-out";
+		}
+		else
+		{
+			isActive = false;
+			GameObject.Destroy();
+		}
+	}
+
+	protected override int BuildHash()
+	{
+		return System.HashCode.Combine( FadeClass, Message );
+	}
+}

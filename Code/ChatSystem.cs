@@ -6,7 +6,21 @@ public sealed class ChatSystem : Component
 {
     public static ChatSystem Instance { get; private set; }
 
-    public bool ChatEnabled { get; set; } = true;
+    private bool _chatEnabled = true;
+    private bool hasTTSHandle;
+    private SoundHandle activeTTSHandle;
+
+    public bool ChatEnabled
+    {
+        get => _chatEnabled;
+        set
+        {
+            _chatEnabled = value;
+            if ( !value )
+                StopTTS();
+        }
+    }
+
     public List<ChatMessage> Messages { get; set; } = new();
 
     [Property] public int MaxMessages { get; set; } = 30;
@@ -57,16 +71,33 @@ public sealed class ChatSystem : Component
         {
             try
             {
+                StopTTS();
                 var synth = new Sandbox.Speech.Synthesizer();
                 synth.WithText( text );
                 synth.WithRate( 1 );
                 var handle = synth.Play();
                 handle.Volume = 25f;
+                activeTTSHandle = handle;
+                hasTTSHandle = true;
             }
             catch ( System.Exception e )
             {
                 Log.Warning( $"[ChatTTS] TTS failed: {e.Message}" );
             }
+        }
+    }
+
+    public void StopTTS()
+    {
+        if ( hasTTSHandle )
+        {
+            try
+            {
+                if ( activeTTSHandle.IsPlaying )
+                    activeTTSHandle.Stop();
+            }
+            catch { }
+            hasTTSHandle = false;
         }
     }
 }

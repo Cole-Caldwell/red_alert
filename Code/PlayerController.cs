@@ -1,4 +1,5 @@
 using Sandbox;
+using System.Collections.Generic;
 using System.Linq;
 
 public partial class PlayerController : Component
@@ -49,6 +50,9 @@ public partial class PlayerController : Component
 	[Property] public SoundEvent BlindedSound { get; set; }
 	[Property] public SoundEvent DeathSound { get; set; }
 	[Property] public SoundEvent KillSound { get; set; }
+	[Property] public SoundEvent PerkActivateSound { get; set; }
+	[Property] public SoundEvent DailySpinSound { get; set; }
+	[Property] public SoundEvent DailyRewardSound { get; set; }
 	[Property] public float MimicDuration { get; set; } = 15f;
 	
 	public string LastKillVictimName { get; set; } = "";
@@ -74,6 +78,8 @@ public partial class PlayerController : Component
 	private float originalRunSpeed = 0f;
 	private RoleRevealTag roleRevealTag = null;
 	private bool ironWillResistedThisRound = false;
+	private List<(string Name, Vector3 Position)> lastKnownSnapshots = new();
+	private PlayerController trackerTagTarget = null;
 
 	// Movement Settings
 	[Property] public float WalkSpeed { get; set; } = 200f;
@@ -162,7 +168,31 @@ public partial class PlayerController : Component
 
 			// Reset role to citizen (default)
 			Role = PlayerRole.Citizen;
+
+			// Check for daily login bonus
+			CheckDailyBonus();
 		}
+	}
+
+	private async void CheckDailyBonus()
+	{
+		// Wait for the game to fully load
+		await GameTask.DelaySeconds( 3f );
+
+		if ( DailyBonusTracker.HasClaimedToday() )
+			return;
+
+		// Pass sounds to the spinner via bridge
+		DailyBonusBridge.SpinSound = DailySpinSound;
+		DailyBonusBridge.RewardSound = DailyRewardSound;
+
+		// Show the daily spinner UI
+		var uiObject = Scene.CreateObject();
+		uiObject.Name = "Daily Spinner UI";
+		var screenPanel = uiObject.Components.Create<ScreenPanel>();
+		screenPanel.ZIndex = 950;
+		uiObject.Components.Create<DailySpinnerUI>();
+		Log.Info( "[DailyBonus] Showing daily spinner" );
 	}
 
 	protected override void OnUpdate()
@@ -185,6 +215,19 @@ public partial class PlayerController : Component
 			}
 		}
 
+		// Draw Tracker Tag marker if target is alive
+		if ( trackerTagTarget != null )
+		{
+			if ( trackerTagTarget.IsValid() && trackerTagTarget.IsAlive && trackerTagTarget.IsInGame )
+			{
+				DrawTrackerTagMarker();
+			}
+			else
+			{
+				trackerTagTarget = null;
+			}
+		}
+
 		// Check mimic timer
 		if ( mimicActive )
 		{
@@ -195,15 +238,17 @@ public partial class PlayerController : Component
 			}
 		}
 
+		// Draw Last Known markers while perk is active
+		if ( perkActive && activePerkId == "last_known" )
+		{
+			DrawLastKnownMarkers();
+		}
+
 		// Check perk timer
 		if ( perkActive && Time.Now >= perkEndTime )
 		{
 			EndPerkEffect();
 		}
-
-		// Update perk bridge HUD state
-		PerkBridge.IsPerkActive = perkActive;
-		PerkBridge.PerkTimeRemaining = perkActive ? System.Math.Max( 0f, perkEndTime - Time.Now ) : 0f;
 
 		// Dead players can't move
 		if ( !IsAlive )
@@ -268,6 +313,10 @@ public partial class PlayerController : Component
 		{
 			AttemptPerkActivation();
 		}
+
+		// Update perk bridge HUD state (after input handling so activation is reflected immediately)
+		PerkBridge.IsPerkActive = perkActive;
+		PerkBridge.PerkTimeRemaining = perkActive ? System.Math.Max( 0f, perkEndTime - Time.Now ) : 0f;
 	}
 
 	private void CheckReadyTerminal()
@@ -701,6 +750,27 @@ public partial class PlayerController : Component
 
 			if ( distance <= KillRange )
 			{
+				// Shield perk: block the kill but still trigger cooldown
+				if ( nearbyPlayers.EquippedPerkId == "shield" )
+				{
+					lastKillTime = Time.Now;
+
+					if ( anomalyUI != null && anomalyUI.IsValid() )
+					{
+						anomalyUI.SetKillCooldown( KillCooldown, lastKillTime );
+					}
+
+					// Notify both players
+					nearbyPlayers.ShieldBlockedRpc();
+					ShowShieldBlockedAnomalyRpc();
+
+					// Consume the target's shield perk
+					nearbyPlayers.ConsumeShieldPerkRpc();
+
+					Log.Info( "[Shield] Kill blocked by Shield perk!" );
+					return false;
+				}
+
 				KillPlayer( nearbyPlayers );
 				lastKillTime = Time.Now;
 
@@ -795,11 +865,32 @@ public partial class PlayerController : Component
 			}
 		}
 
+		// Tracker Tag requires a nearby player in range
+		if ( perk.Id == "tracker_tag" )
+		{
+			var nearestTarget = Scene.GetAllComponents<PlayerController>()
+				.Where( p => p != this && p.IsAlive && p.IsInGame )
+				.OrderBy( p => Vector3.DistanceBetween( WorldPosition, p.WorldPosition ) )
+				.FirstOrDefault();
+
+			if ( nearestTarget == null || Vector3.DistanceBetween( WorldPosition, nearestTarget.WorldPosition ) > KillRange )
+			{
+				Log.Info( "[Perk] Tracker Tag failed - no player in range" );
+				return;
+			}
+		}
+
 		// Mark perk as used and charge credits
 		PerkBridge.MarkPerkUsed();
 		activePerkId = perk.Id;
 		Sandbox.Services.Stats.Increment( "credits_spent", perk.Cost );
 		Log.Info( $"[Perk] Activated: {perk.Name} (charged {perk.Cost} credits)" );
+
+		// Play perk activation sound
+		if ( PerkActivateSound != null )
+		{
+			var handle = Sound.Play( PerkActivateSound );
+		}
 
 		// Execute the perk
 		switch ( perk.Id )
@@ -812,6 +903,21 @@ public partial class PlayerController : Component
 				break;
 			case "quick_fix":
 				ActivateQuickFix();
+				break;
+			case "emergency_recall":
+				ActivateEmergencyRecall();
+				break;
+			case "last_known":
+				ActivateLastKnown();
+				break;
+			case "surge":
+				ActivateSurge();
+				break;
+			case "tracker_tag":
+				ActivateTrackerTag();
+				break;
+			case "phantom_cloak":
+				ActivatePhantomCloak();
 				break;
 		}
 
@@ -899,6 +1005,147 @@ public partial class PlayerController : Component
 		Log.Info( $"[Perk] Quick Fix - instantly completed task: {taskId}" );
 	}
 
+	private void ActivateEmergencyRecall()
+	{
+		var recallSpawns = Scene.GetAllObjects( true )
+			.Where( obj => obj.Tags != null && obj.Tags.Has( "emergencyrecall" ) )
+			.ToList();
+
+		if ( recallSpawns.Count == 0 )
+		{
+			Log.Warning( "[Perk] Emergency Recall failed - no emergencyrecall spawn found!" );
+			return;
+		}
+
+		var spawn = recallSpawns[Game.Random.Int( 0, recallSpawns.Count - 1 )];
+		GameObject.WorldPosition = spawn.WorldPosition;
+		Log.Info( "[Perk] Emergency Recall - teleported to emergency recall point" );
+	}
+
+	private void ActivateLastKnown()
+	{
+		// Snapshot all other alive players' current positions
+		lastKnownSnapshots.Clear();
+
+		var players = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p != this && p.IsAlive && p.IsInGame )
+			.ToList();
+
+		foreach ( var player in players )
+		{
+			string displayName = player.GameObject.Root.Name.Replace( "Player - ", "" );
+			lastKnownSnapshots.Add( (displayName, player.WorldPosition) );
+		}
+
+		perkActive = true;
+		perkEndTime = Time.Now + 5f;
+		Log.Info( $"[Perk] Last Known active for 5 seconds - captured {lastKnownSnapshots.Count} positions" );
+	}
+
+	private void DrawLastKnownMarkers()
+	{
+		foreach ( var snapshot in lastKnownSnapshots )
+		{
+			Vector3 markerPos = snapshot.Position + Vector3.Up * 80;
+			float distance = Vector3.DistanceBetween( WorldPosition, snapshot.Position );
+			string distText = distance >= 1000 ? $"{(distance / 1000f):F1}km" : $"{(int)distance}m";
+
+			// Yellow diamond marker above last known position
+			Gizmo.Draw.Color = new Color( 1f, 0.85f, 0.15f, 0.9f );
+			Gizmo.Draw.SolidSphere( markerPos, 8f );
+
+			// Player name
+			Gizmo.Draw.Color = new Color( 1f, 0.9f, 0.3f, 0.85f );
+			Gizmo.Draw.Text( snapshot.Name, new Transform( markerPos + Vector3.Up * 20 ), "Consolas", 16 );
+
+			// Distance
+			Gizmo.Draw.Color = new Color( 1f, 0.85f, 0.2f, 0.6f );
+			Gizmo.Draw.Text( distText, new Transform( markerPos + Vector3.Up * 5 ), "Consolas", 12 );
+
+			// Vertical line from ground to marker
+			Gizmo.Draw.Color = new Color( 1f, 0.8f, 0.1f, 0.3f );
+			Gizmo.Draw.Line( snapshot.Position, markerPos );
+		}
+	}
+
+	private void ActivateSurge()
+	{
+		lastPurgeTime = -999f;
+
+		if ( anomalyUI != null && anomalyUI.IsValid() )
+		{
+			anomalyUI.SetPurgeCooldown( GetPurgeCooldownForAbility(), lastPurgeTime );
+		}
+
+		Log.Info( "[Perk] Surge - purge cooldown reset!" );
+	}
+
+	private void ActivateTrackerTag()
+	{
+		var nearestTarget = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p != this && p.IsAlive && p.IsInGame )
+			.OrderBy( p => Vector3.DistanceBetween( WorldPosition, p.WorldPosition ) )
+			.FirstOrDefault();
+
+		if ( nearestTarget == null || Vector3.DistanceBetween( WorldPosition, nearestTarget.WorldPosition ) > KillRange )
+			return;
+
+		trackerTagTarget = nearestTarget;
+		string targetName = nearestTarget.GameObject.Root.Name.Replace( "Player - ", "" );
+		Log.Info( $"[Perk] Tracker Tag - tagged {targetName} for the rest of the round" );
+	}
+
+	private void DrawTrackerTagMarker()
+	{
+		if ( trackerTagTarget == null || !trackerTagTarget.IsValid() ) return;
+
+		Vector3 targetPos = trackerTagTarget.WorldPosition + Vector3.Up * 80;
+		float distance = Vector3.DistanceBetween( WorldPosition, trackerTagTarget.WorldPosition );
+		string distText = distance >= 1000 ? $"{(distance / 1000f):F1}km" : $"{(int)distance}m";
+		string displayName = trackerTagTarget.GameObject.Root.Name.Replace( "Player - ", "" );
+
+		// Cyan diamond marker above player head
+		Gizmo.Draw.Color = new Color( 0.2f, 0.9f, 1f, 0.9f );
+		Gizmo.Draw.SolidSphere( targetPos, 8f );
+
+		// Player name
+		Gizmo.Draw.Color = new Color( 0.3f, 0.95f, 1f, 0.85f );
+		Gizmo.Draw.Text( displayName, new Transform( targetPos + Vector3.Up * 20 ), "Consolas", 16 );
+
+		// Distance
+		Gizmo.Draw.Color = new Color( 0.2f, 0.85f, 1f, 0.6f );
+		Gizmo.Draw.Text( distText, new Transform( targetPos + Vector3.Up * 5 ), "Consolas", 12 );
+
+		// Vertical line from ground to marker
+		Gizmo.Draw.Color = new Color( 0.1f, 0.8f, 1f, 0.3f );
+		Gizmo.Draw.Line( trackerTagTarget.WorldPosition, targetPos );
+	}
+
+	private void ActivatePhantomCloak()
+	{
+		SetPhantomCloakRpc( true );
+
+		perkActive = true;
+		perkEndTime = Time.Now + 30f;
+		Log.Info( "[Perk] Phantom Cloak active for 30 seconds" );
+	}
+
+	[Rpc.Broadcast]
+	private void SetPhantomCloakRpc( bool invisible )
+	{
+		// The owner can still see themselves
+		if ( !IsProxy ) return;
+
+		foreach ( var r in GameObject.Components.GetAll<SkinnedModelRenderer>( FindMode.EverythingInSelfAndDescendants ) )
+			r.Enabled = !invisible;
+		foreach ( var r in GameObject.Components.GetAll<ModelRenderer>( FindMode.EverythingInSelfAndDescendants ) )
+			r.Enabled = !invisible;
+
+		var nametag = GameObject.Components.Get<PlayerNametag>( FindMode.EverythingInSelfAndDescendants );
+		if ( nametag != null )
+			nametag.Enabled = !invisible;
+	}
+
 	public float GetPerkTimeRemaining()
 	{
 		if ( !perkActive ) return 0f;
@@ -925,6 +1172,16 @@ public partial class PlayerController : Component
 					speedCtrl.RunSpeed = originalRunSpeed;
 				}
 				Log.Info( "[Perk] Speed Boost ended" );
+				break;
+
+			case "last_known":
+				lastKnownSnapshots.Clear();
+				Log.Info( "[Perk] Last Known ended" );
+				break;
+
+			case "phantom_cloak":
+				SetPhantomCloakRpc( false );
+				Log.Info( "[Perk] Phantom Cloak ended" );
 				break;
 		}
 
@@ -959,6 +1216,12 @@ public partial class PlayerController : Component
 		roleRevealTag.TargetPlayer = revealedPlayer.GameObject;
 		roleRevealTag.IsAnomaly = isAnomaly;
 
+		// Play perk activation sound
+		if ( PerkActivateSound != null )
+		{
+			var handle = Sound.Play( PerkActivateSound );
+		}
+
 		Log.Info( $"[Perk] Reveal activated - {revealedPlayer.PlayerName} is {(isAnomaly ? "ANOMALY" : "CITIZEN")}" );
 	}
 
@@ -968,6 +1231,68 @@ public partial class PlayerController : Component
 		{
 			roleRevealTag.GameObject.Destroy();
 			roleRevealTag = null;
+		}
+	}
+
+	[Rpc.Owner]
+	public void ShieldBlockedRpc()
+	{
+		var uiObject = Scene.CreateObject();
+		uiObject.Name = "Shield Notification UI";
+		var notification = uiObject.Components.Create<ShieldNotificationUI>();
+		notification.Message = "SHIELD BLOCKED THE ATTACK";
+	}
+
+	[Rpc.Owner]
+	private void ShowShieldBlockedAnomalyRpc()
+	{
+		var uiObject = Scene.CreateObject();
+		uiObject.Name = "Shield Notification UI";
+		var notification = uiObject.Components.Create<ShieldNotificationUI>();
+		notification.Message = "KILL BLOCKED BY SHIELD";
+	}
+
+	[Rpc.Owner]
+	public void ConsumeSecondChancePerkRpc()
+	{
+		if ( PerkBridge.EquippedPerkId != "second_chance" ) return;
+
+		var secondChancePerk = PerkRegistry.GetById( "second_chance" );
+		if ( secondChancePerk != null )
+		{
+			PerkBridge.MarkPerkUsed();
+			Sandbox.Services.Stats.Increment( "credits_spent", secondChancePerk.Cost );
+			PerkBridge.UnequipPerk();
+			EquippedPerkId = "";
+			// Play perk activation sound
+			if ( PerkActivateSound != null )
+			{
+				var handle = Sound.Play( PerkActivateSound );
+			}
+
+			Log.Info( "[Perk] Second Chance consumed - role hidden from vote result" );
+		}
+	}
+
+	[Rpc.Owner]
+	public void ConsumeShieldPerkRpc()
+	{
+		if ( PerkBridge.EquippedPerkId != "shield" ) return;
+
+		var shieldPerk = PerkRegistry.GetById( "shield" );
+		if ( shieldPerk != null )
+		{
+			PerkBridge.MarkPerkUsed();
+			Sandbox.Services.Stats.Increment( "credits_spent", shieldPerk.Cost );
+			PerkBridge.UnequipPerk();
+			EquippedPerkId = "";
+			// Play perk activation sound
+			if ( PerkActivateSound != null )
+			{
+				var handle = Sound.Play( PerkActivateSound );
+			}
+
+			Log.Info( "[Perk] Shield consumed - blocked one kill attempt" );
 		}
 	}
 
@@ -1171,7 +1496,8 @@ public partial class PlayerController : Component
 			TaskListBridge.SetShowTasks( false );
 
 			xRayActive = false;
-			
+			trackerTagTarget = null;
+
 			// Clear active task ID
 			CurrentActiveTaskId = "";
 
@@ -1219,6 +1545,7 @@ public partial class PlayerController : Component
 		IsInGame = false;
 		IsSpectating = false;
 		xRayActive = false;
+		trackerTagTarget = null;
 
 		// Clean up mimic if active
 		mimicActive = false;
@@ -1319,6 +1646,7 @@ public partial class PlayerController : Component
 		}
 		perkActive = false;
 		activePerkId = "";
+		trackerTagTarget = null;
 		PerkBridge.IsPerkActive = false;
 		PerkBridge.PerkTimeRemaining = 0f;
 		PerkBridge.ActivePerkName = "";
@@ -1481,6 +1809,19 @@ public partial class PlayerController : Component
 	[Rpc.Owner]
 	private void BlindPlayerRpc()
 	{
+		// Paranoia Immunity: immune to all purge abilities for the entire round
+		if ( PerkBridge.EquippedPerkId == "paranoia_immunity" )
+		{
+			// Play perk activation sound
+			if ( PerkActivateSound != null )
+			{
+				var handle = Sound.Play( PerkActivateSound );
+			}
+
+			Log.Info( "[Perk] Paranoia Immunity blocked blackout!" );
+			return;
+		}
+
 		// Iron Will already resisted a blind this round — ignore duplicate RPC calls
 		if ( ironWillResistedThisRound )
 			return;
@@ -1496,6 +1837,12 @@ public partial class PlayerController : Component
 				Sandbox.Services.Stats.Increment( "credits_spent", ironWillPerk.Cost );
 				PerkBridge.UnequipPerk();
 				EquippedPerkId = "";
+				// Play perk activation sound
+				if ( PerkActivateSound != null )
+				{
+					var handle = Sound.Play( PerkActivateSound );
+				}
+
 				Log.Info( "[Perk] Iron Will resisted blackout!" );
 			}
 			return;
@@ -1528,6 +1875,7 @@ public partial class PlayerController : Component
 	{
 		var citizens = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p != this && p.IsAlive && p.IsInGame && p.Role == PlayerRole.Citizen )
+			.Where( p => p.EquippedPerkId != "paranoia_immunity" )
 			.ToList();
 
 		if ( citizens.Count == 0 )
@@ -1664,6 +2012,7 @@ public partial class PlayerController : Component
 		var citizens = Scene.GetAllComponents<PlayerController>()
 			.Where( p => p.IsAlive && p.IsInGame && p.Role == PlayerRole.Citizen )
 			.Where( p => p.GameObject.Network.Owner != null && p.GameObject.Network.Owner.SteamId != myOwner.SteamId )
+			.Where( p => p.EquippedPerkId != "paranoia_immunity" )
 			.ToList();
 
 		if ( citizens.Count == 0 )
@@ -1908,6 +2257,7 @@ public partial class PlayerController : Component
 		perkActive = false;
 		activePerkId = "";
 		ironWillResistedThisRound = false;
+		trackerTagTarget = null;
 		PerkBridge.IsPerkActive = false;
 		PerkBridge.PerkTimeRemaining = 0f;
 		PerkBridge.ActivePerkName = "";

@@ -36,6 +36,10 @@
 			background-color: rgba(12, 12, 16, 0.98);
 		}
 
+		.result-overlay.second-chance {
+			background-color: rgba(20, 14, 6, 0.98);
+		}
+
 		/* Fade stages */
 		.result-overlay.fade-out {
 			opacity: 0.4;
@@ -68,6 +72,11 @@
 			box-shadow: 0 0 20px rgba(140, 150, 170, 0.15);
 		}
 
+		.line-amber {
+			background-color: rgba(255, 180, 50, 0.5);
+			box-shadow: 0 0 20px rgba(255, 180, 50, 0.3);
+		}
+
 		/* Avatar */
 		.result-avatar {
 			width: 96px;
@@ -90,6 +99,12 @@
 			box-shadow: 0 0 30px rgba(50, 220, 80, 0.15);
 		}
 
+		.result-avatar.second-chance {
+			border: 2px solid rgba(255, 180, 50, 0.5);
+			background-color: rgba(255, 180, 50, 0.08);
+			box-shadow: 0 0 30px rgba(255, 180, 50, 0.15);
+		}
+
 		.result-avatar img {
 			width: 100%;
 			height: 100%;
@@ -109,6 +124,10 @@
 			color: rgba(50, 220, 80, 0.7);
 		}
 
+		.initial-amber {
+			color: rgba(255, 180, 50, 0.7);
+		}
+
 		/* Player name */
 		.result-player-name {
 			font-size: 32px;
@@ -125,6 +144,11 @@
 		.name-green {
 			color: rgba(80, 230, 110, 0.95);
 			text-shadow: 0 0 20px rgba(50, 220, 80, 0.3);
+		}
+
+		.name-amber {
+			color: rgba(255, 200, 80, 0.95);
+			text-shadow: 0 0 20px rgba(255, 180, 50, 0.3);
 		}
 
 		/* Ejected label */
@@ -159,6 +183,11 @@
 			text-shadow: 0 0 20px rgba(160, 170, 190, 0.2);
 		}
 
+		.title-amber {
+			color: rgb(255, 190, 60);
+			text-shadow: 0 0 30px rgba(255, 180, 50, 0.5);
+		}
+
 		/* Subtitle */
 		.result-subtitle {
 			font-size: 16px;
@@ -177,6 +206,10 @@
 
 		.subtitle-gray {
 			color: rgba(140, 150, 170, 0.4);
+		}
+
+		.subtitle-amber {
+			color: rgba(255, 180, 50, 0.5);
 		}
 
 		/* No eject icon */
@@ -225,6 +258,25 @@
 			<div class="result-line line-green"></div>
 			<label class="result-title title-green">WAS THE ANOMALY</label>
 			<label class="result-subtitle subtitle-green">THE STATION IS SAFE</label>
+		}
+		else if ( ResultType == "second-chance" )
+		{
+			<!-- Ejected but role is HIDDEN (Second Chance perk) -->
+			<div class="result-avatar second-chance">
+				@if ( EjectedSteamId > 0 )
+				{
+					<img src="avatar:@EjectedSteamId" />
+				}
+				else
+				{
+					<label class="avatar-initial-large initial-amber">@EjectedInitial</label>
+				}
+			</div>
+			<label class="result-player-name name-amber">@EjectedName</label>
+			<label class="result-ejected-label">WAS SENTENCED TO DEATH</label>
+			<div class="result-line line-amber"></div>
+			<label class="result-title title-amber">ROLE UNKNOWN</label>
+			<label class="result-subtitle subtitle-amber">THEIR IDENTITY REMAINS A MYSTERY</label>
 		}
 		else
 		{

@@ -1,0 +1,482 @@
+@using Sandbox
+@using Sandbox.UI
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .daily-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.92);
+            z-index: 950;
+            opacity: 1;
+            transition: opacity 0.6s ease;
+        }
+
+        .daily-overlay.fade-out {
+            opacity: 0;
+        }
+
+        .spinner-panel {
+            width: 800px;
+            flex-direction: column;
+            align-items: center;
+            background-color: rgb(12, 10, 8);
+            border: 1px solid rgba(180, 160, 120, 0.2);
+            border-radius: 8px;
+            padding: 40px 48px;
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.6), 0 0 40px rgba(200, 180, 100, 0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel-glow-top {
+            position: absolute;
+            top: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(255, 200, 50, 0), rgba(255, 200, 50, 0.6), rgba(255, 220, 80, 0.9), rgba(255, 200, 50, 0.6), rgba(255, 200, 50, 0));
+            box-shadow: 0 0 16px rgba(255, 200, 50, 0.3);
+        }
+
+        .daily-title {
+            font-size: 28px;
+            font-weight: 900;
+            color: rgb(255, 215, 60);
+            letter-spacing: 8px;
+            font-family: Consolas;
+            text-shadow: 0 0 30px rgba(255, 200, 50, 0.4), 0 0 60px rgba(255, 180, 30, 0.15);
+            margin-bottom: 6px;
+        }
+
+        .daily-subtitle {
+            font-size: 11px;
+            color: rgba(200, 185, 150, 0.4);
+            letter-spacing: 4px;
+            font-family: Consolas;
+            margin-bottom: 32px;
+        }
+
+        /* === REEL SECTION === */
+        .reel-section {
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .reel-pointer {
+            font-size: 22px;
+            color: rgba(255, 200, 50, 0.9);
+            text-shadow: 0 0 12px rgba(255, 200, 50, 0.5);
+            margin-bottom: 6px;
+        }
+
+        .reel-window {
+            width: 644px;
+            height: 100px;
+            overflow: hidden;
+            border: 2px solid rgba(180, 160, 120, 0.15);
+            border-radius: 6px;
+            background-color: rgba(6, 5, 3, 0.8);
+            position: relative;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .reel-window-glow {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            margin-left: -48px;
+            width: 96px;
+            height: 100%;
+            border-left: 2px solid rgba(255, 200, 50, 0.6);
+            border-right: 2px solid rgba(255, 200, 50, 0.6);
+            background-color: rgba(255, 200, 50, 0.04);
+            box-shadow: 0 0 30px rgba(255, 200, 50, 0.15);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .reel-edge-left {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 80px;
+            height: 100%;
+            background: linear-gradient(90deg, rgba(6, 5, 3, 0.95), rgba(6, 5, 3, 0));
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .reel-edge-right {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 80px;
+            height: 100%;
+            background: linear-gradient(270deg, rgba(6, 5, 3, 0.95), rgba(6, 5, 3, 0));
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .reel-strip {
+            flex-direction: row;
+            align-items: center;
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            gap: 2px;
+        }
+
+        .segment {
+            width: 90px;
+            height: 84px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(20, 18, 14, 0.6);
+            border: 1px solid rgba(100, 90, 70, 0.15);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .segment.tier-standard {
+            border-top: 2px solid rgba(180, 170, 140, 0.35);
+        }
+        .segment.tier-advanced {
+            border-top: 2px solid rgba(0, 180, 220, 0.5);
+        }
+        .segment.tier-elite {
+            border-top: 2px solid rgba(160, 80, 220, 0.55);
+        }
+        .segment.tier-legendary {
+            border-top: 2px solid rgba(255, 200, 50, 0.65);
+        }
+
+        .segment-amount {
+            font-size: 20px;
+            font-weight: 900;
+            color: rgba(230, 220, 200, 0.9);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .segment-label {
+            font-size: 8px;
+            font-weight: 700;
+            color: rgba(180, 160, 120, 0.35);
+            font-family: Consolas;
+            letter-spacing: 3px;
+            margin-top: 2px;
+        }
+
+        .reel-pointer-bottom {
+            font-size: 22px;
+            color: rgba(255, 200, 50, 0.9);
+            text-shadow: 0 0 12px rgba(255, 200, 50, 0.5);
+            margin-top: 6px;
+            transform: rotate(180deg);
+        }
+
+        /* === SPIN BUTTON === */
+        @@keyframes spin-btn-pulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(255, 200, 50, 0.15), 0 0 30px rgba(255, 200, 50, 0.05); }
+            50% { box-shadow: 0 0 25px rgba(255, 200, 50, 0.3), 0 0 50px rgba(255, 200, 50, 0.1); }
+        }
+
+        .spin-button {
+            padding: 14px 60px;
+            background-color: rgba(255, 200, 50, 0.08);
+            border: 2px solid rgba(255, 200, 50, 0.5);
+            border-radius: 4px;
+            color: rgb(255, 215, 60);
+            font-size: 18px;
+            font-weight: 900;
+            font-family: Consolas;
+            letter-spacing: 6px;
+            cursor: pointer;
+            animation: spin-btn-pulse 2.5s ease-in-out infinite;
+            transition: background-color 0.2s, border-color 0.2s;
+            text-shadow: 0 0 12px rgba(255, 200, 50, 0.3);
+        }
+
+        .spin-button:hover {
+            background-color: rgba(255, 200, 50, 0.15);
+            border-color: rgba(255, 200, 50, 0.8);
+        }
+
+        /* === RESULT === */
+        @@keyframes result-glow {
+            0%, 100% { text-shadow: 0 0 20px rgba(255, 200, 50, 0.4), 0 0 40px rgba(255, 180, 30, 0.15); }
+            50% { text-shadow: 0 0 40px rgba(255, 200, 50, 0.7), 0 0 80px rgba(255, 180, 30, 0.3); }
+        }
+
+        @@keyframes result-slide-in {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-container {
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .result-amount {
+            font-size: 42px;
+            font-weight: 900;
+            color: rgb(255, 220, 60);
+            font-family: Consolas;
+            letter-spacing: 4px;
+            animation: result-glow 2s ease-in-out infinite;
+        }
+
+        .result-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: rgba(255, 200, 50, 0.5);
+            font-family: Consolas;
+            letter-spacing: 6px;
+            margin-top: 4px;
+        }
+
+        .result-divider {
+            width: 200px;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255, 200, 50, 0), rgba(255, 200, 50, 0.4), rgba(255, 200, 50, 0));
+            margin-top: 12px;
+        }
+
+        .claim-button {
+            padding: 14px 48px;
+            background-color: rgba(255, 200, 50, 0.12);
+            border: 2px solid rgba(255, 200, 50, 0.6);
+            border-radius: 4px;
+            color: rgb(255, 215, 60);
+            font-size: 16px;
+            font-weight: 900;
+            font-family: Consolas;
+            letter-spacing: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s, border-color 0.2s;
+            text-shadow: 0 0 10px rgba(255, 200, 50, 0.3);
+        }
+
+        .claim-button:hover {
+            background-color: rgba(255, 200, 50, 0.2);
+            border-color: rgba(255, 200, 50, 0.9);
+        }
+
+        /* === SPINNING STATE SUBTITLE === */
+        .spinning-label {
+            font-size: 10px;
+            color: rgba(200, 185, 150, 0.3);
+            font-family: Consolas;
+            letter-spacing: 3px;
+            margin-top: 20px;
+        }
+    </style>
+
+    <div class="daily-overlay @FadeClass">
+        <div class="spinner-panel">
+            <div class="panel-glow-top"></div>
+
+            <label class="daily-title">DAILY BONUS</label>
+            <label class="daily-subtitle">SPIN FOR YOUR DAILY REWARD</label>
+
+            <!-- REEL -->
+            <div class="reel-section">
+                <label class="reel-pointer">&#9660;</label>
+                <div class="reel-window">
+                    <div class="reel-edge-left"></div>
+                    <div class="reel-edge-right"></div>
+                    <div class="reel-window-glow"></div>
+                    <div class="reel-strip" style="margin-left: @(StripOffset)px">
+                        @foreach ( var seg in Segments )
+                        {
+                            <div class="segment @GetTierClass( seg )">
+                                <label class="segment-amount">@seg</label>
+                                <label class="segment-label">CREDITS</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <label class="reel-pointer-bottom">&#9660;</label>
+            </div>
+
+            <!-- CONTROLS -->
+            @if ( State == SpinState.Ready )
+            {
+                <div class="spin-button" onclick=@StartSpin>
+                    <label>SPIN</label>
+                </div>
+            }
+
+            @if ( State == SpinState.Spinning )
+            {
+                <label class="spinning-label">GOOD LUCK...</label>
+            }
+
+            @if ( State == SpinState.Result )
+            {
+                <div class="result-container">
+                    <label class="result-amount">+@WinAmount</label>
+                    <label class="result-label">CREDITS EARNED</label>
+                    <div class="result-divider"></div>
+                </div>
+                <div class="claim-button" onclick=@Claim>
+                    <label>CLAIM REWARD</label>
+                </div>
+            }
+        </div>
+    </div>
+</root>
+
+@code {
+    public enum SpinState { Ready, Spinning, Result, Claiming }
+
+    public SpinState State { get; set; } = SpinState.Ready;
+    public List<int> Segments { get; set; } = new();
+    public int WinAmount { get; set; } = 0;
+    public string FadeClass { get; set; } = "";
+
+    private float StripOffset = 0f;
+    private float spinStartTime = 0f;
+    private float spinDuration = 5.5f;
+    private float claimTime = 0f;
+
+    // Reel layout: 92px per card (90px card + 2px gap)
+    private float cardStep = 92f;
+    // Winner placed at this index in the strip
+    private int winIndex = 40;
+    // 7 cards visible, center card = index 3 from left edge of window
+    private int centerOffset = 3;
+    // Total segments in the strip
+    private int totalSegments = 48;
+
+    // Weighted credit amounts
+    private static readonly (int amount, int weight)[] WeightedAmounts = new[]
+    {
+        (200, 25),
+        (400, 20),
+        (600, 18),
+        (800, 15),
+        (1000, 12),
+        (1500, 7),
+        (2000, 3)
+    };
+
+    protected override void OnStart()
+    {
+        // Pre-determine the winning amount
+        WinAmount = RollWeightedAmount();
+
+        // Generate the full strip of segments
+        Segments = new List<int>();
+        for ( int i = 0; i < totalSegments; i++ )
+        {
+            if ( i == winIndex )
+                Segments.Add( WinAmount );
+            else
+                Segments.Add( RollWeightedAmount() );
+        }
+
+        // Start with strip at beginning
+        StripOffset = 0f;
+    }
+
+    private int RollWeightedAmount()
+    {
+        int roll = Game.Random.Int( 0, 99 );
+        int cumulative = 0;
+        foreach ( var (amount, weight) in WeightedAmounts )
+        {
+            cumulative += weight;
+            if ( roll < cumulative )
+                return amount;
+        }
+        return 200;
+    }
+
+    private string GetTierClass( int amount )
+    {
+        if ( amount >= 2000 ) return "tier-legendary";
+        if ( amount >= 1000 ) return "tier-elite";
+        if ( amount >= 600 ) return "tier-advanced";
+        return "tier-standard";
+    }
+
+    private void StartSpin()
+    {
+        State = SpinState.Spinning;
+        spinStartTime = Time.Now;
+        DailyBonusBridge.PlaySpinSound();
+    }
+
+    private void Claim()
+    {
+        if ( State != SpinState.Result ) return;
+        State = SpinState.Claiming;
+
+        // Award credits
+        Sandbox.Services.Stats.Increment( "credits", WinAmount );
+        Log.Info( $"[DailyBonus] Awarded {WinAmount} credits" );
+
+        // Play credit sound
+        CreditsSummaryBridge.PlaySound( Scene );
+
+        // Mark today as claimed
+        DailyBonusTracker.MarkClaimed();
+
+        // Start fade out
+        FadeClass = "fade-out";
+        claimTime = Time.Now;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( State == SpinState.Spinning )
+        {
+            float elapsed = Time.Now - spinStartTime;
+            float t = System.Math.Clamp( elapsed / spinDuration, 0f, 1f );
+
+            // Ease-out quart for dramatic deceleration
+            float eased = 1f - MathF.Pow( 1f - t, 4f );
+
+            // Calculate target offset to center the winning card in the window
+            float targetOffset = -( winIndex - centerOffset ) * cardStep;
+            StripOffset = targetOffset * eased;
+
+            if ( t >= 1f )
+            {
+                StripOffset = targetOffset;
+                State = SpinState.Result;
+                DailyBonusBridge.PlayRewardSound();
+            }
+        }
+
+        // Destroy after fade-out
+        if ( State == SpinState.Claiming && Time.Now - claimTime > 0.8f )
+        {
+            if ( GameObject.IsValid() )
+                GameObject.Destroy();
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( State, StripOffset, FadeClass, WinAmount );
+    }
+}

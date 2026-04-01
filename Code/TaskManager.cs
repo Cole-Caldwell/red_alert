@@ -238,7 +238,10 @@ public class TaskManager : Component
 	{
 		if ( !playerTasks.ContainsKey( player ) )
 		{
-			Log.Warning( $"[CompleteTask] Player {player.PlayerName} not in playerTasks dictionary!" );
+			// Player tasks were cleared (e.g. player died) but completion RPC arrived late.
+			// Still credit the player for the task they completed before death.
+			Log.Info( $"[CompleteTask] Player {player.PlayerName} tasks already cleared - crediting late completion" );
+			player.RoundTasksCompleted++;
 			return;
 		}
 		
@@ -310,13 +313,6 @@ public class TaskManager : Component
 		
 		if ( player != null )
 		{
-			// Don't complete tasks for dead players
-			if ( !player.IsAlive )
-			{
-				Log.Info( $"[CompleteTaskByNetworkId] Player {player.PlayerName} is dead - ignoring task completion" );
-				return;
-			}
-			
 			CompleteTask( player, taskId );
 
 			// Play completion sound - call RPC on the player object

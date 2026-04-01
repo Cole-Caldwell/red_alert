@@ -45,6 +45,7 @@ public static class PerkRegistry
             Name = "QUICK FIX",
             Description = "Instantly complete your current task. Skip the minigame entirely.",
             Cost = 200,
+            Icon = "ui/red-alert-quickfix.png",
             Tier = PerkTier.Cheap,
             Role = PerkRole.CitizenOnly,
             Activation = PerkActivation.Active
@@ -55,6 +56,7 @@ public static class PerkRegistry
             Name = "IRON WILL",
             Description = "Resist the next blackout effect. You stay unaffected while other citizens are blinded.",
             Cost = 200,
+            Icon = "ui/red-alert-ironwill.png",
             Tier = PerkTier.Cheap,
             Role = PerkRole.CitizenOnly,
             Activation = PerkActivation.Passive
@@ -65,8 +67,9 @@ public static class PerkRegistry
             Name = "SPEED BOOST",
             Description = "Increased movement speed for 15 seconds. Move faster to chase or reposition.",
             Cost = 200,
+            Icon = "ui/red-alert-speed-boost.png",
             Tier = PerkTier.Cheap,
-            Role = PerkRole.AnomalyOnly,
+            Role = PerkRole.Universal,
             Activation = PerkActivation.Active
         },
         new PerkData
@@ -75,28 +78,20 @@ public static class PerkRegistry
             Name = "QUIET STEPS",
             Description = "Disable your footstep sounds for 30 seconds. Move silently without anyone hearing you.",
             Cost = 200,
+            Icon = "ui/red-alert-quiet-steps.png",
             Tier = PerkTier.Cheap,
-            Role = PerkRole.AnomalyOnly,
+            Role = PerkRole.Universal,
             Activation = PerkActivation.Active
         },
 
         // === MID (500) ===
         new PerkData
         {
-            Id = "last_known",
-            Name = "LAST KNOWN",
-            Description = "See the last position of every player as a static marker for 5 seconds.",
-            Cost = 500,
-            Tier = PerkTier.Mid,
-            Role = PerkRole.Universal,
-            Activation = PerkActivation.Active
-        },
-        new PerkData
-        {
             Id = "emergency_recall",
             Name = "EMERGENCY RECALL",
             Description = "Instantly teleport back to the emergency button. One-time escape from danger.",
             Cost = 500,
+            Icon = "ui/red-alert-emergency-recall.png",
             Tier = PerkTier.Mid,
             Role = PerkRole.Universal,
             Activation = PerkActivation.Active
@@ -105,8 +100,9 @@ public static class PerkRegistry
         {
             Id = "reveal",
             Name = "REVEAL",
-            Description = "After a meeting starts, one random player's role is privately revealed to you.",
+            Description = "After the first meeting starts, one random player's role is privately revealed to you.",
             Cost = 500,
+            Icon = "ui/red-alert-reveal.png",
             Tier = PerkTier.Mid,
             Role = PerkRole.CitizenOnly,
             Activation = PerkActivation.Passive
@@ -115,13 +111,25 @@ public static class PerkRegistry
         // === EXPENSIVE (1000) ===
         new PerkData
         {
-            Id = "shield",
-            Name = "SHIELD",
-            Description = "Survive one kill attempt. The anomaly's kill fails and goes on cooldown.",
+            Id = "last_known",
+            Name = "LAST KNOWN",
+            Description = "See the last position of every player as a static marker for 5 seconds.",
             Cost = 1000,
+            Icon = "ui/red-alert-last-known.png",
             Tier = PerkTier.Expensive,
-            Role = PerkRole.CitizenOnly,
-            Activation = PerkActivation.Passive
+            Role = PerkRole.Universal,
+            Activation = PerkActivation.Active
+        },
+        new PerkData
+        {
+            Id = "surge",
+            Name = "SURGE",
+            Description = "Instantly reset your purge ability cooldown. Strike again without waiting.",
+            Cost = 1000,
+            Icon = "ui/red-alert-surge.png",
+            Tier = PerkTier.Expensive,
+            Role = PerkRole.AnomalyOnly,
+            Activation = PerkActivation.Active
         },
         new PerkData
         {
@@ -129,6 +137,7 @@ public static class PerkRegistry
             Name = "PARANOIA IMMUNITY",
             Description = "All purge abilities have no effect on you for the entire round.",
             Cost = 1000,
+            Icon = "ui/red-alert-paranoia-immunity.png",
             Tier = PerkTier.Expensive,
             Role = PerkRole.CitizenOnly,
             Activation = PerkActivation.Passive
@@ -137,10 +146,33 @@ public static class PerkRegistry
         // === PREMIUM (2000) ===
         new PerkData
         {
+            Id = "shield",
+            Name = "SHIELD",
+            Description = "Survive one kill attempt. The anomaly's kill fails and goes on cooldown.",
+            Cost = 2000,
+            Icon = "ui/red-alert-shield.png",
+            Tier = PerkTier.Premium,
+            Role = PerkRole.CitizenOnly,
+            Activation = PerkActivation.Passive
+        },
+        new PerkData
+        {
+            Id = "phantom_cloak",
+            Name = "PHANTOM CLOAK",
+            Description = "Become completely invisible for 30 seconds. Other players cannot see you at all.",
+            Cost = 2000,
+            Icon = "ui/red-alert-phantom-cloak.png",
+            Tier = PerkTier.Premium,
+            Role = PerkRole.AnomalyOnly,
+            Activation = PerkActivation.Active
+        },
+        new PerkData
+        {
             Id = "tracker_tag",
             Name = "TRACKER TAG",
-            Description = "Secretly tag one player at round start. See their outline through walls permanently.",
+            Description = "Secretly tag one player of your choosing. See them through walls permanently. Activated by walking up to a player and pressing G.",
             Cost = 2000,
+            Icon = "ui/red-alert-tracker-tag.png",
             Tier = PerkTier.Premium,
             Role = PerkRole.CitizenOnly,
             Activation = PerkActivation.Active
@@ -151,6 +183,7 @@ public static class PerkRegistry
             Name = "SECOND CHANCE",
             Description = "If you get voted out, your role is NOT revealed. Creates massive doubt.",
             Cost = 2000,
+            Icon = "ui/red-alert-second-chance.png",
             Tier = PerkTier.Premium,
             Role = PerkRole.Universal,
             Activation = PerkActivation.Passive

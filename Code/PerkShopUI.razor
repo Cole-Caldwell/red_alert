@@ -247,6 +247,12 @@
             font-family: Consolas;
         }
 
+        .perk-icon-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 4px;
+        }
+
         .perk-info { flex-direction: column; flex-grow: 1; gap: 4px; }
 
         .perk-name-row { flex-direction: row; align-items: center; gap: 10px; }
@@ -394,7 +400,7 @@
             <div class="perk-header">
                 <div class="perk-header-left">
                     <label class="perk-title">PERK SHOP</label>
-                    <label class="perk-subtitle">ONE PERK PER ROUND — CHARGED ON USE</label>
+                    <label class="perk-subtitle">ONE PERK PER ROUND - CHARGED ON USE</label>
                 </div>
                 <div class="balance-badge">
                     <label class="balance-label">CREDITS</label>
@@ -434,7 +440,14 @@
 
                             <div class="perk-card tier-@tierClass @cardClass" onclick="@(() => TryEquip(perk))">
                                 <div class="perk-icon-wrap">
-                                    <label class="perk-icon-text">◆</label>
+                                    @if ( !string.IsNullOrEmpty( perk.Icon ) )
+                                    {
+                                        <img class="perk-icon-img" src=@perk.Icon />
+                                    }
+                                    else
+                                    {
+                                        <label class="perk-icon-text">◆</label>
+                                    }
                                 </div>
                                 <div class="perk-info">
                                     <div class="perk-name-row">
