@@ -17,7 +17,11 @@ public class TaskData
 		Decrypt,         // Follow keypad crack number order
 		SliderMatch,      // Match slider position
 		CollectSamples,   // Click moving targets
-		MemoryMatch      // Memory card matching
+		MemoryMatch,      // Memory card matching
+		Calibrate,        // Timing-based gauge alignment
+		PowerGrid,        // Lights-out toggle puzzle
+		ReactionTest,     // Whack-a-mole speed test
+		DataSort          // Sort entries in order
 	}
 }
 

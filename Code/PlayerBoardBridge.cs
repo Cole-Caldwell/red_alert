@@ -71,10 +71,16 @@ public static class PlayerBoardBridge
             creditsBoard.MaxEntries = 50;
             await creditsBoard.Refresh();
 
+            var spentBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "credits_spent" );
+            spentBoard.MaxEntries = 50;
+            await spentBoard.Refresh();
+
             foreach ( var player in players )
             {
                 int citizenWins = 0;
                 int anomalyWins = 0;
+                int earned = 0;
+                int spent = 0;
 
                 foreach ( var entry in citizenBoard.Entries )
                 {
@@ -98,11 +104,21 @@ public static class PlayerBoardBridge
                 {
                     if ( entry.SteamId == (long)player.SteamId )
                     {
-                        player.Credits = (int)entry.Value;
+                        earned = (int)entry.Value;
                         break;
                     }
                 }
 
+                foreach ( var entry in spentBoard.Entries )
+                {
+                    if ( entry.SteamId == (long)player.SteamId )
+                    {
+                        spent = (int)entry.Value;
+                        break;
+                    }
+                }
+
+                player.Credits = earned - spent;
                 player.CitizenWins = citizenWins;
                 player.AnomalyWins = anomalyWins;
             }

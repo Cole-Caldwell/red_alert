@@ -222,6 +222,34 @@ public class TaskManager : Component
 			var decryptUI = uiObject.Components.Create<TaskDecryptUI>();
 			decryptUI.InitializeFromBridge( this );
 		}
+		else if ( taskData.Type == TaskData.TaskType.Calibrate )
+		{
+			uiObject.Name = "Task Calibrate UI";
+			TaskProgressBridge.CalibrateHitSound = station.CalibrateHitSound;
+			var calibrateUI = uiObject.Components.Create<TaskCalibrateUI>();
+			calibrateUI.InitializeFromBridge( this );
+		}
+		else if ( taskData.Type == TaskData.TaskType.PowerGrid )
+		{
+			uiObject.Name = "Task Power Grid UI";
+			TaskProgressBridge.PowerGridActivateSound = station.PowerGridActivateSound;
+			var powerGridUI = uiObject.Components.Create<TaskPowerGridUI>();
+			powerGridUI.InitializeFromBridge( this );
+		}
+		else if ( taskData.Type == TaskData.TaskType.ReactionTest )
+		{
+			uiObject.Name = "Task Reaction Test UI";
+			TaskProgressBridge.ReactionHitSound = station.ReactionHitSound;
+			var reactionUI = uiObject.Components.Create<TaskReactionTestUI>();
+			reactionUI.InitializeFromBridge( this );
+		}
+		else if ( taskData.Type == TaskData.TaskType.DataSort )
+		{
+			uiObject.Name = "Task Data Sort UI";
+			TaskProgressBridge.DataSortSwapSound = station.DataSortSwapSound;
+			var dataSortUI = uiObject.Components.Create<TaskDataSortUI>();
+			dataSortUI.InitializeFromBridge( this );
+		}
 		else // ProgressBar
 		{
 			uiObject.Name = "Task Progress UI";

@@ -1,0 +1,535 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-calibrate-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-calibrate-container {
+            width: 580px;
+            background-color: rgba(8, 12, 32, 0.98);
+            border: 2px solid rgba(0, 220, 180, 0.6);
+            border-radius: 12px;
+            padding: 35px 40px;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 0 60px rgba(0, 220, 180, 0.2);
+        }
+
+        .task-calibrate-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: rgb(0, 220, 180);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 3px;
+        }
+
+        .task-instruction {
+            font-size: 14px;
+            color: rgba(160, 190, 210, 0.7);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        .gauge-area {
+            width: 320px;
+            height: 320px;
+            position: relative;
+        }
+
+        /* Outer decorative ring */
+        .gauge-outer-ring {
+            width: 320px;
+            height: 320px;
+            border: 2px solid rgba(0, 220, 180, 0.15);
+            border-radius: 50%;
+            position: absolute;
+            top: 0px;
+            left: 0px;
+        }
+
+        /* Main gauge ring */
+        .gauge-ring {
+            width: 280px;
+            height: 280px;
+            border: 4px solid rgba(30, 50, 80, 0.9);
+            border-radius: 50%;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(5, 8, 20, 0.95);
+        }
+
+        /* Inner ring detail */
+        .gauge-inner-ring {
+            width: 240px;
+            height: 240px;
+            border: 1px solid rgba(0, 220, 180, 0.1);
+            border-radius: 50%;
+            position: absolute;
+            top: 40px;
+            left: 40px;
+        }
+
+        /* Green target arc */
+        .gauge-target {
+            width: 280px;
+            height: 280px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            border-radius: 50%;
+        }
+
+        /* Tick marks around the gauge */
+        .tick-container {
+            width: 280px;
+            height: 280px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .tick-mark {
+            position: absolute;
+            width: 2px;
+            height: 12px;
+            background-color: rgba(0, 220, 180, 0.25);
+            top: 2px;
+            left: 139px;
+        }
+
+        .tick-mark.major {
+            height: 18px;
+            width: 3px;
+            background-color: rgba(0, 220, 180, 0.5);
+            left: 138px;
+        }
+
+        /*
+         * Needle spinner: a full-size container that rotates around its own center.
+         * The visible needle bar sits at the top, pointing "up" from center.
+         */
+        .needle-spinner {
+            width: 280px;
+            height: 280px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .needle-bar {
+            position: absolute;
+            width: 3px;
+            height: 110px;
+            top: 18px;
+            left: 138px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.1));
+            border-radius: 2px;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Needle tip (triangle effect using a small bright cap) */
+        .needle-tip {
+            position: absolute;
+            width: 9px;
+            height: 9px;
+            top: 14px;
+            left: 135px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+        }
+
+        /* Center hub */
+        .gauge-center {
+            width: 18px;
+            height: 18px;
+            background-color: rgba(0, 220, 180, 0.9);
+            border: 2px solid rgba(0, 255, 200, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            top: 151px;
+            left: 151px;
+            box-shadow: 0 0 20px rgba(0, 220, 180, 0.6);
+        }
+
+        /* Round indicator dots */
+        .round-dots {
+            flex-direction: row;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .round-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 220, 180, 0.4);
+            background-color: rgba(0, 220, 180, 0.05);
+        }
+
+        .round-dot.completed {
+            background-color: rgba(0, 220, 180, 0.8);
+            border-color: rgba(0, 255, 200, 0.9);
+            box-shadow: 0 0 8px rgba(0, 220, 180, 0.5);
+        }
+
+        .round-dot.current {
+            border-color: rgba(0, 220, 180, 0.9);
+            background-color: rgba(0, 220, 180, 0.3);
+        }
+
+        .status-display {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            font-family: Consolas;
+            min-height: 25px;
+            letter-spacing: 1px;
+        }
+
+        .status-display.hit {
+            color: rgb(0, 255, 150);
+            text-shadow: 0 0 15px rgba(0, 255, 150, 0.5);
+        }
+
+        .status-display.miss {
+            color: rgb(255, 80, 80);
+            text-shadow: 0 0 15px rgba(255, 80, 80, 0.5);
+        }
+
+        .status-display.waiting {
+            color: rgba(0, 220, 180, 0.7);
+        }
+
+        .calibrate-button {
+            padding: 14px 55px;
+            background-color: rgba(0, 220, 180, 0.15);
+            border: 2px solid rgba(0, 220, 180, 0.6);
+            border-radius: 6px;
+            color: rgb(0, 220, 180);
+            font-size: 20px;
+            font-family: Consolas;
+            font-weight: bold;
+            cursor: pointer;
+            letter-spacing: 2px;
+        }
+
+        .calibrate-button:hover {
+            background-color: rgba(0, 220, 180, 0.35);
+            border-color: rgba(0, 255, 200, 1);
+            box-shadow: 0 0 25px rgba(0, 220, 180, 0.4);
+        }
+
+        .calibrate-button.disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+        }
+
+        .close-button {
+            padding: 8px 25px;
+            background-color: rgba(200, 0, 0, 0.2);
+            border: 1px solid rgba(255, 50, 50, 0.4);
+            border-radius: 4px;
+            color: rgb(255, 120, 120);
+            font-size: 13px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.4);
+        }
+    </style>
+
+    <div class="task-calibrate-overlay">
+        <div class="task-calibrate-container">
+
+            <label class="task-calibrate-title">@TaskName</label>
+            <label class="task-instruction">Press CALIBRATE when the needle enters the green zone</label>
+
+            <div class="gauge-area">
+                <!-- Outer decorative ring -->
+                <div class="gauge-outer-ring"></div>
+
+                <!-- Main gauge background -->
+                <div class="gauge-ring"></div>
+
+                <!-- Inner ring detail -->
+                <div class="gauge-inner-ring"></div>
+
+                <!-- Green target arc -->
+                <div class="gauge-target" style="background: conic-gradient(
+                    transparent 0%,
+                    transparent @(TargetStartPct)%,
+                    rgba(0, 255, 100, 0.2) @(TargetStartPct)%,
+                    rgba(0, 255, 100, 0.2) @(TargetEndPct)%,
+                    transparent @(TargetEndPct)%,
+                    transparent 100%
+                );"></div>
+
+                <!-- Tick marks -->
+                <div class="tick-container">
+                    @for ( int i = 0; i < 12; i++ )
+                    {
+                        var deg = i * 30;
+                        var isMajor = (i % 3 == 0);
+                        <div class="tick-mark @(isMajor ? "major" : "")" style="transform: rotate(@(deg)deg);"></div>
+                    }
+                </div>
+
+                <!-- Needle: rotate the full container so the bar sweeps from center -->
+                <div class="needle-spinner" style="transform: rotate(@(NeedleAngle)deg);">
+                    <div class="needle-bar"></div>
+                    <div class="needle-tip"></div>
+                </div>
+
+                <!-- Center hub -->
+                <div class="gauge-center"></div>
+            </div>
+
+            <label class="status-display @StatusClass">@StatusMessage</label>
+
+            <!-- Round progress dots -->
+            <div class="round-dots">
+                @for ( int i = 1; i <= TotalRounds; i++ )
+                {
+                    var dotClass = "";
+                    if ( i < CurrentRound || isCompleted )
+                        dotClass = "completed";
+                    else if ( i == CurrentRound )
+                        dotClass = "current";
+
+                    <div class="round-dot @dotClass"></div>
+                }
+            </div>
+
+            <div class="calibrate-button @(CanPress ? "" : "disabled")" onclick="@PressCalibrate">
+                CALIBRATE
+            </div>
+
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int TotalRounds { get; set; } = 4;
+    public int CurrentRound { get; set; } = 1;
+
+    public float NeedleAngle { get; set; } = 0f;
+    public float NeedleSpeed { get; set; } = 120f; // degrees per second
+    public float TargetStartDeg { get; set; } = 0f;
+    public float TargetEndDeg { get; set; } = 0f;
+    public float TargetStartPct => (TargetStartDeg / 360f) * 100f;
+    public float TargetEndPct => (TargetEndDeg / 360f) * 100f;
+    public bool CanPress { get; set; } = true;
+    public string StatusMessage { get; set; } = "Waiting...";
+    public string StatusClass { get; set; } = "waiting";
+
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    private float feedbackTimer = 0f;
+    private bool showingFeedback = false;
+
+    // Target zone sizes per round (degrees) - gets harder
+    private float[] zoneWidths = new float[] { 60f, 45f, 30f, 22f };
+
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+
+            SetupRound();
+
+            Log.Info( $"TaskCalibrateUI initialized for {TaskName}" );
+        }
+    }
+
+    private void SetupRound()
+    {
+        var random = new System.Random();
+        float zoneWidth = zoneWidths[Math.Min( CurrentRound - 1, zoneWidths.Length - 1 )];
+        float startAngle = random.Next( 30, (int)(360 - zoneWidth - 30) );
+
+        TargetStartDeg = startAngle;
+        TargetEndDeg = startAngle + zoneWidth;
+
+        // Randomize needle start position away from target
+        NeedleAngle = (startAngle + 180f) % 360f;
+        CanPress = true;
+        StatusMessage = "Waiting...";
+        StatusClass = "waiting";
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+
+        if ( isCompleted )
+            return;
+
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+
+        // Handle feedback display timer
+        if ( showingFeedback )
+        {
+            feedbackTimer += Time.Delta;
+            if ( feedbackTimer >= 1f )
+            {
+                showingFeedback = false;
+                if ( CurrentRound <= TotalRounds )
+                {
+                    SetupRound();
+                }
+            }
+            StateHasChanged();
+            return;
+        }
+
+        // Sweep the needle
+        NeedleAngle += NeedleSpeed * Time.Delta;
+        if ( NeedleAngle >= 360f )
+            NeedleAngle -= 360f;
+
+        StateHasChanged();
+    }
+
+    private void PressCalibrate()
+    {
+        if ( !CanPress || isCompleted || showingFeedback )
+            return;
+
+        CanPress = false;
+
+        // Check if needle is within target zone
+        bool isInZone = false;
+        if ( TargetStartDeg <= TargetEndDeg )
+        {
+            isInZone = NeedleAngle >= TargetStartDeg && NeedleAngle <= TargetEndDeg;
+        }
+        else
+        {
+            // Zone wraps around 360
+            isInZone = NeedleAngle >= TargetStartDeg || NeedleAngle <= TargetEndDeg;
+        }
+
+        if ( isInZone )
+        {
+            // Hit!
+            StatusMessage = "CALIBRATED!";
+            StatusClass = "hit";
+
+            // Play calibrate hit sound
+            if ( TaskProgressBridge.CalibrateHitSound != null )
+            {
+                var handle = Sound.Play( TaskProgressBridge.CalibrateHitSound );
+                if ( handle != null )
+                {
+                    handle.ListenLocal = true;
+                    handle.Volume = 1.0f;
+                }
+            }
+
+            if ( CurrentRound >= TotalRounds )
+            {
+                CompleteTask();
+                return;
+            }
+
+            CurrentRound++;
+            showingFeedback = true;
+            feedbackTimer = 0f;
+        }
+        else
+        {
+            // Miss - retry same round
+            StatusMessage = "MISS! Try again...";
+            StatusClass = "miss";
+            showingFeedback = true;
+            feedbackTimer = 0f;
+        }
+
+        StateHasChanged();
+    }
+
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        StatusMessage = "CALIBRATION COMPLETE!";
+        StatusClass = "hit";
+
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( CurrentRound, (int)NeedleAngle );
+    }
+}

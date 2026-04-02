@@ -1,0 +1,517 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-sort-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-sort-container {
+            width: 560px;
+            background-color: rgba(8, 12, 32, 0.98);
+            border: 2px solid rgba(0, 180, 220, 0.5);
+            border-radius: 12px;
+            padding: 35px 40px;
+            flex-direction: column;
+            gap: 18px;
+            box-shadow: 0 0 60px rgba(0, 160, 220, 0.15);
+        }
+
+        /* Header */
+        .sort-header {
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .task-sort-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 3px;
+        }
+
+        .task-instruction {
+            font-size: 13px;
+            color: rgba(140, 170, 200, 0.6);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        /* Column headers */
+        .column-header {
+            flex-direction: row;
+            padding: 0px 12px;
+            gap: 12px;
+        }
+
+        .col-h-index {
+            width: 28px;
+            font-size: 11px;
+            color: rgba(0, 200, 240, 0.35);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .col-h-icon {
+            width: 24px;
+        }
+
+        .col-h-name {
+            flex-grow: 1;
+            font-size: 11px;
+            color: rgba(0, 200, 240, 0.35);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .col-h-value {
+            font-size: 11px;
+            color: rgba(0, 200, 240, 0.35);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            text-align: right;
+            min-width: 60px;
+        }
+
+        /* Entries list frame */
+        .list-frame {
+            background-color: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(0, 180, 220, 0.15);
+            border-radius: 6px;
+            padding: 8px;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .sort-entry {
+            flex-direction: row;
+            align-items: center;
+            padding: 10px 12px;
+            background-color: rgba(15, 20, 45, 0.8);
+            border: 2px solid rgba(30, 45, 75, 0.5);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.15s;
+            gap: 12px;
+        }
+
+        .sort-entry:hover {
+            border-color: rgba(0, 180, 220, 0.5);
+            background-color: rgba(0, 60, 90, 0.2);
+        }
+
+        .sort-entry.selected {
+            border-color: rgba(0, 220, 255, 0.9);
+            background-color: rgba(0, 100, 140, 0.3);
+            box-shadow: 0 0 12px rgba(0, 180, 220, 0.2);
+        }
+
+        .sort-entry.in-place {
+            border-left: 3px solid rgba(0, 220, 130, 0.6);
+        }
+
+        .entry-index {
+            font-size: 13px;
+            color: rgba(0, 200, 240, 0.35);
+            font-family: Consolas;
+            width: 28px;
+        }
+
+        .entry-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .entry-name {
+            flex-grow: 1;
+            font-size: 15px;
+            color: rgba(180, 200, 220, 0.85);
+            font-family: Consolas;
+        }
+
+        .entry-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            font-family: Consolas;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .entry-value.in-place {
+            color: rgb(0, 220, 150);
+        }
+
+        /* Footer bar */
+        .footer-bar {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0px 4px;
+        }
+
+        .sort-status {
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 1px solid rgba(100, 120, 160, 0.4);
+        }
+
+        .status-indicator.sorted {
+            background-color: rgba(0, 220, 130, 0.9);
+            border-color: rgba(0, 255, 150, 0.7);
+            box-shadow: 0 0 8px rgba(0, 220, 130, 0.5);
+        }
+
+        .status-indicator.unsorted {
+            background-color: rgba(255, 180, 50, 0.6);
+            border-color: rgba(255, 200, 80, 0.5);
+        }
+
+        .status-text {
+            font-size: 13px;
+            font-weight: bold;
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .status-text.sorted {
+            color: rgb(0, 220, 150);
+        }
+
+        .status-text.unsorted {
+            color: rgba(255, 200, 80, 0.7);
+        }
+
+        .swap-count {
+            font-size: 12px;
+            color: rgba(140, 170, 200, 0.4);
+            font-family: Consolas;
+        }
+
+        /* Submit */
+        .submit-button {
+            align-self: center;
+            padding: 12px 50px;
+            background-color: rgba(0, 180, 220, 0.15);
+            border: 2px solid rgba(0, 200, 240, 0.5);
+            border-radius: 6px;
+            color: rgb(0, 200, 240);
+            font-size: 18px;
+            font-family: Consolas;
+            font-weight: bold;
+            cursor: pointer;
+            letter-spacing: 2px;
+        }
+
+        .submit-button:hover {
+            background-color: rgba(0, 180, 220, 0.35);
+            border-color: rgba(0, 220, 255, 0.9);
+            box-shadow: 0 0 20px rgba(0, 180, 220, 0.3);
+        }
+
+        .submit-button.disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .close-button {
+            align-self: center;
+            padding: 8px 25px;
+            background-color: rgba(200, 0, 0, 0.2);
+            border: 1px solid rgba(255, 50, 50, 0.4);
+            border-radius: 4px;
+            color: rgb(255, 120, 120);
+            font-size: 13px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.4);
+        }
+    </style>
+
+    <div class="task-sort-overlay">
+        <div class="task-sort-container">
+
+            <div class="sort-header">
+                <label class="task-sort-title">@TaskName</label>
+                <label class="task-instruction">Select two entries to swap - sort ascending by value</label>
+            </div>
+
+            <!-- Column headers -->
+            <div class="column-header">
+                <label class="col-h-index">#</label>
+                <label class="col-h-icon"></label>
+                <label class="col-h-name">FILE</label>
+                <label class="col-h-value">VALUE</label>
+            </div>
+
+            <!-- Entries -->
+            <div class="list-frame">
+                @for ( int i = 0; i < Entries.Count; i++ )
+                {
+                    var index = i;
+                    var entry = Entries[i];
+                    var isSelected = SelectedIndex == index;
+                    var inPlace = IsInCorrectPosition( index );
+
+                    <div class="sort-entry @(isSelected ? "selected" : "") @(inPlace ? "in-place" : "")"
+                         onclick="@(() => ClickEntry(index))">
+                        <label class="entry-index">@(i + 1).</label>
+                        <label class="entry-icon">@entry.Icon</label>
+                        <label class="entry-name">@entry.Name</label>
+                        <label class="entry-value @(inPlace ? "in-place" : "")">@entry.Value</label>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="footer-bar">
+                <div class="sort-status">
+                    <div class="status-indicator @(IsSorted ? "sorted" : "unsorted")"></div>
+                    <label class="status-text @(IsSorted ? "sorted" : "unsorted")">
+                        @(IsSorted ? "SORTED" : "UNSORTED")
+                    </label>
+                </div>
+                <label class="swap-count">@SwapCount swaps</label>
+            </div>
+
+            <div class="submit-button @(IsSorted ? "" : "disabled")" onclick="@SubmitTask">
+                SUBMIT
+            </div>
+
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+
+    public List<SortEntry> Entries { get; set; } = new();
+    public int SelectedIndex { get; set; } = -1;
+    public int SwapCount { get; set; } = 0;
+
+    public bool IsSorted
+    {
+        get
+        {
+            for ( int i = 1; i < Entries.Count; i++ )
+            {
+                if ( Entries[i].Value < Entries[i - 1].Value )
+                    return false;
+            }
+            return Entries.Count > 0;
+        }
+    }
+
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+
+    public class SortEntry
+    {
+        public string Name { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public int Value { get; set; } = 0;
+    }
+
+    private static readonly string[][] EntryTemplates = new string[][]
+    {
+        new[] { "📊", "Report" },
+        new[] { "📁", "Archive" },
+        new[] { "📋", "Log File" },
+        new[] { "🔐", "Encrypted" },
+        new[] { "📈", "Analytics" },
+        new[] { "🗂️", "Database" },
+        new[] { "📡", "Signal" },
+        new[] { "⚙️", "Config" },
+    };
+
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+
+            GenerateEntries();
+
+            Log.Info( $"TaskDataSortUI initialized for {TaskName}" );
+        }
+    }
+
+    private void GenerateEntries()
+    {
+        var random = new System.Random();
+
+        var templates = EntryTemplates.OrderBy( _ => random.Next() ).Take( 6 ).ToList();
+
+        var values = new HashSet<int>();
+        while ( values.Count < 6 )
+        {
+            values.Add( random.Next( 100, 999 ) );
+        }
+
+        var valueList = values.ToList();
+
+        for ( int i = 0; i < 6; i++ )
+        {
+            Entries.Add( new SortEntry
+            {
+                Icon = templates[i][0],
+                Name = templates[i][1],
+                Value = valueList[i]
+            } );
+        }
+
+        while ( IsSorted )
+        {
+            Entries = Entries.OrderBy( _ => random.Next() ).ToList();
+        }
+    }
+
+    private bool IsInCorrectPosition( int index )
+    {
+        if ( index == 0 )
+            return Entries.Count > 1 && Entries[0].Value <= Entries[1].Value;
+
+        if ( index == Entries.Count - 1 )
+            return Entries[index].Value >= Entries[index - 1].Value;
+
+        return Entries[index].Value >= Entries[index - 1].Value &&
+               Entries[index].Value <= Entries[index + 1].Value;
+    }
+
+    private void ClickEntry( int index )
+    {
+        if ( isCompleted )
+            return;
+
+        if ( SelectedIndex == -1 )
+        {
+            SelectedIndex = index;
+        }
+        else if ( SelectedIndex == index )
+        {
+            SelectedIndex = -1;
+        }
+        else
+        {
+            var temp = Entries[SelectedIndex];
+            Entries[SelectedIndex] = Entries[index];
+            Entries[index] = temp;
+
+            SwapCount++;
+            SelectedIndex = -1;
+
+            // Play swap sound
+            if ( TaskProgressBridge.DataSortSwapSound != null )
+            {
+                var handle = Sound.Play( TaskProgressBridge.DataSortSwapSound );
+                if ( handle != null )
+                {
+                    handle.ListenLocal = true;
+                    handle.Volume = 1.0f;
+                }
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private void SubmitTask()
+    {
+        if ( !IsSorted || isCompleted )
+            return;
+
+        isCompleted = true;
+
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+
+        if ( isCompleted )
+            return;
+
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+    }
+
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( SelectedIndex, SwapCount );
+    }
+}

@@ -1,0 +1,614 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-reaction-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-reaction-container {
+            width: 640px;
+            background-color: rgba(8, 12, 32, 0.98);
+            border: 2px solid rgba(255, 100, 50, 0.5);
+            border-radius: 12px;
+            padding: 30px 35px;
+            flex-direction: column;
+            gap: 18px;
+            align-items: center;
+            box-shadow: 0 0 60px rgba(255, 80, 40, 0.15);
+        }
+
+        /* Header */
+        .reaction-header {
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .task-reaction-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: rgb(255, 130, 60);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 3px;
+        }
+
+        .task-instruction {
+            font-size: 13px;
+            color: rgba(200, 170, 140, 0.6);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        /* Grid frame */
+        .grid-frame {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 100, 50, 0.15);
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .reaction-grid {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .reaction-row {
+            flex-direction: row;
+            gap: 6px;
+        }
+
+        .reaction-cell {
+            width: 105px;
+            height: 105px;
+            background-color: rgba(15, 18, 40, 0.95);
+            border: 2px solid rgba(40, 45, 70, 0.6);
+            border-radius: 8px;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.1s;
+            font-size: 36px;
+        }
+
+        .reaction-cell:hover {
+            border-color: rgba(80, 90, 130, 0.6);
+        }
+
+        .reaction-cell.active {
+            background-color: rgba(255, 120, 50, 0.5);
+            border-color: rgba(255, 160, 70, 0.9);
+            box-shadow: 0 0 25px rgba(255, 100, 40, 0.5);
+        }
+
+        .reaction-cell.hit {
+            background-color: rgba(0, 200, 100, 0.2);
+            border-color: rgba(0, 255, 120, 0.5);
+            color: rgba(0, 255, 120, 0.8);
+        }
+
+        .reaction-cell.missed {
+            background-color: rgba(255, 40, 40, 0.15);
+            border-color: rgba(255, 60, 60, 0.4);
+            color: rgba(255, 80, 80, 0.7);
+        }
+
+        /* Timer bar */
+        .timer-bar-container {
+            width: 100%;
+            flex-direction: row;
+            gap: 10px;
+            align-items: center;
+            padding: 0px 4px;
+        }
+
+        .timer-label {
+            font-size: 11px;
+            color: rgba(255, 130, 60, 0.5);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            min-width: 40px;
+        }
+
+        .timer-track {
+            flex-grow: 1;
+            height: 6px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 100, 50, 0.15);
+            border-radius: 3px;
+            position: relative;
+        }
+
+        .timer-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.05s;
+        }
+
+        .timer-fill.safe {
+            background: linear-gradient(90deg, rgba(255, 180, 50, 0.8), rgba(255, 130, 50, 0.8));
+        }
+
+        .timer-fill.danger {
+            background: linear-gradient(90deg, rgba(255, 60, 40, 0.9), rgba(255, 100, 50, 0.8));
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 0px 4px;
+        }
+
+        /* Hit dots */
+        .hit-dots {
+            flex-direction: row;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .hit-dots-label {
+            font-size: 12px;
+            color: rgba(0, 220, 130, 0.6);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            margin-right: 4px;
+        }
+
+        .hit-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            border: 1px solid rgba(0, 200, 100, 0.3);
+            background-color: rgba(0, 200, 100, 0.05);
+        }
+
+        .hit-dot.filled {
+            background-color: rgba(0, 220, 130, 0.8);
+            border-color: rgba(0, 255, 150, 0.7);
+            box-shadow: 0 0 6px rgba(0, 220, 130, 0.4);
+        }
+
+        /* Miss X marks */
+        .miss-marks {
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .miss-marks-label {
+            font-size: 12px;
+            color: rgba(255, 80, 80, 0.6);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            margin-right: 4px;
+        }
+
+        .miss-x {
+            font-size: 16px;
+            font-weight: bold;
+            font-family: Consolas;
+            color: rgba(255, 60, 60, 0.2);
+        }
+
+        .miss-x.active {
+            color: rgba(255, 60, 60, 0.9);
+            text-shadow: 0 0 8px rgba(255, 60, 60, 0.5);
+        }
+
+        /* Status message */
+        .status-display {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            font-family: Consolas;
+            min-height: 22px;
+            letter-spacing: 1px;
+        }
+
+        .status-display.active {
+            color: rgba(255, 130, 60, 0.7);
+        }
+
+        .status-display.hit-msg {
+            color: rgb(0, 255, 150);
+            text-shadow: 0 0 10px rgba(0, 255, 150, 0.4);
+        }
+
+        .status-display.miss-msg {
+            color: rgb(255, 80, 80);
+            text-shadow: 0 0 10px rgba(255, 80, 80, 0.4);
+        }
+
+        .status-display.resetting {
+            color: rgb(255, 200, 80);
+        }
+
+        .status-display.complete {
+            font-size: 20px;
+            color: rgb(0, 255, 180);
+            text-shadow: 0 0 15px rgba(0, 255, 180, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .close-button {
+            padding: 8px 25px;
+            background-color: rgba(200, 0, 0, 0.2);
+            border: 1px solid rgba(255, 50, 50, 0.4);
+            border-radius: 4px;
+            color: rgb(255, 120, 120);
+            font-size: 13px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.4);
+        }
+    </style>
+
+    <div class="task-reaction-overlay">
+        <div class="task-reaction-container">
+
+            <div class="reaction-header">
+                <label class="task-reaction-title">@TaskName</label>
+                <label class="task-instruction">Click targets before they vanish - gets faster each round</label>
+            </div>
+
+            <div class="grid-frame">
+                <div class="reaction-grid">
+                    @for ( int row = 0; row < GridSize; row++ )
+                    {
+                        <div class="reaction-row">
+                            @for ( int col = 0; col < GridSize; col++ )
+                            {
+                                var index = row * GridSize + col;
+                                var cellState = CellStates[index];
+
+                                <div class="reaction-cell @cellState" onclick="@(() => ClickCell(index))">
+                                    @if ( cellState == "active" )
+                                    {
+                                        @:⬤
+                                    }
+                                    else if ( cellState == "hit" )
+                                    {
+                                        @:✓
+                                    }
+                                    else if ( cellState == "missed" )
+                                    {
+                                        @:✗
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Timer bar showing remaining time for current target -->
+            @if ( ActiveCell >= 0 && !isCompleted )
+            {
+                <div class="timer-bar-container">
+                    <label class="timer-label">TIME</label>
+                    <div class="timer-track">
+                        <div class="timer-fill @(TimerPercent < 30 ? "danger" : "safe")" style="width: @TimerPercent%;"></div>
+                    </div>
+                </div>
+            }
+
+            <div class="stats-bar">
+                <div class="hit-dots">
+                    <label class="hit-dots-label">HITS</label>
+                    @for ( int i = 0; i < RequiredHits; i++ )
+                    {
+                        <div class="hit-dot @(i < HitCount ? "filled" : "")"></div>
+                    }
+                </div>
+
+                <div class="miss-marks">
+                    <label class="miss-marks-label">MISS</label>
+                    @for ( int i = 0; i < MaxMisses; i++ )
+                    {
+                        <div class="miss-x @(i < MissCount ? "active" : "")">✗</div>
+                    }
+                </div>
+            </div>
+
+            <label class="status-display @StatusClass">@StatusMessage</label>
+
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int GridSize { get; set; } = 4;
+    public int TotalCells => GridSize * GridSize;
+    public int RequiredHits { get; set; } = 10;
+    public int MaxMisses { get; set; } = 3;
+    public int HitCount { get; set; } = 0;
+    public int MissCount { get; set; } = 0;
+
+    public string[] CellStates { get; set; } = new string[16];
+    public int ActiveCell { get; set; } = -1;
+    public float TargetTimer { get; set; } = 0f;
+    public float GapTimer { get; set; } = 0f;
+    public float GapDuration { get; set; } = 0.5f;
+    public bool InGap { get; set; } = true;
+    public bool IsResetting { get; set; } = false;
+    public string StatusMessage { get; set; } = "Get ready...";
+    public string StatusClass { get; set; } = "active";
+
+    // Progressive difficulty: target duration shrinks as you score hits
+    public float CurrentTargetDuration
+    {
+        get
+        {
+            // Starts at 1.4s, decreases by 0.1s per hit, minimum 0.5s
+            float duration = 1.4f - (HitCount * 0.1f);
+            return Math.Max( duration, 0.5f );
+        }
+    }
+
+    public float TimerPercent
+    {
+        get
+        {
+            if ( ActiveCell < 0 ) return 100f;
+            return Math.Max( 0f, (1f - TargetTimer / CurrentTargetDuration) * 100f );
+        }
+    }
+
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+    private float resetTimer = 0f;
+    private float cellFeedbackTimer = 0f;
+    private int feedbackCell = -1;
+
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+
+            for ( int i = 0; i < TotalCells; i++ )
+                CellStates[i] = "";
+
+            InGap = true;
+            GapTimer = 0f;
+
+            Log.Info( $"TaskReactionTestUI initialized for {TaskName}" );
+        }
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+
+        if ( isCompleted )
+            return;
+
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+
+        // Handle reset after 3 misses
+        if ( IsResetting )
+        {
+            resetTimer += Time.Delta;
+            if ( resetTimer >= 1.5f )
+            {
+                ResetGame();
+            }
+            StateHasChanged();
+            return;
+        }
+
+        // Clear cell feedback
+        if ( feedbackCell >= 0 )
+        {
+            cellFeedbackTimer += Time.Delta;
+            if ( cellFeedbackTimer >= 0.4f )
+            {
+                CellStates[feedbackCell] = "";
+                feedbackCell = -1;
+            }
+        }
+
+        if ( InGap )
+        {
+            GapTimer += Time.Delta;
+            if ( GapTimer >= GapDuration )
+            {
+                SpawnTarget();
+                InGap = false;
+            }
+        }
+        else if ( ActiveCell >= 0 )
+        {
+            TargetTimer += Time.Delta;
+            if ( TargetTimer >= CurrentTargetDuration )
+            {
+                // Target expired - count as miss
+                CellStates[ActiveCell] = "missed";
+                feedbackCell = ActiveCell;
+                cellFeedbackTimer = 0f;
+                ActiveCell = -1;
+                MissCount++;
+                StatusMessage = "Too slow!";
+                StatusClass = "miss-msg";
+
+                if ( MissCount >= MaxMisses )
+                {
+                    StatusMessage = "Resetting...";
+                    StatusClass = "resetting";
+                    IsResetting = true;
+                    resetTimer = 0f;
+                    StateHasChanged();
+                    return;
+                }
+
+                InGap = true;
+                GapTimer = 0f;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private void SpawnTarget()
+    {
+        var random = new System.Random();
+
+        var emptyCells = new List<int>();
+        for ( int i = 0; i < TotalCells; i++ )
+        {
+            if ( CellStates[i] == "" || CellStates[i] == null )
+                emptyCells.Add( i );
+        }
+
+        if ( emptyCells.Count == 0 )
+        {
+            ActiveCell = random.Next( 0, TotalCells );
+        }
+        else
+        {
+            ActiveCell = emptyCells[random.Next( 0, emptyCells.Count )];
+        }
+
+        CellStates[ActiveCell] = "active";
+        TargetTimer = 0f;
+        StatusMessage = "";
+        StatusClass = "active";
+    }
+
+    private void ClickCell( int index )
+    {
+        if ( isCompleted || IsResetting )
+            return;
+
+        if ( index == ActiveCell && CellStates[index] == "active" )
+        {
+            CellStates[index] = "hit";
+            feedbackCell = index;
+            cellFeedbackTimer = 0f;
+            ActiveCell = -1;
+            HitCount++;
+            StatusMessage = "Hit!";
+            StatusClass = "hit-msg";
+
+            // Play hit sound
+            if ( TaskProgressBridge.ReactionHitSound != null )
+            {
+                var handle = Sound.Play( TaskProgressBridge.ReactionHitSound );
+                if ( handle != null )
+                {
+                    handle.ListenLocal = true;
+                    handle.Volume = 1.0f;
+                }
+            }
+
+            if ( HitCount >= RequiredHits )
+            {
+                CompleteTask();
+                return;
+            }
+
+            InGap = true;
+            GapTimer = 0f;
+        }
+    }
+
+    private void ResetGame()
+    {
+        HitCount = 0;
+        MissCount = 0;
+        ActiveCell = -1;
+        IsResetting = false;
+
+        for ( int i = 0; i < TotalCells; i++ )
+            CellStates[i] = "";
+
+        InGap = true;
+        GapTimer = 0f;
+        feedbackCell = -1;
+        StatusMessage = "Try again...";
+        StatusClass = "active";
+    }
+
+    private void CompleteTask()
+    {
+        isCompleted = true;
+        StatusMessage = "SCAN COMPLETE";
+        StatusClass = "complete";
+
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( HitCount, MissCount, ActiveCell, (int)(TargetTimer * 10) );
+    }
+}

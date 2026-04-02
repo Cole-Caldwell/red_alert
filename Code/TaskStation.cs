@@ -14,6 +14,10 @@ public class TaskStation : Component, Component.ITriggerListener
 	[Property] public SoundEvent MatchCorrectSound { get; set; }
 	[Property] public SoundEvent MatchIncorrectSound { get; set; }
 	[Property] public SoundEvent SliderMatchSound { get; set; }
+	[Property] public SoundEvent PowerGridActivateSound { get; set; }
+	[Property] public SoundEvent DataSortSwapSound { get; set; }
+	[Property] public SoundEvent CalibrateHitSound { get; set; }
+	[Property] public SoundEvent ReactionHitSound { get; set; }
 	
 	private bool playerNearby = false;
 	private PlayerController nearbyPlayer = null;
@@ -100,7 +104,11 @@ public class TaskStation : Component, Component.ITriggerListener
 					"Task Collect Samples UI",
 					"Task Memory Match UI",
 					"Task Decrypt UI",
-					"Task Progress UI"
+					"Task Progress UI",
+					"Task Calibrate UI",
+					"Task Power Grid UI",
+					"Task Reaction Test UI",
+					"Task Data Sort UI"
 				};
 
 				var taskUIs = Scene.GetAllObjects( true )

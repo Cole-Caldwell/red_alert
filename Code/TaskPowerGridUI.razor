@@ -1,0 +1,409 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .task-power-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            background-color: rgba(0, 0, 0, 0.85);
+        }
+
+        .task-power-container {
+            width: 620px;
+            background-color: rgba(8, 12, 32, 0.98);
+            border: 2px solid rgba(0, 180, 220, 0.5);
+            border-radius: 12px;
+            padding: 35px 40px;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 0 60px rgba(0, 160, 220, 0.15);
+        }
+
+        /* Header area */
+        .power-header {
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .task-power-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: rgb(0, 200, 240);
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 3px;
+        }
+
+        .task-instruction {
+            font-size: 13px;
+            color: rgba(140, 170, 200, 0.6);
+            text-align: center;
+            font-family: Consolas;
+        }
+
+        /* Grid wrapper with border frame */
+        .grid-frame {
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(0, 180, 220, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .grid-container {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .grid-row {
+            flex-direction: row;
+            gap: 6px;
+        }
+
+        .grid-cell {
+            width: 88px;
+            height: 88px;
+            border-radius: 6px;
+            cursor: pointer;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+            font-size: 22px;
+            font-family: Consolas;
+            font-weight: bold;
+        }
+
+        .grid-cell.off {
+            background-color: rgba(12, 16, 35, 0.95);
+            border: 2px solid rgba(30, 45, 75, 0.7);
+            color: rgba(40, 60, 100, 0.4);
+        }
+
+        .grid-cell.off:hover {
+            border-color: rgba(0, 180, 220, 0.7);
+            background-color: rgba(0, 80, 120, 0.15);
+            box-shadow: 0 0 12px rgba(0, 180, 220, 0.2);
+        }
+
+        .grid-cell.on {
+            background-color: rgba(0, 160, 210, 0.25);
+            border: 2px solid rgba(0, 200, 240, 0.5);
+            color: rgba(0, 220, 255, 0.9);
+            box-shadow: 0 0 10px rgba(0, 180, 220, 0.2);
+        }
+
+        /* Status bar at bottom of grid */
+        .status-bar {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0px 4px;
+        }
+
+        .power-meter {
+            flex-direction: row;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .power-meter-label {
+            font-size: 13px;
+            color: rgba(0, 200, 240, 0.6);
+            font-family: Consolas;
+            letter-spacing: 1px;
+        }
+
+        .meter-track {
+            width: 200px;
+            height: 8px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 180, 220, 0.2);
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .meter-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+
+        .meter-fill.low {
+            background: linear-gradient(90deg, rgba(255, 80, 50, 0.8), rgba(255, 130, 50, 0.8));
+        }
+
+        .meter-fill.mid {
+            background: linear-gradient(90deg, rgba(255, 180, 50, 0.8), rgba(200, 220, 50, 0.8));
+        }
+
+        .meter-fill.high {
+            background: linear-gradient(90deg, rgba(0, 200, 100, 0.8), rgba(0, 220, 180, 0.8));
+        }
+
+        .meter-fill.full {
+            background: linear-gradient(90deg, rgba(0, 220, 180, 0.9), rgba(0, 255, 200, 0.9));
+            box-shadow: 0 0 8px rgba(0, 220, 180, 0.5);
+        }
+
+        .power-percent {
+            font-size: 14px;
+            font-weight: bold;
+            font-family: Consolas;
+            min-width: 45px;
+            text-align: right;
+        }
+
+        .power-percent.low { color: rgb(255, 100, 60); }
+        .power-percent.mid { color: rgb(230, 210, 60); }
+        .power-percent.high { color: rgb(0, 220, 150); }
+        .power-percent.full { color: rgb(0, 255, 200); text-shadow: 0 0 10px rgba(0, 255, 200, 0.5); }
+
+        .move-count {
+            font-size: 12px;
+            color: rgba(140, 170, 200, 0.4);
+            font-family: Consolas;
+        }
+
+        /* Completion message */
+        .status-display {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            font-family: Consolas;
+            letter-spacing: 2px;
+            min-height: 28px;
+            color: rgb(0, 255, 180);
+            text-shadow: 0 0 15px rgba(0, 255, 180, 0.5);
+        }
+
+        .close-button {
+            padding: 8px 25px;
+            background-color: rgba(200, 0, 0, 0.2);
+            border: 1px solid rgba(255, 50, 50, 0.4);
+            border-radius: 4px;
+            color: rgb(255, 120, 120);
+            font-size: 13px;
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .close-button:hover {
+            background-color: rgba(200, 0, 0, 0.4);
+        }
+    </style>
+
+    <div class="task-power-overlay">
+        <div class="task-power-container">
+
+            <div class="power-header">
+                <label class="task-power-title">@TaskName</label>
+                <label class="task-instruction">Click offline nodes to restore power</label>
+            </div>
+
+            <div class="grid-frame">
+                <div class="grid-container">
+                    @for ( int row = 0; row < GridSize; row++ )
+                    {
+                        <div class="grid-row">
+                            @for ( int col = 0; col < GridSize; col++ )
+                            {
+                                var r = row;
+                                var c = col;
+                                var index = r * GridSize + c;
+                                var isOn = Grid[index];
+
+                                <div class="grid-cell @(isOn ? "on" : "off")" onclick="@(() => ToggleCell(r, c))">
+                                    @(isOn ? "⚡" : "")
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="status-bar">
+                <div class="power-meter">
+                    <label class="power-meter-label">POWER</label>
+                    <div class="meter-track">
+                        <div class="meter-fill @MeterClass" style="width: @PowerPercent%;"></div>
+                    </div>
+                    <label class="power-percent @MeterClass">@PowerPercent%</label>
+                </div>
+                <label class="move-count"></label>
+            </div>
+
+            @if ( AllLit )
+            {
+                <label class="status-display">SYSTEM ONLINE</label>
+            }
+
+            <div class="close-button" onclick="@CancelTask">Cancel (ESC)</div>
+
+        </div>
+    </div>
+</root>
+
+@code {
+    public string TaskName { get; set; } = "";
+    public string TaskId { get; set; } = "";
+    public int GridSize { get; set; } = 5;
+    public int TotalCells => GridSize * GridSize;
+    public bool[] Grid { get; set; } = new bool[25];
+    public int MoveCount { get; set; } = 0;
+    public int LitCount => Grid.Count( g => g );
+    public bool AllLit => Grid.All( g => g );
+    public int PowerPercent => (int)((LitCount / (float)TotalCells) * 100f);
+
+    public string MeterClass
+    {
+        get
+        {
+            if ( PowerPercent >= 100 ) return "full";
+            if ( PowerPercent >= 70 ) return "high";
+            if ( PowerPercent >= 40 ) return "mid";
+            return "low";
+        }
+    }
+
+    private string playerName = "";
+    private TaskManager taskManager;
+    private bool isCompleted = false;
+    private bool shouldDestroyAfterDelay = false;
+    private float destroyDelayTimer = 0f;
+
+    public void InitializeFromBridge( TaskManager tm )
+    {
+        taskManager = tm;
+
+        var taskData = TaskProgressBridge.GetCurrentTask();
+        if ( taskData != null )
+        {
+            TaskName = taskData.TaskName;
+            TaskId = taskData.TaskId;
+            playerName = taskData.PlayerName;
+
+            Grid = new bool[TotalCells];
+            GeneratePuzzle();
+
+            Log.Info( $"TaskPowerGridUI initialized for {TaskName}" );
+        }
+    }
+
+    private void GeneratePuzzle()
+    {
+        var random = new System.Random();
+        int offCount = random.Next( 10, 16 ); // 10-15 cells off out of 25
+
+        for ( int i = 0; i < TotalCells; i++ )
+            Grid[i] = true;
+
+        var indices = Enumerable.Range( 0, TotalCells ).OrderBy( _ => random.Next() ).Take( offCount ).ToList();
+        foreach ( var idx in indices )
+        {
+            Grid[idx] = false;
+        }
+    }
+
+    private void ToggleCell( int row, int col )
+    {
+        if ( isCompleted )
+            return;
+
+        int index = row * GridSize + col;
+
+        if ( Grid[index] )
+            return;
+
+        Grid[index] = true;
+        MoveCount++;
+
+        // Play activate sound
+        if ( TaskProgressBridge.PowerGridActivateSound != null )
+        {
+            var handle = Sound.Play( TaskProgressBridge.PowerGridActivateSound );
+            if ( handle != null )
+            {
+                handle.ListenLocal = true;
+                handle.Volume = 1.0f;
+            }
+        }
+
+        if ( AllLit )
+        {
+            CompleteTask();
+        }
+
+        StateHasChanged();
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( shouldDestroyAfterDelay )
+        {
+            destroyDelayTimer += Time.Delta;
+            if ( destroyDelayTimer >= 1.5f )
+            {
+                TaskProgressBridge.ClearTask();
+                if ( GameObject.IsValid() )
+                    GameObject.Destroy();
+            }
+            return;
+        }
+
+        if ( isCompleted )
+            return;
+
+        if ( Input.Pressed( "Menu" ) )
+        {
+            CancelTask();
+            return;
+        }
+    }
+
+    private void CompleteTask()
+    {
+        isCompleted = true;
+
+        if ( taskManager != null )
+        {
+            ulong ownerId = TaskProgressBridge.PlayerOwnerId;
+
+            if ( ownerId != 0 )
+            {
+                taskManager.CompleteTaskByNetworkId( ownerId, TaskId );
+                Log.Info( $"Task '{TaskName}' completed by {playerName} (OwnerId: {ownerId})!" );
+            }
+            else
+            {
+                Log.Error( "Could not get player owner ID from TaskProgressBridge!" );
+            }
+        }
+
+        shouldDestroyAfterDelay = true;
+        destroyDelayTimer = 0f;
+    }
+
+    private void CancelTask()
+    {
+        Log.Info( "Task canceled by player" );
+        TaskProgressBridge.ClearTask();
+        GameObject.Destroy();
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( LitCount, MoveCount );
+    }
+}

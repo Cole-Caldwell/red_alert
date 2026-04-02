@@ -7,6 +7,10 @@ public static class TaskProgressBridge
 	public static SoundEvent MatchCorrectSound { get; set; }
 	public static SoundEvent MatchIncorrectSound { get; set; }
 	public static SoundEvent SliderMatchSound { get; set; }
+	public static SoundEvent PowerGridActivateSound { get; set; }
+	public static SoundEvent DataSortSwapSound { get; set; }
+	public static SoundEvent CalibrateHitSound { get; set; }
+	public static SoundEvent ReactionHitSound { get; set; }
 	
 	public class TaskProgressData
 	{
