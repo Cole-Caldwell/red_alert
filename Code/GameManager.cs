@@ -41,6 +41,8 @@ public partial class GameManager : Component
 	private Dictionary<string, string> playerVotes = new Dictionary<string, string>();
 	private VotingUI votingUI;
 	private bool votingUIActive = false;
+	private float votingStateEnteredTime = 0f;
+	private const float VotingWatchdogTimeout = 60f;
 	private float gameStartTime = 0f;
 	
 	// Internal tracking
@@ -161,7 +163,25 @@ public partial class GameManager : Component
 				
 			case GameState.Voting:
 				UpdateVoting();
-				
+
+				// Watchdog: force-resume if stuck in Voting too long (host only)
+				if ( Networking.IsHost )
+				{
+					float maxVotingDuration = DiscussionTime + VotingTime + 15f + VotingWatchdogTimeout;
+					if ( Time.Now - votingStateEnteredTime > maxVotingDuration )
+					{
+						Log.Warning( $"[Watchdog] Game stuck in Voting for {Time.Now - votingStateEnteredTime:F1}s - force resuming!" );
+						votingUIActive = false;
+						if ( votingUI != null )
+						{
+							votingUI.GameObject.Destroy();
+							votingUI = null;
+						}
+						ResumeGameAfterMeetingRpc();
+						ApplyStartCooldowns();
+					}
+				}
+
 				// Enable voice during voting
 				if ( !IsVoiceEnabled() )
 				{
@@ -301,6 +321,13 @@ public partial class GameManager : Component
 		}
 		
 		Log.Info( $"StartGameFromLobby (IsHost: {Networking.IsHost}), Ready IDs: {readyPlayerIds.Count}" );
+
+		// Eject all players from blackjack tables
+		var blackjackTables = Scene.GetAllComponents<BlackjackTable>().ToList();
+		foreach ( var table in blackjackTables )
+		{
+			table.EjectAllPlayers();
+		}
 
 		// Mark players as in-game LOCALLY on all clients immediately
 		var allPlayers = Scene.GetAllComponents<PlayerController>().ToList();
@@ -607,6 +634,13 @@ public partial class GameManager : Component
 	[Rpc.Broadcast]
 	public void TriggerEmergencyMeeting( PlayerController reporter, DeadBody body )
 	{
+		// Prevent re-triggering during an active meeting
+		if ( CurrentState == GameState.Voting )
+		{
+			Log.Warning( "[Meeting] TriggerEmergencyMeeting called while already in Voting state - ignoring." );
+			return;
+		}
+
 		// Show splash screen and play sound on all clients
 		var splashObj = Scene.CreateObject();
 		splashObj.Name = "Emergency Meeting Splash";
@@ -623,11 +657,17 @@ public partial class GameManager : Component
 		// End all blind effects
 		EndAllBlindEffects();
 
+		// End all active perk effects before teleporting to meeting
+		EndAllActivePerks();
+
 		// Clean up all bodies when meeting is called
 		CleanupDeadBodies();
 
 		// Close any open task minigames for all players
 		CloseAllTaskMinigames();
+
+		// Hide task list during meeting (don't clear tasks, just hide UI)
+		TaskListBridge.SetShowTasks( false );
 
 		Log.Info( $"EMERGENCY MEETING called by {reporter?.PlayerName ?? "Unknown"}!" );
 		
@@ -642,6 +682,7 @@ public partial class GameManager : Component
 		
 		CurrentState = GameState.Voting;
 		votingTimer = 0f;
+		votingStateEnteredTime = Time.Now;
 		playerVotes.Clear();
 
 		// Teleport alive players to meeting room
@@ -764,7 +805,7 @@ public partial class GameManager : Component
 		}
 
 		var inGamePlayers = Scene.GetAllComponents<PlayerController>()
-			.Where( p => p.IsInGame )
+			.Where( p => p.IsInGame && !p.IsSpectating )
 			.ToList();
 
 		var shuffledSpawns = meetingSpawns.OrderBy( _ => Game.Random.Int( 0, 1000 ) ).ToList();
@@ -792,7 +833,7 @@ public partial class GameManager : Component
 		}
 
 		var inGamePlayers = Scene.GetAllComponents<PlayerController>()
-			.Where( p => p.IsInGame )
+			.Where( p => p.IsInGame && !p.IsSpectating )
 			.ToList();
 
 		var shuffledSpawns = gameSpawns.OrderBy( _ => Game.Random.Int( 0, 1000 ) ).ToList();
@@ -1064,103 +1105,139 @@ public partial class GameManager : Component
 
 	private async void HandleCitizenEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
 	{
-		// Kill the citizen (ragdoll in meeting room, become ghost)
-		KillPlayerFromVote( ejectedPlayer );
-
-		// Wait 5 seconds for death to process and ragdoll to display
-		await GameTask.DelaySeconds( 5f );
-
-		// Show result splash
-		ShowMeetingResultSplash( "not-anomaly", ejectedName, ejectedSteamId );
-
-		// Wait for splash to finish
-		await GameTask.DelaySeconds( 2.5f );
-
-		// Clean up the vote-kill ragdoll
-		CleanupDeadBodies();
-
-		ResumeGameAfterMeetingRpc();
-    	ApplyStartCooldowns();
-	}
-
-	private async void HandleAnomalyEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
-	{
-		// Kill the anomaly (ragdoll in meeting room, become ghost)
-		KillPlayerFromVote( ejectedPlayer );
-
-		// Wait for ragdoll to display
-		await GameTask.DelaySeconds( 5f );
-
-		// Show result splash
-		ShowMeetingResultSplash( "was-anomaly", ejectedName, ejectedSteamId );
-
-		// Wait for splash to finish
-		await GameTask.DelaySeconds( 2.5f );
-
-		// Clean up ragdoll
-		CleanupDeadBodies();
-
-		if ( ChatSystem.Instance != null )
-    		ChatSystem.Instance.ChatEnabled = false;
-
-		// Check win conditions - this will trigger EndGame -> ReturnToLobby
-		CheckWinConditions();
-
-		// If somehow no winner, resume game
-		if ( CurrentState != GameState.GameOver )
+		try
 		{
+			// Kill the citizen (ragdoll in meeting room, become ghost)
+			KillPlayerFromVote( ejectedPlayer );
+
+			// Wait 5 seconds for death to process and ragdoll to display
+			await GameTask.DelaySeconds( 5f );
+
+			// Show result splash
+			ShowMeetingResultSplash( "not-anomaly", ejectedName, ejectedSteamId );
+
+			// Wait for splash to finish
+			await GameTask.DelaySeconds( 2.5f );
+
+			// Clean up the vote-kill ragdoll
+			CleanupDeadBodies();
+
 			ResumeGameAfterMeetingRpc();
+			ApplyStartCooldowns();
 		}
-	}
-
-	private async void HandleSecondChanceEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
-	{
-		bool wasAnomaly = ejectedPlayer.Role == PlayerController.PlayerRole.Anomaly;
-
-		// Kill the player (ragdoll in meeting room, become ghost)
-		KillPlayerFromVote( ejectedPlayer );
-
-		// Wait for ragdoll to display
-		await GameTask.DelaySeconds( 5f );
-
-		// Show second-chance splash (role hidden)
-		ShowMeetingResultSplash( "second-chance", ejectedName, ejectedSteamId );
-
-		// Wait for splash to finish
-		await GameTask.DelaySeconds( 2.5f );
-
-		// Clean up ragdoll
-		CleanupDeadBodies();
-
-		if ( wasAnomaly )
+		catch ( System.Exception ex )
 		{
-			if ( ChatSystem.Instance != null )
-				ChatSystem.Instance.ChatEnabled = false;
-
-			CheckWinConditions();
-
-			if ( CurrentState != GameState.GameOver )
-			{
-				ResumeGameAfterMeetingRpc();
-			}
-		}
-		else
-		{
+			Log.Error( $"[Meeting] HandleCitizenEjection failed: {ex.Message}" );
 			ResumeGameAfterMeetingRpc();
 			ApplyStartCooldowns();
 		}
 	}
 
+	private async void HandleAnomalyEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
+	{
+		try
+		{
+			// Kill the anomaly (ragdoll in meeting room, become ghost)
+			KillPlayerFromVote( ejectedPlayer );
+
+			// Wait for ragdoll to display
+			await GameTask.DelaySeconds( 5f );
+
+			// Show result splash
+			ShowMeetingResultSplash( "was-anomaly", ejectedName, ejectedSteamId );
+
+			// Wait for splash to finish
+			await GameTask.DelaySeconds( 2.5f );
+
+			// Clean up ragdoll
+			CleanupDeadBodies();
+
+			if ( ChatSystem.Instance != null )
+				ChatSystem.Instance.ChatEnabled = false;
+
+			// Check win conditions - this will trigger EndGame -> ReturnToLobby
+			CheckWinConditions();
+
+			// If somehow no winner, resume game
+			if ( CurrentState != GameState.GameOver )
+			{
+				ResumeGameAfterMeetingRpc();
+			}
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Error( $"[Meeting] HandleAnomalyEjection failed: {ex.Message}" );
+			if ( CurrentState != GameState.GameOver )
+				ResumeGameAfterMeetingRpc();
+		}
+	}
+
+	private async void HandleSecondChanceEjection( PlayerController ejectedPlayer, string ejectedName, ulong ejectedSteamId )
+	{
+		try
+		{
+			bool wasAnomaly = ejectedPlayer.Role == PlayerController.PlayerRole.Anomaly;
+
+			// Kill the player (ragdoll in meeting room, become ghost)
+			KillPlayerFromVote( ejectedPlayer );
+
+			// Wait for ragdoll to display
+			await GameTask.DelaySeconds( 5f );
+
+			// Show second-chance splash (role hidden)
+			ShowMeetingResultSplash( "second-chance", ejectedName, ejectedSteamId );
+
+			// Wait for splash to finish
+			await GameTask.DelaySeconds( 2.5f );
+
+			// Clean up ragdoll
+			CleanupDeadBodies();
+
+			if ( wasAnomaly )
+			{
+				if ( ChatSystem.Instance != null )
+					ChatSystem.Instance.ChatEnabled = false;
+
+				CheckWinConditions();
+
+				if ( CurrentState != GameState.GameOver )
+				{
+					ResumeGameAfterMeetingRpc();
+				}
+			}
+			else
+			{
+				ResumeGameAfterMeetingRpc();
+				ApplyStartCooldowns();
+			}
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Error( $"[Meeting] HandleSecondChanceEjection failed: {ex.Message}" );
+			if ( CurrentState != GameState.GameOver )
+				ResumeGameAfterMeetingRpc();
+		}
+	}
+
 	private async void HandleNoEjection()
 	{
-		// Show result splash
-		ShowMeetingResultSplash( "no-eject", "", 0 );
+		try
+		{
+			// Show result splash
+			ShowMeetingResultSplash( "no-eject", "", 0 );
 
-		// Wait for splash to finish
-		await GameTask.DelaySeconds( 2.5f );
+			// Wait for splash to finish
+			await GameTask.DelaySeconds( 2.5f );
 
-		ResumeGameAfterMeetingRpc();
-    	ApplyStartCooldowns();
+			ResumeGameAfterMeetingRpc();
+			ApplyStartCooldowns();
+		}
+		catch ( System.Exception ex )
+		{
+			Log.Error( $"[Meeting] HandleNoEjection failed: {ex.Message}" );
+			ResumeGameAfterMeetingRpc();
+			ApplyStartCooldowns();
+		}
 	}
 
 	[Rpc.Broadcast]
@@ -1295,6 +1372,24 @@ public partial class GameManager : Component
 		// Set state on all clients
 		CurrentState = GameState.InGame;
 
+		// Host re-sends task data to all alive citizens as a safety net
+		if ( Networking.IsHost )
+		{
+			var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
+			if ( taskManager != null )
+			{
+				var aliveCitizens = Scene.GetAllComponents<PlayerController>()
+					.Where( p => p.IsAlive && p.IsInGame
+						&& p.Role == PlayerController.PlayerRole.Citizen
+						&& p.GameObject.Network.Owner != null );
+
+				foreach ( var player in aliveCitizens )
+				{
+					taskManager.ResendTasksToPlayer( player );
+				}
+			}
+		}
+
 		// Disable chat on all clients
 		if ( ChatSystem.Instance != null )
 			ChatSystem.Instance.ChatEnabled = false;
@@ -1306,12 +1401,23 @@ public partial class GameManager : Component
 		{
 			localPlayer.CleanupRevealTag();
 
+			// Defensive: clean up any lingering active perk effects
+			localPlayer.CleanupActivePerksForMeeting();
+
 			// If passive perk was used during this meeting, slide out the HUD
 			if ( PerkBridge.IsPassivePerk && PerkBridge.PerkUsedThisRound )
 			{
 				PerkBridge.PerkUsedThisRound = true;
 				PerkBridge.IsPerkActive = false;
 				PerkBridge.PerkTimeRemaining = 0f;
+			}
+
+			// Re-show task list for alive citizens after meeting
+			if ( localPlayer.IsAlive
+				&& localPlayer.Role == PlayerController.PlayerRole.Citizen
+				&& TaskListBridge.GetTasks().Count > 0 )
+			{
+				TaskListBridge.SetShowTasks( true );
 			}
 		}
 	}
@@ -1367,6 +1473,19 @@ public partial class GameManager : Component
 		}
 		
 		Log.Info( "Ended all blind effects" );
+	}
+
+	private void EndAllActivePerks()
+	{
+		var players = Scene.GetAllComponents<PlayerController>()
+			.Where( p => p.GameObject.Network.Owner != null && p.IsInGame );
+
+		foreach ( var player in players )
+		{
+			player.CleanupActivePerksForMeeting();
+		}
+
+		Log.Info( "Ended all active perk effects for meeting" );
 	}
 
 	private void CheckWinConditions()
@@ -1562,15 +1681,24 @@ public partial class GameManager : Component
 		}
 		else
 		{
-			string anomalyName = "Unknown";
-			var anomaly = Scene.GetAllComponents<PlayerController>()
-				.FirstOrDefault( p => p.Role == PlayerController.PlayerRole.Anomaly );
-			
-			if ( anomaly != null )
+			var anomalies = Scene.GetAllComponents<PlayerController>()
+				.Where( p => p.Role == PlayerController.PlayerRole.Anomaly )
+				.ToList();
+
+			string anomalyName;
+			if ( anomalies.Count > 0 )
 			{
-				anomalyName = anomaly.GameObject.Root.Name.Replace( "Player - ", "" );
-				if ( string.IsNullOrEmpty( anomalyName ) || anomalyName == anomaly.GameObject.Root.Name )
-					anomalyName = anomaly.PlayerName;
+				anomalyName = string.Join( " & ", anomalies.Select( a =>
+				{
+					var name = a.GameObject.Root.Name.Replace( "Player - ", "" );
+					if ( string.IsNullOrEmpty( name ) || name == a.GameObject.Root.Name )
+						name = a.PlayerName;
+					return name;
+				}));
+			}
+			else
+			{
+				anomalyName = "Unknown";
 			}
 
 			gameOverUI.ShowAnomalyWins( anomalyName );
@@ -1584,6 +1712,40 @@ public partial class GameManager : Component
 				Log.Info( "[Stats] Incremented anomaly_wins for local player" );
 			}
 		}
+	}
+
+	[ConCmd( "force_lobby" )]
+	public static void ForceReturnToLobbyCmd()
+	{
+		var gm = Game.ActiveScene?.GetAllComponents<GameManager>().FirstOrDefault();
+		if ( gm == null )
+		{
+			Log.Warning( "[Admin] No GameManager found." );
+			return;
+		}
+
+		if ( !Networking.IsHost )
+		{
+			Log.Warning( "[Admin] force_lobby can only be called by the host." );
+			return;
+		}
+
+		Log.Warning( $"[Admin] Force-resetting game from state {gm.CurrentState} to lobby!" );
+		gm.ForceReturnToLobbyRpc();
+	}
+
+	[Rpc.Broadcast]
+	private void ForceReturnToLobbyRpc()
+	{
+		// Clean up any active voting UI on all clients
+		votingUIActive = false;
+		if ( votingUI != null )
+		{
+			votingUI.GameObject.Destroy();
+			votingUI = null;
+		}
+
+		ReturnToLobby();
 	}
 
 	private void ReturnToLobby()
@@ -1670,6 +1832,55 @@ public partial class GameManager : Component
 
 		if ( ChatSystem.Instance != null )
     		ChatSystem.Instance.ChatEnabled = true;
+	}
+	[ConCmd( "give_credits" )]
+	public static void GiveCreditsCmd( string playerIdentifier, int amount )
+	{
+		if ( !Networking.IsHost )
+		{
+			Log.Warning( "[Admin] give_credits can only be called by the host." );
+			return;
+		}
+
+		var gm = Game.ActiveScene?.GetAllComponents<GameManager>().FirstOrDefault();
+		if ( gm == null )
+		{
+			Log.Warning( "[Admin] No GameManager found." );
+			return;
+		}
+
+		// Find the target player by name or Steam ID
+		var allPlayers = Game.ActiveScene.GetAllComponents<PlayerController>()
+			.Where( p => p.GameObject.Network.Owner != null )
+			.ToList();
+
+		PlayerController target = null;
+
+		// Try matching by Steam ID first
+		if ( ulong.TryParse( playerIdentifier, out ulong steamId ) )
+		{
+			target = allPlayers.FirstOrDefault( p => p.GameObject.Network.Owner.SteamId == steamId );
+		}
+
+		// Fall back to name match (case-insensitive, partial match)
+		if ( target == null )
+		{
+			target = allPlayers.FirstOrDefault( p =>
+				p.PlayerName.Contains( playerIdentifier, System.StringComparison.OrdinalIgnoreCase ) );
+		}
+
+		if ( target == null )
+		{
+			Log.Warning( $"[Admin] Player '{playerIdentifier}' not found. Connected players:" );
+			foreach ( var p in allPlayers )
+			{
+				Log.Info( $"  - {p.PlayerName} (SteamId: {p.GameObject.Network.Owner.SteamId})" );
+			}
+			return;
+		}
+
+		target.AdminGiveCreditsRpc( amount );
+		Log.Info( $"[Admin] Gave {amount} credits to {target.PlayerName}" );
 	}
 }
 

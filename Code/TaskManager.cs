@@ -372,6 +372,26 @@ public class TaskManager : Component
 		return new List<PlayerTask>();
 	}
 
+	public void ResendTasksToPlayer( PlayerController player )
+	{
+		if ( !Networking.IsHost ) return;
+		if ( !playerTasks.ContainsKey( player ) ) return;
+
+		var tasks = playerTasks[player];
+		var taskInfoList = tasks.Select( t => new TaskListBridge.TaskInfo
+		{
+			TaskName = t.Task.TaskName,
+			OrderIndex = t.OrderIndex,
+			IsCompleted = t.IsCompleted,
+			IsActive = t.IsActive
+		} ).ToList();
+
+		var activeTask = tasks.FirstOrDefault( t => t.IsActive );
+		string activeTaskId = activeTask?.Task.TaskId ?? "";
+
+		player.ShowTaskListRpc( taskInfoList, activeTaskId );
+	}
+
 	public void ClearPlayerTasks( PlayerController player )
 	{
 		if ( playerTasks.ContainsKey( player ) )

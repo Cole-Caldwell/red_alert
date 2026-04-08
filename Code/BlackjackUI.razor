@@ -1,0 +1,1094 @@
+@using Sandbox
+@using Sandbox.UI
+@using System.Collections.Generic
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        /* === OVERLAY === */
+        .blackjack-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 600;
+            flex-direction: column;
+        }
+
+        .blackjack-overlay.hidden {
+            display: none;
+        }
+
+        /* === ANIMATIONS === */
+        @@keyframes card-deal {
+            0% { transform: translateY(-80px) rotate(-8deg); opacity: 0; }
+            60% { transform: translateY(4px) rotate(1deg); opacity: 1; }
+            100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        }
+
+        @@keyframes chip-place {
+            0% { transform: translateY(-20px) scale(0.7); opacity: 0; }
+            70% { transform: translateY(2px) scale(1.05); opacity: 1; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        @@keyframes win-glow {
+            0%, 100% { box-shadow: 0 0 6px rgba(255, 215, 0, 0.2); }
+            50% { box-shadow: 0 0 24px rgba(255, 215, 0, 0.6); }
+        }
+
+        @@keyframes lose-fade {
+            0% { opacity: 1; }
+            100% { opacity: 0.45; }
+        }
+
+        @@keyframes pulse-turn {
+            0%, 100% { border-color: rgba(255, 255, 255, 0.15); }
+            50% { border-color: rgba(255, 215, 0, 0.7); }
+        }
+
+        @@keyframes shimmer {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+
+        @@keyframes result-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* === MAIN CONTAINER === */
+        .bj-container {
+            width: 1600px;
+            height: 950px;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: rgb(12, 10, 8);
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.7);
+        }
+
+        /* === HEADER === */
+        .bj-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 28px;
+            background-color: rgb(18, 15, 12);
+            border-bottom: 2px solid rgb(60, 35, 15);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .bj-header-left {
+            flex-direction: row;
+            align-items: center;
+            column-gap: 20px;
+        }
+
+        .bj-title {
+            font-size: 22px;
+            font-weight: 900;
+            color: rgb(220, 195, 140);
+            letter-spacing: 8px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(220, 195, 140, 0.3);
+        }
+
+        .bj-balance {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: Consolas;
+            padding: 6px 16px;
+            background-color: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .bj-balance-amount {
+            color: rgb(255, 215, 100);
+            font-weight: 700;
+        }
+
+        .bj-leave-btn {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: Consolas;
+            padding: 8px 18px;
+            background-color: rgba(180, 40, 40, 0.2);
+            border: 1px solid rgba(180, 40, 40, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            letter-spacing: 2px;
+        }
+
+        .bj-leave-btn:hover {
+            background-color: rgba(180, 40, 40, 0.4);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .bj-header-accent {
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(120, 80, 20, 0), rgba(200, 160, 60, 0.6), rgba(220, 185, 80, 0.9), rgba(200, 160, 60, 0.6), rgba(120, 80, 20, 0));
+            box-shadow: 0 0 10px rgba(200, 160, 60, 0.3);
+        }
+
+        /* === TABLE FELT AREA === */
+        .bj-table {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .bj-felt {
+            position: absolute;
+            top: 10px;
+            left: 30px;
+            right: 30px;
+            bottom: 10px;
+            background-color: rgb(18, 65, 32);
+            border-radius: 300px 300px 16px 16px;
+            border: 10px solid rgb(85, 50, 18);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 30px 40px 20px 40px;
+        }
+
+        /* Mahogany rail texture */
+        .bj-felt::before {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 308px 308px 24px 24px;
+            border: 3px solid rgba(140, 90, 35, 0.3);
+            pointer-events: none;
+        }
+
+        /* Table printed text */
+        .bj-table-text {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            flex-direction: column;
+            align-items: center;
+            row-gap: 4px;
+            pointer-events: none;
+        }
+
+        .bj-table-print {
+            font-size: 13px;
+            color: rgba(200, 180, 80, 0.3);
+            font-family: Consolas;
+            letter-spacing: 4px;
+            font-weight: 700;
+        }
+
+        .bj-table-print-large {
+            font-size: 16px;
+            color: rgba(200, 180, 80, 0.25);
+            font-family: Consolas;
+            letter-spacing: 5px;
+            font-weight: 700;
+        }
+
+        /* === DEALER AREA === */
+        .bj-dealer-area {
+            flex-direction: column;
+            align-items: center;
+            row-gap: 8px;
+            z-index: 10;
+            margin-top: 10px;
+        }
+
+        .bj-dealer-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 6px;
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .bj-dealer-cards {
+            flex-direction: row;
+            column-gap: 6px;
+            align-items: center;
+        }
+
+        .bj-dealer-score {
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: Consolas;
+            font-weight: 700;
+            margin-top: 4px;
+            min-height: 24px;
+        }
+
+        /* === CARDS === */
+        .bj-card {
+            width: 60px;
+            height: 85px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Consolas;
+            font-weight: 700;
+            box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5);
+            animation: card-deal 0.4s ease-out;
+            flex-shrink: 0;
+        }
+
+        .bj-card-face {
+            background-color: rgb(248, 245, 238);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+
+        .bj-card-back {
+            background-color: rgb(130, 18, 18);
+            border: 2px solid rgb(160, 30, 30);
+        }
+
+        .bj-card-rank {
+            font-size: 20px;
+            line-height: 20px;
+        }
+
+        .bj-card-suit {
+            font-size: 22px;
+            line-height: 22px;
+            margin-top: 2px;
+        }
+
+        .bj-card-red {
+            color: rgb(200, 30, 30);
+        }
+
+        .bj-card-black {
+            color: rgb(20, 20, 20);
+        }
+
+        /* === STATUS MESSAGE === */
+        .bj-status {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: Consolas;
+            letter-spacing: 2px;
+            text-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+            z-index: 20;
+            padding: 8px 24px;
+            background-color: rgba(0, 0, 0, 0.35);
+            border-radius: 4px;
+        }
+
+        /* === PLAYER SEATS === */
+        .bj-seats {
+            flex-direction: row;
+            justify-content: center;
+            align-items: flex-end;
+            column-gap: 10px;
+            z-index: 10;
+            margin-bottom: 10px;
+            width: 100%;
+            padding: 0 20px;
+        }
+
+        .bj-seat {
+            flex-direction: column;
+            align-items: center;
+            row-gap: 4px;
+            min-width: 120px;
+            max-width: 160px;
+            padding: 8px 6px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            background-color: rgba(0, 0, 0, 0.15);
+        }
+
+        .bj-seat-active {
+            animation: pulse-turn 1.5s ease-in-out infinite;
+            background-color: rgba(255, 215, 0, 0.06);
+        }
+
+        .bj-seat-local {
+            border-color: rgba(255, 215, 0, 0.2);
+        }
+
+        .bj-seat-empty {
+            opacity: 0.3;
+        }
+
+        .bj-seat-name {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.65);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bj-seat-name-local {
+            color: rgb(255, 215, 100);
+        }
+
+        .bj-seat-cards {
+            flex-direction: row;
+            column-gap: 3px;
+            justify-content: center;
+            flex-wrap: wrap;
+            row-gap: 3px;
+            min-height: 58px;
+        }
+
+        .bj-card-small {
+            width: 42px;
+            height: 58px;
+            border-radius: 3px;
+            font-family: Consolas;
+            font-weight: 700;
+            box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.4);
+            animation: card-deal 0.4s ease-out;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .bj-card-small .bj-card-rank { font-size: 14px; line-height: 14px; }
+        .bj-card-small .bj-card-suit { font-size: 16px; line-height: 16px; margin-top: 1px; }
+
+        .bj-seat-score {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: Consolas;
+            font-weight: 700;
+            min-height: 18px;
+        }
+
+        .bj-seat-bust {
+            color: rgb(220, 60, 60);
+        }
+
+        .bj-seat-blackjack {
+            color: rgb(255, 215, 0);
+        }
+
+        /* Betting circle */
+        .bj-bet-circle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid rgba(200, 180, 80, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .bj-bet-circle.has-bet {
+            border-color: rgba(200, 180, 80, 0.5);
+            background-color: rgba(200, 180, 80, 0.08);
+        }
+
+        .bj-bet-amount {
+            font-size: 12px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        /* Hand wrapper for per-hand result positioning */
+        .bj-hand-wrapper {
+            position: relative;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* === RESULT BADGE === */
+        .bj-result-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            animation: result-pop 0.4s ease-out;
+            z-index: 30;
+            margin-top: 2px;
+        }
+
+        .bj-result-win {
+            background-color: rgba(40, 160, 60, 0.9);
+            color: white;
+            box-shadow: 0 0 16px rgba(40, 160, 60, 0.4);
+        }
+
+        .bj-result-loss {
+            background-color: rgba(180, 40, 40, 0.9);
+            color: white;
+        }
+
+        .bj-result-push {
+            background-color: rgba(180, 160, 60, 0.9);
+            color: rgb(20, 20, 10);
+        }
+
+        .bj-result-blackjack {
+            background-color: rgba(255, 200, 0, 0.95);
+            color: rgb(20, 15, 0);
+            box-shadow: 0 0 20px rgba(255, 200, 0, 0.5);
+        }
+
+        /* === ACTION BAR === */
+        .bj-action-bar {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 28px;
+            background-color: rgb(18, 15, 12);
+            border-top: 2px solid rgb(60, 35, 15);
+            flex-shrink: 0;
+        }
+
+        .bj-chips-row {
+            flex-direction: row;
+            column-gap: 10px;
+            align-items: center;
+        }
+
+        .bj-chip {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-family: Consolas;
+            font-weight: 700;
+            cursor: pointer;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .bj-chip:hover {
+            transform: scale(1.12);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+        }
+
+        .bj-chip-selected {
+            transform: scale(1.15);
+            box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+        }
+
+        .bj-chip-5 {
+            background-color: rgb(230, 230, 230);
+            border: 3px solid rgba(180, 180, 180, 0.8);
+            color: rgb(40, 40, 40);
+        }
+
+        .bj-chip-25 {
+            background-color: rgb(200, 40, 40);
+            border: 3px solid rgba(240, 80, 80, 0.6);
+            color: rgb(255, 255, 255);
+        }
+
+        .bj-chip-100 {
+            background-color: rgb(30, 80, 180);
+            border: 3px solid rgba(80, 130, 220, 0.6);
+            color: rgb(255, 255, 255);
+        }
+
+        .bj-chip-500 {
+            background-color: rgb(20, 20, 20);
+            border: 3px solid rgba(200, 170, 60, 0.7);
+            color: rgb(220, 195, 80);
+        }
+
+        .bj-chip-2000 {
+            background-color: rgb(90, 30, 120);
+            border: 3px solid rgba(160, 80, 200, 0.6);
+            color: rgb(255, 255, 255);
+        }
+
+        .bj-bet-info {
+            flex-direction: column;
+            align-items: center;
+            row-gap: 4px;
+        }
+
+        .bj-bet-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .bj-bet-value {
+            font-size: 22px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .bj-actions-row {
+            flex-direction: row;
+            column-gap: 8px;
+            align-items: center;
+        }
+
+        .bj-action-btn {
+            padding: 10px 22px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border: 1px solid;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+        }
+
+        .bj-action-btn:hover {
+            transform: scale(1.04);
+        }
+
+        .bj-action-btn.disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .bj-btn-hit {
+            background-color: rgba(40, 150, 60, 0.8);
+            border-color: rgba(60, 200, 80, 0.5);
+            color: white;
+        }
+        .bj-btn-hit:hover { background-color: rgba(50, 180, 70, 0.9); }
+
+        .bj-btn-stand {
+            background-color: rgba(200, 160, 40, 0.8);
+            border-color: rgba(240, 200, 60, 0.5);
+            color: rgb(20, 15, 0);
+        }
+        .bj-btn-stand:hover { background-color: rgba(220, 180, 50, 0.9); }
+
+        .bj-btn-double {
+            background-color: rgba(40, 100, 200, 0.8);
+            border-color: rgba(80, 140, 240, 0.5);
+            color: white;
+        }
+        .bj-btn-double:hover { background-color: rgba(50, 120, 220, 0.9); }
+
+        .bj-btn-split {
+            background-color: rgba(120, 50, 160, 0.8);
+            border-color: rgba(160, 80, 200, 0.5);
+            color: white;
+        }
+        .bj-btn-split:hover { background-color: rgba(140, 60, 180, 0.9); }
+
+        .bj-btn-deal {
+            background-color: rgba(200, 170, 50, 0.85);
+            border-color: rgba(240, 210, 80, 0.5);
+            color: rgb(20, 15, 0);
+            padding: 12px 32px;
+            font-size: 16px;
+        }
+        .bj-btn-deal:hover { background-color: rgba(220, 190, 60, 0.95); }
+
+        .bj-btn-clear {
+            background-color: rgba(180, 40, 40, 0.5);
+            border-color: rgba(220, 60, 60, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 10px 18px;
+        }
+
+        /* Insurance prompt */
+        .bj-insurance-prompt {
+            position: absolute;
+            top: 38%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            flex-direction: column;
+            align-items: center;
+            row-gap: 12px;
+            padding: 20px 36px;
+            background-color: rgba(0, 0, 0, 0.85);
+            border: 1px solid rgba(200, 180, 80, 0.4);
+            border-radius: 8px;
+            z-index: 50;
+        }
+
+        .bj-insurance-text {
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .bj-insurance-btns {
+            flex-direction: row;
+            column-gap: 12px;
+        }
+
+        .bj-insurance-yes {
+            padding: 8px 20px;
+            background-color: rgba(40, 150, 60, 0.7);
+            border: 1px solid rgba(60, 200, 80, 0.4);
+            color: white;
+            border-radius: 4px;
+            font-family: Consolas;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .bj-insurance-no {
+            padding: 8px 20px;
+            background-color: rgba(180, 40, 40, 0.5);
+            border: 1px solid rgba(220, 60, 60, 0.3);
+            color: white;
+            border-radius: 4px;
+            font-family: Consolas;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        /* Split hand separator */
+        .bj-hand-separator {
+            width: 1px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.15);
+            margin: 0 4px;
+        }
+    </style>
+
+    <div class="blackjack-overlay @(IsVisible ? "" : "hidden")">
+        <div class="bj-container">
+            <!-- Header -->
+            <div class="bj-header">
+                <div class="bj-header-left">
+                    <div class="bj-title">BLACKJACK</div>
+                    <div class="bj-balance">
+                        Balance: <span class="bj-balance-amount">@Balance.ToString("N0")</span> credits
+                    </div>
+                </div>
+                <div class="bj-leave-btn" onclick="@OnLeave">LEAVE TABLE</div>
+                <div class="bj-header-accent"></div>
+            </div>
+
+            <!-- Table Felt -->
+            <div class="bj-table">
+                <div class="bj-felt">
+                    <!-- Dealer Area -->
+                    <div class="bj-dealer-area">
+                        <div class="bj-dealer-label">DEALER</div>
+                        <div class="bj-dealer-cards">
+                            @foreach ( var card in DealerCards )
+                            {
+                                @if ( card.FaceDown )
+                                {
+                                    <div class="bj-card bj-card-back"></div>
+                                }
+                                else
+                                {
+                                    <div class="bj-card bj-card-face">
+                                        <div class="bj-card-rank @(card.IsRed ? "bj-card-red" : "bj-card-black")">@card.GetRankText()</div>
+                                        <div class="bj-card-suit @(card.IsRed ? "bj-card-red" : "bj-card-black")">@card.GetSuitSymbol()</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <div class="bj-dealer-score">
+                            @if ( DealerCards.Count > 0 && DealerScore > 0 )
+                            {
+                                @DealerScore.ToString()
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Table Printed Text -->
+                    <div class="bj-table-text">
+                        <div class="bj-table-print">INSURANCE PAYS 2 TO 1</div>
+                        <div class="bj-table-print-large">BLACKJACK PAYS 3 TO 2</div>
+                        <div class="bj-table-print">DEALER MUST STAND ON 17</div>
+                    </div>
+
+                    <!-- Status Message -->
+                    @if ( !string.IsNullOrEmpty( StatusMessage ) && Phase != BlackjackPhase.Idle )
+                    {
+                        <div class="bj-status">@StatusMessage</div>
+                    }
+
+                    <!-- Insurance Prompt -->
+                    @if ( ShowInsurance )
+                    {
+                        <div class="bj-insurance-prompt">
+                            <div class="bj-insurance-text">INSURANCE? (costs half your bet)</div>
+                            <div class="bj-insurance-btns">
+                                <div class="bj-insurance-yes" onclick="@(() => OnInsurance(true))">YES</div>
+                                <div class="bj-insurance-no" onclick="@(() => OnInsurance(false))">NO</div>
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Player Seats -->
+                    <div class="bj-seats">
+                        @for ( int i = 0; i < 7; i++ )
+                        {
+                            var seat = Seats?[i];
+                            if ( seat == null ) continue;
+                            var seatIdx = i;
+                            bool isActive = ActiveSeatIndex == i;
+                            bool isLocal = LocalSeatIndex == i;
+
+                            <div class="bj-seat @(isActive ? "bj-seat-active" : "") @(isLocal ? "bj-seat-local" : "") @(!seat.IsOccupied ? "bj-seat-empty" : "")">
+                                <!-- Player Name -->
+                                <div class="bj-seat-name @(isLocal ? "bj-seat-name-local" : "")">
+                                    @(seat.IsOccupied ? seat.PlayerName : "---")
+                                </div>
+
+                                <!-- Cards -->
+                                @if ( seat.IsOccupied && seat.Hands.Count > 0 )
+                                {
+                                    @for ( int h = 0; h < seat.Hands.Count; h++ )
+                                    {
+                                        @if ( h > 0 )
+                                        {
+                                            <div class="bj-hand-separator"></div>
+                                        }
+                                        <div class="bj-hand-wrapper">
+                                            <div class="bj-seat-cards">
+                                                @foreach ( var card in seat.Hands[h] )
+                                                {
+                                                    @if ( card.FaceDown )
+                                                    {
+                                                        <div class="bj-card-small bj-card-back"></div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="bj-card-small bj-card-face">
+                                                            <div class="bj-card-rank @(card.IsRed ? "bj-card-red" : "bj-card-black")">@card.GetRankText()</div>
+                                                            <div class="bj-card-suit @(card.IsRed ? "bj-card-red" : "bj-card-black")">@card.GetSuitSymbol()</div>
+                                                        </div>
+                                                    }
+                                                }
+                                            </div>
+
+                                            <!-- Score per hand -->
+                                            @if ( h < seat.HandScores.Count )
+                                            {
+                                                var score = seat.HandScores[h];
+                                                var scoreClass = score > 21 ? "bj-seat-bust" : (score == 21 && seat.Hands[h].Count == 2 ? "bj-seat-blackjack" : "");
+                                                <div class="bj-seat-score @scoreClass">
+                                                    @(score > 21 ? "BUST" : score.ToString())
+                                                </div>
+                                            }
+
+                                            <!-- Result badge (local player only) -->
+                                            @if ( isLocal && h < seat.HandResults.Count && seat.HandResults[h] != HandResult.None )
+                                            {
+                                                var result = seat.HandResults[h];
+                                                var resultClass = result switch
+                                                {
+                                                    HandResult.Win => "bj-result-win",
+                                                    HandResult.Loss => "bj-result-loss",
+                                                    HandResult.Push => "bj-result-push",
+                                                    HandResult.Blackjack => "bj-result-blackjack",
+                                                    _ => ""
+                                                };
+                                                var resultText = result switch
+                                                {
+                                                    HandResult.Win => "WIN",
+                                                    HandResult.Loss => "LOSS",
+                                                    HandResult.Push => "PUSH",
+                                                    HandResult.Blackjack => "BLACKJACK",
+                                                    _ => ""
+                                                };
+                                                <div class="bj-result-badge @resultClass">@resultText</div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="bj-seat-cards"></div>
+                                }
+
+                                <!-- Bet Circle -->
+                                <div class="bj-bet-circle @(seat.HandBets.Count > 0 && seat.HandBets[0] > 0 ? "has-bet" : "")">
+                                    @if ( seat.HandBets.Count > 0 && seat.HandBets[0] > 0 )
+                                    {
+                                        <div class="bj-bet-amount">@GetTotalBet(seat)</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="bj-action-bar">
+                @if ( Phase == BlackjackPhase.WaitingForBets || Phase == BlackjackPhase.Idle )
+                {
+                    <!-- Betting Phase -->
+                    <div class="bj-chips-row">
+                        <div class="bj-chip bj-chip-5 @(SelectedChip == 5 ? "bj-chip-selected" : "")" onclick="@(() => SelectChip(5))">5</div>
+                        <div class="bj-chip bj-chip-25 @(SelectedChip == 25 ? "bj-chip-selected" : "")" onclick="@(() => SelectChip(25))">25</div>
+                        <div class="bj-chip bj-chip-100 @(SelectedChip == 100 ? "bj-chip-selected" : "")" onclick="@(() => SelectChip(100))">100</div>
+                        <div class="bj-chip bj-chip-500 @(SelectedChip == 500 ? "bj-chip-selected" : "")" onclick="@(() => SelectChip(500))">500</div>
+                        <div class="bj-chip bj-chip-2000 @(SelectedChip == 2000 ? "bj-chip-selected" : "")" onclick="@(() => SelectChip(2000))">2K</div>
+                    </div>
+
+                    <div class="bj-bet-info">
+                        <div class="bj-bet-label">CURRENT BET</div>
+                        <div class="bj-bet-value">@CurrentBet</div>
+                    </div>
+
+                    <div class="bj-actions-row">
+                        <div class="bj-action-btn bj-btn-clear @(CurrentBet <= 0 ? "disabled" : "")" onclick="@OnClearBet">CLEAR</div>
+                        <div class="bj-action-btn bj-btn-deal @(CurrentBet < 5 || CurrentBet > Balance ? "disabled" : "")" onclick="@OnPlaceBet">PLACE BET</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- Playing Phase -->
+                    <div class="bj-chips-row">
+                        <!-- Show bet amount during play -->
+                        <div class="bj-bet-info">
+                            <div class="bj-bet-label">YOUR BET</div>
+                            <div class="bj-bet-value">@GetLocalBet()</div>
+                        </div>
+                    </div>
+
+                    <div class="bj-actions-row">
+                        <div class="bj-action-btn bj-btn-hit @(!CanHit ? "disabled" : "")" onclick="@OnHit">HIT</div>
+                        <div class="bj-action-btn bj-btn-stand @(!CanStand ? "disabled" : "")" onclick="@OnStand">STAND</div>
+                        <div class="bj-action-btn bj-btn-double @(!CanDouble ? "disabled" : "")" onclick="@OnDouble">DOUBLE</div>
+                        <div class="bj-action-btn bj-btn-split @(!CanSplit ? "disabled" : "")" onclick="@OnSplit">SPLIT</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</root>
+
+@code {
+    // Display state
+    bool IsVisible;
+    int Balance;
+    int CurrentBet;
+    int SelectedChip;
+    int LocalSeatIndex;
+    int ActiveSeatIndex;
+    string StatusMessage = "";
+    BlackjackPhase Phase;
+    bool CanHit, CanStand, CanDouble, CanSplit;
+    bool ShowInsurance;
+    int DealerScore;
+    List<CardData> DealerCards = new();
+    PlayerSeatData[] Seats = new PlayerSeatData[7]
+    {
+        new(), new(), new(), new(), new(), new(), new()
+    };
+
+    protected override void OnUpdate()
+    {
+        IsVisible = BlackjackBridge.IsOpen;
+        if ( !IsVisible ) return;
+
+        Balance = BlackjackBridge.CachedBalance;
+        CurrentBet = BlackjackBridge.CurrentBet;
+        SelectedChip = BlackjackBridge.SelectedChipValue;
+        LocalSeatIndex = BlackjackBridge.LocalSeatIndex;
+        ActiveSeatIndex = BlackjackBridge.ActiveSeatIndex;
+        StatusMessage = BlackjackBridge.StatusMessage;
+        Phase = BlackjackBridge.Phase;
+        CanHit = BlackjackBridge.CanHit;
+        CanStand = BlackjackBridge.CanStand;
+        CanDouble = BlackjackBridge.CanDouble;
+        CanSplit = BlackjackBridge.CanSplit;
+        ShowInsurance = BlackjackBridge.InsuranceOffered && BlackjackBridge.LocalSeatIndex >= 0;
+        DealerScore = BlackjackBridge.DealerScore;
+        DealerCards = BlackjackBridge.DealerCards;
+        Seats = BlackjackBridge.Seats;
+    }
+
+    private void SelectChip( int value )
+    {
+        BlackjackBridge.SelectedChipValue = value;
+        AddToBet( value );
+    }
+
+    private void AddToBet( int amount )
+    {
+        int newBet = BlackjackBridge.CurrentBet + amount;
+        if ( newBet > 2000 ) newBet = 2000;
+        if ( newBet > BlackjackBridge.CachedBalance ) newBet = BlackjackBridge.CachedBalance;
+        if ( newBet < 0 ) newBet = 0;
+        BlackjackBridge.CurrentBet = newBet;
+    }
+
+    private void OnClearBet()
+    {
+        BlackjackBridge.CurrentBet = 0;
+    }
+
+    private void OnPlaceBet()
+    {
+        if ( BlackjackBridge.CurrentBet < 5 ) return;
+        if ( BlackjackBridge.CurrentBet > BlackjackBridge.CachedBalance ) return;
+        if ( BlackjackBridge.ActiveTable == null ) return;
+
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestPlaceBet( steamId, BlackjackBridge.CurrentBet );
+
+        // Deduct from cached balance immediately for responsiveness
+        BlackjackBridge.CachedBalance -= BlackjackBridge.CurrentBet;
+        BlackjackBridge.SessionNetChange -= BlackjackBridge.CurrentBet;
+    }
+
+    private void OnHit()
+    {
+        if ( !CanHit || BlackjackBridge.ActiveTable == null ) return;
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestHit( steamId );
+    }
+
+    private void OnStand()
+    {
+        if ( !CanStand || BlackjackBridge.ActiveTable == null ) return;
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestStand( steamId );
+    }
+
+    private void OnDouble()
+    {
+        if ( !CanDouble || BlackjackBridge.ActiveTable == null ) return;
+
+        // Deduct the additional bet (doubling costs the same as original bet)
+        int localSeat = BlackjackBridge.LocalSeatIndex;
+        if ( localSeat >= 0 && localSeat < 7 )
+        {
+            var seat = BlackjackBridge.Seats[localSeat];
+            int activeBet = seat.ActiveHandIndex < seat.HandBets.Count ? seat.HandBets[seat.ActiveHandIndex] : 0;
+            BlackjackBridge.CachedBalance -= activeBet;
+            BlackjackBridge.SessionNetChange -= activeBet;
+        }
+
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestDouble( steamId );
+    }
+
+    private void OnSplit()
+    {
+        if ( !CanSplit || BlackjackBridge.ActiveTable == null ) return;
+
+        // Deduct the additional bet for the split hand
+        int localSeat = BlackjackBridge.LocalSeatIndex;
+        if ( localSeat >= 0 && localSeat < 7 )
+        {
+            var seat = BlackjackBridge.Seats[localSeat];
+            int originalBet = seat.HandBets.Count > 0 ? seat.HandBets[0] : 0;
+            BlackjackBridge.CachedBalance -= originalBet;
+            BlackjackBridge.SessionNetChange -= originalBet;
+        }
+
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestSplit( steamId );
+    }
+
+    private void OnInsurance( bool accept )
+    {
+        if ( BlackjackBridge.ActiveTable == null ) return;
+
+        // Deduct insurance cost client-side (half the original bet)
+        if ( accept )
+        {
+            int localSeat = BlackjackBridge.LocalSeatIndex;
+            if ( localSeat >= 0 && localSeat < 7 )
+            {
+                var seat = BlackjackBridge.Seats[localSeat];
+                int insuranceCost = seat.HandBets.Count > 0 ? seat.HandBets[0] / 2 : 0;
+                BlackjackBridge.CachedBalance -= insuranceCost;
+                BlackjackBridge.SessionNetChange -= insuranceCost;
+            }
+        }
+
+        string steamId = Connection.Local?.SteamId.ToString() ?? "";
+        var manager = BlackjackBridge.ActiveTable.GameObject.Components.Get<BlackjackManager>();
+        manager?.RequestInsurance( steamId, accept );
+        BlackjackBridge.InsuranceOffered = false;
+    }
+
+    private void OnLeave()
+    {
+        BlackjackBridge.ActiveTable?.LeaveTable();
+    }
+
+    private string GetTotalBet( PlayerSeatData seat )
+    {
+        int total = 0;
+        foreach ( var b in seat.HandBets )
+            total += b;
+        return total.ToString();
+    }
+
+    private string GetLocalBet()
+    {
+        if ( LocalSeatIndex < 0 || LocalSeatIndex >= 7 ) return "0";
+        var seat = Seats[LocalSeatIndex];
+        int total = 0;
+        foreach ( var b in seat.HandBets )
+            total += b;
+        return total.ToString();
+    }
+
+    protected override int BuildHash()
+    {
+        var h = System.HashCode.Combine( IsVisible, Phase, ActiveSeatIndex, CurrentBet, SelectedChip, Balance, DealerScore, DealerCards.Count );
+        h = System.HashCode.Combine( h, ShowInsurance );
+        if ( Seats != null )
+        {
+            for ( int i = 0; i < 7; i++ )
+            {
+                var s = Seats[i];
+                h = System.HashCode.Combine( h, s.IsOccupied, s.Hands.Count, s.HandScores.Count, s.HandResults.Count, s.HandBets.Count );
+                if ( s.Hands.Count > 0 )
+                    h = System.HashCode.Combine( h, s.Hands[0].Count );
+            }
+        }
+        return h;
+    }
+}

@@ -95,6 +95,9 @@ public partial class PlayerController : Component
 	// Camera Station Mount System
 	private CameraStation mountedStation = null;
 	private bool isMountedToStation = false;
+
+	// Blackjack Table Mount System
+	private BlackjackTable mountedBlackjackTable = null;
 	
 	// Movement State
 	private Vector3 velocity;
@@ -128,9 +131,6 @@ public partial class PlayerController : Component
 		{
 			IsInGame = false;
 		}
-
-		// Clear task list when player spawns (handles scene reloads)
-		TaskListBridge.ClearTasks();
 
 		// Get voice component
 		voiceComponent = Components.Get<Voice>();
@@ -256,9 +256,16 @@ public partial class PlayerController : Component
 			return;
 		}
 
-		// If mounted to camera station, handle station controls only
+		// If mounted to camera station or blackjack table, handle accordingly
 		if ( isMountedToStation )
 		{
+			if ( mountedBlackjackTable != null )
+			{
+				// E key handled by BlackjackTable.OnUpdate (avoids same-frame double trigger)
+				// All other blackjack input handled via UI buttons
+				return;
+			}
+
 			// Left click cycles cameras
 			if ( Input.Pressed( "attack1" ) )
 			{
@@ -480,11 +487,19 @@ public partial class PlayerController : Component
 		Log.Info( $"[PlayerController] {PlayerName} mounted to camera station" );
 	}
 
+	public void MountToBlackjackTable( BlackjackTable table )
+	{
+		mountedBlackjackTable = table;
+		isMountedToStation = true;
+		Log.Info( $"[PlayerController] {PlayerName} sat at blackjack table" );
+	}
+
 	public void UnmountFromStation()
 	{
 		mountedStation = null;
+		mountedBlackjackTable = null;
 		isMountedToStation = false;
-		Log.Info( $"[PlayerController] {PlayerName} unmounted from camera station" );
+		Log.Info( $"[PlayerController] {PlayerName} unmounted from station" );
 	}
 
 	[Rpc.Broadcast]
@@ -1189,6 +1204,35 @@ public partial class PlayerController : Component
 	}
 
 	[Rpc.Owner]
+	public void CleanupActivePerksForMeeting()
+	{
+		// End the active perk effect (restores visuals, speed, sounds, etc.)
+		if ( perkActive )
+		{
+			EndPerkEffect();
+		}
+		perkActive = false;
+		activePerkId = "";
+		xRayActive = false;
+
+		PerkBridge.IsPerkActive = false;
+		PerkBridge.PerkTimeRemaining = 0f;
+
+		// If a timed perk was equipped (active type, not passive), the meeting consumed it.
+		// Destroy the HUD since the perk is gone.
+		var equippedPerk = PerkRegistry.GetById( EquippedPerkId );
+		if ( equippedPerk != null && equippedPerk.Activation == PerkActivation.Active && PerkBridge.PerkUsedThisRound )
+		{
+			if ( perkHudUI != null && perkHudUI.IsValid() )
+			{
+				perkHudUI.GameObject.Destroy();
+				perkHudUI = null;
+			}
+			PerkBridge.ActivePerkName = "";
+		}
+	}
+
+	[Rpc.Owner]
 	public void ActivateRevealPerkRpc( PlayerController revealedPlayer, bool isAnomaly )
 	{
 		// Only process if we have Reveal equipped and haven't used it yet
@@ -1650,6 +1694,8 @@ public partial class PlayerController : Component
 		PerkBridge.IsPerkActive = false;
 		PerkBridge.PerkTimeRemaining = 0f;
 		PerkBridge.ActivePerkName = "";
+		ironWillResistedThisRound = false;
+		CleanupRevealTag();
 
 		Log.Info( $"[CleanupAllUI] All UI cleaned for {PlayerName}" );
 	}
@@ -1733,7 +1779,7 @@ public partial class PlayerController : Component
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
 			
-			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.ResetKillCooldown();
 			}
@@ -1745,7 +1791,7 @@ public partial class PlayerController : Component
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
 			
-			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.StartXRayEffect();
 			}
@@ -1757,7 +1803,7 @@ public partial class PlayerController : Component
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
 			
-			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.ActivateVanish();
 			}
@@ -1768,7 +1814,7 @@ public partial class PlayerController : Component
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
 			
-			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.ActivateDissolve();
 			}
@@ -1780,7 +1826,7 @@ public partial class PlayerController : Component
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
 			
-			if ( localPlayer != null && localPlayer.Role == PlayerRole.Anomaly )
+			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.StartMimicEffect();
 			}
@@ -2282,6 +2328,13 @@ public partial class PlayerController : Component
 		{
 			blindUI.GameObject.Destroy();
 		}
+	}
+
+	[Rpc.Owner]
+	public void AdminGiveCreditsRpc( int amount )
+	{
+		Sandbox.Services.Stats.Increment( "credits", amount );
+		Log.Info( $"[Admin] Received {amount} credits from host" );
 	}
 
 	[Rpc.Owner]
