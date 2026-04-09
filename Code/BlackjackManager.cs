@@ -345,6 +345,15 @@ public sealed class BlackjackManager : Component
 			if ( seat.IsOccupied && seat.HasBet && activeHandIndex + 1 < seat.Hands.Count )
 			{
 				activeHandIndex++;
+
+				// Skip this hand if it already has blackjack (21 with 2 cards)
+				var (hs, _) = CalculateScore( seat.Hands[activeHandIndex] );
+				if ( hs == 21 && seat.Hands[activeHandIndex].Count == 2 )
+				{
+					AdvanceToNextPlayer();
+					return;
+				}
+
 				turnTimer = TurnTimeout;
 				NotifyPlayerTurn();
 				return;
@@ -358,10 +367,29 @@ public sealed class BlackjackManager : Component
 			if ( !seats[i].IsOccupied || !seats[i].HasBet ) continue;
 			if ( seats[i].Hands.Count == 0 ) continue;
 
-			// Skip if player has natural blackjack
+			// Skip if player has natural blackjack (single hand)
 			var (score, _) = CalculateScore( seats[i].Hands[0] );
 			if ( score == 21 && seats[i].Hands[0].Count == 2 && seats[i].Hands.Count == 1 )
 				continue;
+
+			// For split hands, find first hand that isn't already 21
+			if ( seats[i].Hands.Count > 1 )
+			{
+				bool allBlackjack = true;
+				int startHand = 0;
+				for ( int h = 0; h < seats[i].Hands.Count; h++ )
+				{
+					var (sh, _2) = CalculateScore( seats[i].Hands[h] );
+					if ( !(sh == 21 && seats[i].Hands[h].Count == 2) )
+					{
+						allBlackjack = false;
+						startHand = h;
+						break;
+					}
+				}
+				if ( allBlackjack ) continue;
+				activeHandIndex = startHand;
+			}
 
 			activeSeatIndex = i;
 			turnTimer = TurnTimeout;
@@ -407,7 +435,7 @@ public sealed class BlackjackManager : Component
 			for ( int h = 0; h < seats[i].Hands.Count; h++ )
 			{
 				var (s, _) = CalculateScore( seats[i].Hands[h] );
-				if ( s <= 21 && !( s == 21 && seats[i].Hands[h].Count == 2 && seats[i].Hands.Count == 1 ) )
+				if ( s <= 21 && !( s == 21 && seats[i].Hands[h].Count == 2 ) )
 				{
 					anyActive = true;
 					break;
@@ -473,8 +501,8 @@ public sealed class BlackjackManager : Component
 				if ( pScore > 21 )
 					continue;
 
-				// Natural blackjack
-				if ( pScore == 21 && seats[i].Hands[h].Count == 2 && seats[i].Hands.Count == 1 )
+				// Natural blackjack (including split hands that hit 21 with 2 cards)
+				if ( pScore == 21 && seats[i].Hands[h].Count == 2 )
 				{
 					// 3:2 payout
 					payout = bet + (int)(bet * 1.5f);
@@ -707,8 +735,17 @@ public sealed class BlackjackManager : Component
 		{
 			// Continue with first hand
 			activeHandIndex = 0;
-			turnTimer = TurnTimeout;
-			NotifyPlayerTurn();
+
+			// If hand 0 already has blackjack (21 with 2 cards), skip it
+			if ( score1 == 21 )
+			{
+				AdvanceToNextPlayer();
+			}
+			else
+			{
+				turnTimer = TurnTimeout;
+				NotifyPlayerTurn();
+			}
 		}
 	}
 
@@ -1008,6 +1045,9 @@ public sealed class BlackjackManager : Component
 		{
 			BlackjackBridge.CachedBalance += amount;
 			BlackjackBridge.SessionNetChange += amount;
+
+			// Track every payout for casino leaderboard PNL (PNL = casino_won - credits_wagered)
+			Sandbox.Services.Stats.Increment( "casino_won", amount );
 		}
 		else
 		{

@@ -1,3 +1,4 @@
+using System;
 using Sandbox;
 using System.Collections.Generic;
 using System.Linq;
@@ -200,6 +201,10 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 				.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
 		}
 
+		// Remember balance before clearing state, so quick remounts use accurate data
+		BlackjackBridge.LastKnownBalance = BlackjackBridge.CachedBalance;
+		BlackjackBridge.LastLeaveTime = DateTime.UtcNow;
+
 		// Commit net credit change to stats on unmount
 		int net = BlackjackBridge.SessionNetChange;
 		if ( net > 0 )
@@ -274,6 +279,10 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 		{
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
+
+			// Remember balance before clearing state
+			BlackjackBridge.LastKnownBalance = BlackjackBridge.CachedBalance;
+			BlackjackBridge.LastLeaveTime = DateTime.UtcNow;
 
 			// Commit net credit change to stats before closing
 			int net = BlackjackBridge.SessionNetChange;
@@ -354,8 +363,21 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 				}
 			}
 
-			BlackjackBridge.CachedBalance = earned - spent;
-			Log.Info( $"[BlackjackTable] Balance: {BlackjackBridge.CachedBalance} (earned: {earned}, spent: {spent})" );
+			// If we left a table recently, the API data is likely stale — use our remembered balance
+			if ( BlackjackBridge.LastKnownBalance.HasValue
+				&& BlackjackBridge.LastLeaveTime.HasValue
+				&& (DateTime.UtcNow - BlackjackBridge.LastLeaveTime.Value).TotalMinutes < 2.5 )
+			{
+				BlackjackBridge.CachedBalance = BlackjackBridge.LastKnownBalance.Value;
+				Log.Info( $"[BlackjackTable] Using remembered balance: {BlackjackBridge.CachedBalance} (API returned: {earned - spent})" );
+			}
+			else
+			{
+				BlackjackBridge.CachedBalance = earned - spent;
+				BlackjackBridge.LastKnownBalance = null;
+				BlackjackBridge.LastLeaveTime = null;
+				Log.Info( $"[BlackjackTable] Balance: {BlackjackBridge.CachedBalance} (earned: {earned}, spent: {spent})" );
+			}
 		}
 		catch ( System.Exception e )
 		{

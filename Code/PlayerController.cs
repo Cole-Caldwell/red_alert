@@ -2338,6 +2338,13 @@ public partial class PlayerController : Component
 	}
 
 	[Rpc.Owner]
+	public void AdminAdjustCasinoWonRpc( int amount )
+	{
+		Sandbox.Services.Stats.Increment( "casino_won", amount );
+		Log.Info( $"[Admin] casino_won adjusted by {amount} by host" );
+	}
+
+	[Rpc.Owner]
 	public void ReceiveRoundCreditsRpc( int kills, int killCreds, int tasks, int taskCreds, int votes, int voteCreds, bool won, int winCreds, int total )
 	{
 		// Persist to stats immediately while data is fresh

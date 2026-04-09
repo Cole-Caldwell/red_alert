@@ -686,6 +686,22 @@
             background-color: rgba(255, 255, 255, 0.15);
             margin: 0 4px;
         }
+
+        /* Active/inactive hand highlight during splits */
+        .bj-hand-active {
+            border: 2px solid rgba(255, 215, 0, 0.7);
+            border-radius: 6px;
+            padding: 4px;
+            background-color: rgba(255, 215, 0, 0.08);
+            box-shadow: 0 0 12px rgba(255, 215, 0, 0.25);
+        }
+
+        .bj-hand-inactive {
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            padding: 4px;
+            opacity: 0.5;
+        }
     </style>
 
     <div class="blackjack-overlay @(IsVisible ? "" : "hidden")">
@@ -782,7 +798,12 @@
                                         {
                                             <div class="bj-hand-separator"></div>
                                         }
-                                        <div class="bj-hand-wrapper">
+                                        var handIdx = h;
+                                        var isSplit = seat.Hands.Count > 1;
+                                        var isHandActive = isActive && seat.ActiveHandIndex == handIdx;
+                                        var isHandInactive = isActive && isSplit && seat.ActiveHandIndex != handIdx;
+                                        var handClass = isHandActive && isSplit ? "bj-hand-active" : (isHandInactive ? "bj-hand-inactive" : "");
+                                        <div class="bj-hand-wrapper @handClass">
                                             <div class="bj-seat-cards">
                                                 @foreach ( var card in seat.Hands[h] )
                                                 {
@@ -973,6 +994,9 @@
         // Deduct from cached balance immediately for responsiveness
         BlackjackBridge.CachedBalance -= BlackjackBridge.CurrentBet;
         BlackjackBridge.SessionNetChange -= BlackjackBridge.CurrentBet;
+
+        // Track total wagered
+        Sandbox.Services.Stats.Increment( "credits_wagered", BlackjackBridge.CurrentBet );
     }
 
     private void OnHit()
@@ -1003,6 +1027,9 @@
             int activeBet = seat.ActiveHandIndex < seat.HandBets.Count ? seat.HandBets[seat.ActiveHandIndex] : 0;
             BlackjackBridge.CachedBalance -= activeBet;
             BlackjackBridge.SessionNetChange -= activeBet;
+
+            // Track total wagered
+            Sandbox.Services.Stats.Increment( "credits_wagered", activeBet );
         }
 
         string steamId = Connection.Local?.SteamId.ToString() ?? "";
@@ -1022,6 +1049,9 @@
             int originalBet = seat.HandBets.Count > 0 ? seat.HandBets[0] : 0;
             BlackjackBridge.CachedBalance -= originalBet;
             BlackjackBridge.SessionNetChange -= originalBet;
+
+            // Track total wagered
+            Sandbox.Services.Stats.Increment( "credits_wagered", originalBet );
         }
 
         string steamId = Connection.Local?.SteamId.ToString() ?? "";
@@ -1043,6 +1073,9 @@
                 int insuranceCost = seat.HandBets.Count > 0 ? seat.HandBets[0] / 2 : 0;
                 BlackjackBridge.CachedBalance -= insuranceCost;
                 BlackjackBridge.SessionNetChange -= insuranceCost;
+
+                // Track total wagered
+                Sandbox.Services.Stats.Increment( "credits_wagered", insuranceCost );
             }
         }
 
@@ -1084,9 +1117,9 @@
             for ( int i = 0; i < 7; i++ )
             {
                 var s = Seats[i];
-                h = System.HashCode.Combine( h, s.IsOccupied, s.Hands.Count, s.HandScores.Count, s.HandResults.Count, s.HandBets.Count );
-                if ( s.Hands.Count > 0 )
-                    h = System.HashCode.Combine( h, s.Hands[0].Count );
+                h = System.HashCode.Combine( h, s.IsOccupied, s.Hands.Count, s.HandScores.Count, s.HandResults.Count, s.HandBets.Count, s.ActiveHandIndex );
+                for ( int hi = 0; hi < s.Hands.Count; hi++ )
+                    h = System.HashCode.Combine( h, s.Hands[hi].Count );
             }
         }
         return h;

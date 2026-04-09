@@ -1,0 +1,609 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Collections.Generic;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+	<style>
+		/* === FULL SCREEN OVERLAY === */
+		.casino-lb-panel {
+			width: 100%;
+			height: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.casino-lb-container {
+			width: 1200px;
+			max-height: 900px;
+			background-color: rgb(8, 18, 10);
+			border: 2px solid rgba(218, 165, 32, 0.6);
+			border-radius: 8px;
+			flex-direction: column;
+			overflow: hidden;
+			box-shadow: 0 0 80px rgba(218, 165, 32, 0.1);
+		}
+
+		/* === FELT STRIP TOP === */
+		.casino-felt-strip {
+			height: 4px;
+			background-color: rgb(18, 82, 34);
+			box-shadow: 0 2px 12px rgba(18, 120, 40, 0.3);
+		}
+
+		/* === HEADER === */
+		.casino-lb-header {
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			padding: 24px 40px 20px 40px;
+			background-color: rgba(12, 8, 4, 0.9);
+			border-bottom: 1px solid rgba(218, 165, 32, 0.25);
+		}
+
+		.casino-lb-header-left {
+			flex-direction: column;
+			gap: 2px;
+		}
+
+		.casino-lb-title-row {
+			flex-direction: row;
+			align-items: center;
+			gap: 16px;
+		}
+
+		.casino-lb-suit-deco {
+			font-size: 22px;
+			color: rgba(218, 165, 32, 0.7);
+			text-shadow: 0 0 8px rgba(218, 165, 32, 0.3);
+		}
+
+		.casino-lb-title {
+			font-size: 32px;
+			font-weight: 900;
+			color: rgb(238, 198, 72);
+			letter-spacing: 10px;
+			font-family: Consolas;
+			text-shadow: 0 0 30px rgba(218, 165, 32, 0.4), 0 2px 4px rgba(0, 0, 0, 0.8);
+		}
+
+		.casino-lb-subtitle {
+			font-size: 11px;
+			color: rgba(218, 165, 32, 0.35);
+			letter-spacing: 6px;
+			margin-top: 2px;
+			font-family: Consolas;
+			padding-left: 38px;
+		}
+
+		.casino-lb-badge {
+			flex-direction: row;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 20px;
+			background-color: rgba(218, 165, 32, 0.06);
+			border: 1px solid rgba(218, 165, 32, 0.3);
+			border-radius: 4px;
+		}
+
+		.casino-lb-badge-suits {
+			font-size: 14px;
+			color: rgba(218, 165, 32, 0.6);
+			letter-spacing: 4px;
+			font-family: Consolas;
+		}
+
+		.casino-lb-badge-text {
+			font-size: 15px;
+			font-weight: 800;
+			color: rgb(238, 198, 72);
+			font-family: Consolas;
+			letter-spacing: 3px;
+		}
+
+		/* === TABLE HEADER === */
+		.casino-lb-table-header {
+			flex-direction: row;
+			align-items: center;
+			padding: 14px 44px;
+			background-color: rgba(14, 28, 16, 0.95);
+			border-bottom: 1px solid rgba(218, 165, 32, 0.12);
+		}
+
+		.casino-col-rank {
+			min-width: 80px;
+		}
+
+		.casino-col-name {
+			flex-grow: 1;
+		}
+
+		.casino-col-wagered {
+			min-width: 180px;
+			justify-content: center;
+		}
+
+		.casino-col-pnl {
+			min-width: 180px;
+			justify-content: center;
+		}
+
+		.casino-header-text {
+			font-size: 10px;
+			font-weight: 700;
+			color: rgba(218, 165, 32, 0.35);
+			letter-spacing: 4px;
+			font-family: Consolas;
+		}
+
+		.casino-header-wagered {
+			color: rgba(218, 165, 32, 0.45);
+		}
+
+		.casino-header-pnl {
+			color: rgba(180, 160, 120, 0.4);
+		}
+
+		/* === PLAYER LIST === */
+		.casino-lb-player-list {
+			flex-direction: column;
+			flex-grow: 1;
+			background-color: rgba(8, 18, 10, 1);
+			padding: 4px 0px;
+			overflow-y: scroll;
+			max-height: 620px;
+		}
+
+		/* === PLAYER ROW === */
+		.casino-lb-row {
+			flex-direction: row;
+			align-items: center;
+			padding: 16px 44px;
+			border-bottom: 1px solid rgba(218, 165, 32, 0.04);
+			transition: all 0.15s;
+		}
+
+		.casino-lb-row:hover {
+			background-color: rgba(218, 165, 32, 0.03);
+		}
+
+		.casino-lb-row.is-local {
+			background-color: rgba(218, 165, 32, 0.07);
+			border-left: 3px solid rgba(238, 198, 72, 0.6);
+		}
+
+		.casino-lb-row.is-top-three {
+			background-color: rgba(218, 165, 32, 0.025);
+		}
+
+		/* === RANK === */
+		.casino-rank-display {
+			min-width: 80px;
+			flex-direction: row;
+			align-items: center;
+		}
+
+		.casino-rank-number {
+			font-size: 22px;
+			font-weight: 900;
+			color: rgba(120, 130, 110, 0.3);
+			font-family: Consolas;
+			min-width: 40px;
+		}
+
+		.casino-rank-first {
+			color: rgb(255, 215, 0);
+			text-shadow: 0 0 16px rgba(255, 215, 0, 0.4);
+		}
+
+		.casino-rank-second {
+			color: rgb(192, 192, 210);
+			text-shadow: 0 0 10px rgba(192, 192, 210, 0.2);
+		}
+
+		.casino-rank-third {
+			color: rgb(205, 140, 60);
+			text-shadow: 0 0 10px rgba(205, 140, 60, 0.25);
+		}
+
+		/* === PLAYER NAME === */
+		.casino-name-col {
+			flex-grow: 1;
+			flex-direction: row;
+			align-items: center;
+			gap: 14px;
+		}
+
+		.casino-avatar {
+			width: 40px;
+			height: 40px;
+			min-width: 40px;
+			background-color: rgba(18, 82, 34, 0.25);
+			border: 1px solid rgba(218, 165, 32, 0.2);
+			border-radius: 4px;
+			justify-content: center;
+			align-items: center;
+			overflow: hidden;
+		}
+
+		.casino-avatar img {
+			width: 100%;
+			height: 100%;
+		}
+
+		.casino-avatar-letter {
+			font-size: 16px;
+			font-weight: 900;
+			color: rgba(218, 165, 32, 0.5);
+			font-family: Consolas;
+		}
+
+		.casino-player-name {
+			font-size: 16px;
+			font-weight: 700;
+			color: rgba(220, 225, 215, 0.9);
+			font-family: Consolas;
+			letter-spacing: 1px;
+		}
+
+		.casino-you-tag {
+			font-size: 9px;
+			font-weight: 700;
+			color: rgba(238, 198, 72, 0.7);
+			background-color: rgba(218, 165, 32, 0.1);
+			border: 1px solid rgba(218, 165, 32, 0.25);
+			border-radius: 2px;
+			padding: 2px 8px;
+			letter-spacing: 1px;
+			font-family: Consolas;
+		}
+
+		/* === STAT COLUMNS === */
+		.casino-stat-col {
+			min-width: 180px;
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.casino-stat-number {
+			font-size: 20px;
+			font-weight: 800;
+			font-family: Consolas;
+		}
+
+		.casino-stat-wagered {
+			color: rgb(238, 198, 72);
+			text-shadow: 0 0 8px rgba(218, 165, 32, 0.15);
+		}
+
+		.casino-stat-prefix {
+			font-size: 14px;
+			font-weight: 700;
+			font-family: Consolas;
+			margin-right: 2px;
+		}
+
+		.casino-pnl-positive {
+			color: rgb(60, 210, 100);
+			text-shadow: 0 0 8px rgba(60, 210, 100, 0.15);
+		}
+
+		.casino-pnl-negative {
+			color: rgb(230, 65, 65);
+			text-shadow: 0 0 8px rgba(230, 65, 65, 0.15);
+		}
+
+		.casino-pnl-zero {
+			color: rgba(160, 165, 155, 0.5);
+		}
+
+		/* === LOADING / EMPTY === */
+		.casino-lb-loading {
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 80px;
+			gap: 16px;
+		}
+
+		.casino-lb-loading-suits {
+			font-size: 28px;
+			color: rgba(218, 165, 32, 0.2);
+			letter-spacing: 12px;
+			font-family: Consolas;
+		}
+
+		.casino-lb-loading-text {
+			font-size: 14px;
+			color: rgba(218, 165, 32, 0.35);
+			letter-spacing: 6px;
+			font-family: Consolas;
+		}
+
+		.casino-lb-empty-text {
+			font-size: 13px;
+			color: rgba(120, 130, 110, 0.35);
+			letter-spacing: 3px;
+			font-family: Consolas;
+		}
+
+		/* === FOOTER === */
+		.casino-lb-footer {
+			padding: 14px 40px;
+			background-color: rgba(6, 12, 8, 0.95);
+			border-top: 1px solid rgba(218, 165, 32, 0.1);
+			flex-direction: row;
+			justify-content: center;
+			align-items: center;
+			gap: 12px;
+		}
+
+		.casino-lb-footer-suits {
+			font-size: 10px;
+			color: rgba(218, 165, 32, 0.15);
+			letter-spacing: 6px;
+			font-family: Consolas;
+		}
+
+		.casino-lb-footer-text {
+			font-size: 11px;
+			color: rgba(120, 130, 110, 0.3);
+			font-family: Consolas;
+			letter-spacing: 1px;
+		}
+
+		/* === FELT STRIP BOTTOM === */
+		.casino-felt-strip-bottom {
+			height: 4px;
+			background-color: rgb(18, 82, 34);
+			box-shadow: 0 -2px 12px rgba(18, 120, 40, 0.3);
+		}
+	</style>
+
+	<div class="casino-lb-panel">
+		<div class="casino-lb-container">
+
+			<div class="casino-felt-strip"></div>
+
+			<!-- HEADER -->
+			<div class="casino-lb-header">
+				<div class="casino-lb-header-left">
+					<div class="casino-lb-title-row">
+						<label class="casino-lb-suit-deco">♠ ♥</label>
+						<label class="casino-lb-title">HIGH ROLLERS</label>
+						<label class="casino-lb-suit-deco">♦ ♣</label>
+					</div>
+					<label class="casino-lb-subtitle">CASINO LEADERBOARD</label>
+				</div>
+				<div class="casino-lb-badge">
+					<label class="casino-lb-badge-suits">♠♥♦♣</label>
+					<label class="casino-lb-badge-text">TOP @Entries.Count</label>
+				</div>
+			</div>
+
+			<!-- TABLE HEADER -->
+			<div class="casino-lb-table-header">
+				<div class="casino-col-rank">
+					<label class="casino-header-text">RANK</label>
+				</div>
+				<div class="casino-col-name">
+					<label class="casino-header-text">HIGH ROLLER</label>
+				</div>
+				<div class="casino-col-wagered">
+					<label class="casino-header-text casino-header-wagered">WAGERED</label>
+				</div>
+				<div class="casino-col-pnl">
+					<label class="casino-header-text casino-header-pnl">P&L</label>
+				</div>
+			</div>
+
+			<!-- PLAYER LIST -->
+			<div class="casino-lb-player-list">
+				@if ( IsLoading )
+				{
+					<div class="casino-lb-loading">
+						<label class="casino-lb-loading-suits">♠ ♥ ♦ ♣</label>
+						<label class="casino-lb-loading-text">SHUFFLING DATA...</label>
+					</div>
+				}
+				else if ( Entries.Count == 0 )
+				{
+					<div class="casino-lb-loading">
+						<label class="casino-lb-loading-suits">♠ ♥ ♦ ♣</label>
+						<label class="casino-lb-empty-text">NO HIGH ROLLERS YET</label>
+					</div>
+				}
+				else
+				{
+					@foreach ( var entry in Entries )
+					{
+						var rankClass = entry.Rank == 1 ? "casino-rank-first" : entry.Rank == 2 ? "casino-rank-second" : entry.Rank == 3 ? "casino-rank-third" : "";
+						var rowClass = entry.IsLocal ? "is-local" : entry.Rank <= 3 ? "is-top-three" : "";
+						var initial = entry.Name.Length > 0 ? entry.Name.Substring( 0, 1 ).ToUpper() : "?";
+						var pnl = entry.PnL;
+						var pnlClass = pnl > 0 ? "casino-pnl-positive" : pnl < 0 ? "casino-pnl-negative" : "casino-pnl-zero";
+						var pnlPrefix = pnl > 0 ? "+" : pnl < 0 ? "" : "";
+						var absPnl = pnl < 0 ? -pnl : pnl;
+
+						<div class="casino-lb-row @rowClass">
+							<div class="casino-rank-display">
+								<label class="casino-rank-number @rankClass">@entry.Rank.ToString("00")</label>
+							</div>
+							<div class="casino-name-col">
+								<div class="casino-avatar">
+									@if ( entry.SteamId > 0 )
+									{
+										<img src="avatar:@entry.SteamId" />
+									}
+									else
+									{
+										<label class="casino-avatar-letter">@initial</label>
+									}
+								</div>
+								<label class="casino-player-name">@entry.Name</label>
+								@if ( entry.IsLocal )
+								{
+									<label class="casino-you-tag">YOU</label>
+								}
+							</div>
+							<div class="casino-stat-col">
+								<label class="casino-stat-number casino-stat-wagered">@entry.Wagered.ToString("N0")</label>
+							</div>
+							<div class="casino-stat-col">
+								<label class="casino-stat-prefix @pnlClass">@pnlPrefix</label>
+								<label class="casino-stat-number @pnlClass">@absPnl.ToString("N0")</label>
+							</div>
+						</div>
+					}
+				}
+			</div>
+
+			<!-- FOOTER -->
+			<div class="casino-lb-footer">
+				<label class="casino-lb-footer-suits">♠ ♥ ♦ ♣</label>
+				<label class="casino-lb-footer-text">Updates every 60s</label>
+				<label class="casino-lb-footer-suits">♣ ♦ ♥ ♠</label>
+			</div>
+
+			<div class="casino-felt-strip-bottom"></div>
+
+		</div>
+	</div>
+</root>
+
+@code {
+    public bool IsLoading { get; set; } = true;
+    public List<CasinoLeaderboardEntry> Entries { get; set; } = new();
+	private static readonly ulong ExcludedSteamId = 76561198202178696;
+
+    private float lastRefreshTime = -999f;
+    private float refreshInterval = 60f;
+    private bool isFetching = false;
+
+    public class CasinoLeaderboardEntry
+    {
+        public int Rank { get; set; }
+        public string Name { get; set; } = "";
+        public ulong SteamId { get; set; }
+        public int Wagered { get; set; }
+        public int Won { get; set; }
+        public int PnL => Won - Wagered;
+        public bool IsLocal { get; set; }
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( (Time.Now - lastRefreshTime) > refreshInterval )
+        {
+            FetchLeaderboard();
+        }
+    }
+
+    protected override void OnEnabled()
+    {
+        FetchLeaderboard();
+    }
+
+    private async void FetchLeaderboard()
+    {
+        if ( isFetching ) return;
+        isFetching = true;
+        IsLoading = Entries.Count == 0;
+
+        try
+        {
+            var playerMap = new Dictionary<long, CasinoLeaderboardEntry>();
+            long localSteamId = (long)(Connection.Local?.SteamId ?? 0);
+
+            // Fetch credits_wagered (primary — determines who appears on the board)
+            try
+            {
+                var wageredBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "credits_wagered" );
+                wageredBoard.MaxEntries = 50;
+                await wageredBoard.Refresh();
+
+                foreach ( var entry in wageredBoard.Entries )
+                {
+                    if ( !playerMap.ContainsKey( entry.SteamId ) )
+                    {
+                        playerMap[entry.SteamId] = new CasinoLeaderboardEntry
+                        {
+                            Name = entry.DisplayName,
+                            SteamId = (ulong)entry.SteamId,
+                            IsLocal = entry.SteamId == localSteamId
+                        };
+                    }
+                    playerMap[entry.SteamId].Wagered = (int)entry.Value;
+                }
+
+                Log.Info( $"[CasinoLeaderboard] Wagered board: {wageredBoard.Entries.Length} entries" );
+            }
+            catch ( System.Exception e )
+            {
+                Log.Warning( $"[CasinoLeaderboard] Failed to fetch credits_wagered: {e.Message}" );
+            }
+
+            // Fetch casino_won (for PNL calculation: PNL = casino_won - credits_wagered)
+            try
+            {
+                var wonBoard = Sandbox.Services.Leaderboards.GetFromStat( Game.Ident, "casino_won" );
+                wonBoard.MaxEntries = 50;
+                await wonBoard.Refresh();
+
+                foreach ( var entry in wonBoard.Entries )
+                {
+                    if ( !playerMap.ContainsKey( entry.SteamId ) )
+                    {
+                        playerMap[entry.SteamId] = new CasinoLeaderboardEntry
+                        {
+                            Name = entry.DisplayName,
+                            SteamId = (ulong)entry.SteamId,
+                            IsLocal = entry.SteamId == localSteamId
+                        };
+                    }
+                    playerMap[entry.SteamId].Won = (int)entry.Value;
+                }
+
+                Log.Info( $"[CasinoLeaderboard] Won board: {wonBoard.Entries.Length} entries" );
+            }
+            catch ( System.Exception e )
+            {
+                Log.Warning( $"[CasinoLeaderboard] Failed to fetch casino_won: {e.Message}" );
+            }
+
+            var sorted = playerMap.Values
+				.Where( e => e.SteamId != ExcludedSteamId )
+                .OrderByDescending( e => e.Wagered )
+                .ThenByDescending( e => e.PnL )
+                .ToList();
+
+            for ( int i = 0; i < sorted.Count; i++ )
+            {
+                sorted[i].Rank = i + 1;
+            }
+
+            Entries = sorted.Take( 10 ).ToList();
+            lastRefreshTime = Time.Now;
+
+            Log.Info( $"[CasinoLeaderboard] Fetched {Entries.Count} high rollers" );
+        }
+        catch ( System.Exception e )
+        {
+            Log.Warning( $"[CasinoLeaderboard] Failed to fetch: {e.Message}" );
+        }
+        finally
+        {
+            IsLoading = false;
+            isFetching = false;
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( IsLoading, Entries.Count, lastRefreshTime.ToString( "F0" ) );
+    }
+}

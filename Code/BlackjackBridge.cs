@@ -1,3 +1,4 @@
+using System;
 using Sandbox;
 using System.Collections.Generic;
 
@@ -99,6 +100,10 @@ public static class BlackjackBridge
 	public static int CachedBalance { get; set; } = 0;
 	public static int SessionNetChange { get; set; } = 0;
 	public static int CurrentBet { get; set; } = 0;
+
+	// Remembered balance from last session to protect against stale API data on quick remount
+	public static int? LastKnownBalance { get; set; } = null;
+	public static DateTime? LastLeaveTime { get; set; } = null;
 	public static int SelectedChipValue { get; set; } = 25;
 	public static int LocalSeatIndex { get; set; } = -1;
 

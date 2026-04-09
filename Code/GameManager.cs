@@ -1833,6 +1833,53 @@ public partial class GameManager : Component
 		if ( ChatSystem.Instance != null )
     		ChatSystem.Instance.ChatEnabled = true;
 	}
+	[ConCmd( "adjust_casino_won" )]
+	public static void AdjustCasinoWonCmd( string playerIdentifier, int amount )
+	{
+		if ( !Networking.IsHost )
+		{
+			Log.Warning( "[Admin] adjust_casino_won can only be called by the host." );
+			return;
+		}
+
+		var gm = Game.ActiveScene?.GetAllComponents<GameManager>().FirstOrDefault();
+		if ( gm == null )
+		{
+			Log.Warning( "[Admin] No GameManager found." );
+			return;
+		}
+
+		var allPlayers = Game.ActiveScene.GetAllComponents<PlayerController>()
+			.Where( p => p.GameObject.Network.Owner != null )
+			.ToList();
+
+		PlayerController target = null;
+
+		if ( ulong.TryParse( playerIdentifier, out ulong steamId ) )
+		{
+			target = allPlayers.FirstOrDefault( p => p.GameObject.Network.Owner.SteamId == steamId );
+		}
+
+		if ( target == null )
+		{
+			target = allPlayers.FirstOrDefault( p =>
+				p.PlayerName.Contains( playerIdentifier, System.StringComparison.OrdinalIgnoreCase ) );
+		}
+
+		if ( target == null )
+		{
+			Log.Warning( $"[Admin] Player '{playerIdentifier}' not found. Connected players:" );
+			foreach ( var p in allPlayers )
+			{
+				Log.Info( $"  - {p.PlayerName} (SteamId: {p.GameObject.Network.Owner.SteamId})" );
+			}
+			return;
+		}
+
+		target.AdminAdjustCasinoWonRpc( amount );
+		Log.Info( $"[Admin] Adjusted casino_won by {amount} for {target.PlayerName}" );
+	}
+
 	[ConCmd( "give_credits" )]
 	public static void GiveCreditsCmd( string playerIdentifier, int amount )
 	{
