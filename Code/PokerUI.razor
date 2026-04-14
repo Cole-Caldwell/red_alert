@@ -1,0 +1,1282 @@
+@using Sandbox
+@using Sandbox.UI
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@inherits PanelComponent
+
+<root>
+    <style>
+        .poker-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: all;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.85);
+            z-index: 600;
+            flex-direction: column;
+        }
+
+        .poker-overlay.hidden { display: none; }
+
+        @@keyframes card-deal {
+            0% { transform: translateY(-80px) rotate(-8deg); opacity: 0; }
+            60% { transform: translateY(4px) rotate(1deg); opacity: 1; }
+            100% { transform: translateY(0) rotate(0deg); opacity: 1; }
+        }
+
+        @@keyframes pulse-turn {
+            0%, 100% { border-color: rgba(255, 255, 255, 0.15); }
+            50% { border-color: rgba(255, 215, 0, 0.85); }
+        }
+
+        @@keyframes win-glow {
+            0%, 100% { box-shadow: 0 0 6px rgba(255, 215, 0, 0.2); }
+            50% { box-shadow: 0 0 24px rgba(255, 215, 0, 0.6); }
+        }
+
+        @@keyframes allin-pulse {
+            0%, 100% { box-shadow: 0 0 8px rgba(220, 50, 50, 0.5); }
+            50% { box-shadow: 0 0 22px rgba(255, 80, 80, 0.9); }
+        }
+
+        @@keyframes result-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            60% { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pk-container {
+            width: 1600px;
+            height: 950px;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: rgb(12, 10, 8);
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.7);
+        }
+
+        .pk-header {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 28px;
+            background-color: rgb(18, 15, 12);
+            border-bottom: 2px solid rgb(60, 35, 15);
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .pk-header-left {
+            flex-direction: row;
+            align-items: center;
+            column-gap: 20px;
+        }
+
+        .pk-title {
+            font-size: 22px;
+            font-weight: 900;
+            color: rgb(220, 195, 140);
+            letter-spacing: 8px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(220, 195, 140, 0.3);
+        }
+
+        .pk-balance {
+            flex-direction: row;
+            align-items: center;
+            column-gap: 6px;
+            font-size: 15px;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: Consolas;
+            padding: 6px 16px;
+            background-color: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .pk-balance-amount {
+            color: rgb(255, 215, 100);
+            font-weight: 700;
+        }
+
+        .pk-leave-btn {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: Consolas;
+            padding: 8px 18px;
+            background-color: rgba(180, 40, 40, 0.2);
+            border: 1px solid rgba(180, 40, 40, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            letter-spacing: 2px;
+        }
+
+        .pk-leave-btn:hover {
+            background-color: rgba(180, 40, 40, 0.4);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .pk-header-accent {
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(120, 80, 20, 0), rgba(200, 160, 60, 0.6), rgba(220, 185, 80, 0.9), rgba(200, 160, 60, 0.6), rgba(120, 80, 20, 0));
+            box-shadow: 0 0 10px rgba(200, 160, 60, 0.3);
+        }
+
+        .pk-table {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pk-felt {
+            position: absolute;
+            top: 18px;
+            left: 30px;
+            right: 30px;
+            bottom: 18px;
+            background-color: rgb(18, 65, 32);
+            border-radius: 360px / 240px;
+            border: 12px solid rgb(85, 50, 18);
+            box-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
+        }
+
+        .pk-felt::before {
+            position: absolute;
+            top: -12px;
+            left: -12px;
+            right: -12px;
+            bottom: -12px;
+            border-radius: 372px / 252px;
+            border: 3px solid rgba(140, 90, 35, 0.35);
+            pointer-events: none;
+        }
+
+        .pk-table-print {
+            position: absolute;
+            top: 5%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            font-size: 14px;
+            color: rgba(200, 180, 80, 0.25);
+            font-family: Consolas;
+            letter-spacing: 5px;
+            font-weight: 700;
+            pointer-events: none;
+        }
+
+        /* Center: community cards + pot */
+        .pk-center {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            flex-direction: column;
+            align-items: center;
+            row-gap: 6px;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .pk-community {
+            flex-direction: row;
+            column-gap: 5px;
+            align-items: center;
+            min-height: 70px;
+        }
+
+        .pk-pot-wrap {
+            flex-direction: column;
+            align-items: center;
+            row-gap: 2px;
+            padding: 6px 18px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(200, 180, 80, 0.3);
+            border-radius: 6px;
+        }
+
+        .pk-pot-label {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        .pk-pot-value {
+            font-size: 22px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .pk-status {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: Consolas;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+            padding: 6px 18px;
+            background-color: rgba(0, 0, 0, 0.35);
+            border-radius: 4px;
+            z-index: 21;
+        }
+
+        .pk-play-btn {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            font-size: 18px;
+            font-weight: 800;
+            color: rgb(255, 255, 255);
+            font-family: Consolas;
+            letter-spacing: 4px;
+            padding: 12px 48px;
+            background-color: rgb(40, 120, 60);
+            border: 2px solid rgb(60, 180, 90);
+            border-radius: 6px;
+            cursor: pointer;
+            z-index: 21;
+            transition: background-color 0.15s, box-shadow 0.15s;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        .pk-play-btn:hover {
+            background-color: rgb(50, 150, 75);
+            box-shadow: 0 0 20px rgba(60, 180, 90, 0.5);
+        }
+
+        .pk-play-btn.disabled {
+            background-color: rgb(50, 50, 50);
+            border-color: rgb(80, 80, 80);
+            color: rgba(255, 255, 255, 0.3);
+            cursor: default;
+            box-shadow: none;
+        }
+
+        .pk-winner-banner {
+            position: absolute;
+            top: 66%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50%);
+            font-size: 16px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            letter-spacing: 3px;
+            font-weight: 700;
+            padding: 8px 24px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 215, 100, 0.4);
+            border-radius: 6px;
+            animation: result-pop 0.45s ease-out;
+            z-index: 22;
+        }
+
+        /* Cards */
+        .pk-card {
+            width: 50px;
+            height: 72px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: Consolas;
+            font-weight: 700;
+            box-shadow: 1px 2px 6px rgba(0, 0, 0, 0.5);
+            animation: card-deal 0.4s ease-out;
+            flex-shrink: 0;
+        }
+
+        .pk-card-face {
+            background-color: rgb(248, 245, 238);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+
+        .pk-card-back {
+            background-color: rgb(130, 18, 18);
+            border: 2px solid rgb(160, 30, 30);
+        }
+
+        .pk-card-rank { font-size: 17px; line-height: 17px; }
+        .pk-card-suit { font-size: 18px; line-height: 18px; margin-top: 2px; }
+        .pk-card-red { color: rgb(200, 30, 30); }
+        .pk-card-black { color: rgb(20, 20, 20); }
+
+        .pk-card-small {
+            width: 38px;
+            height: 54px;
+            border-radius: 3px;
+        }
+        .pk-card-small .pk-card-rank { font-size: 13px; line-height: 13px; }
+        .pk-card-small .pk-card-suit { font-size: 14px; line-height: 14px; margin-top: 1px; }
+
+        .pk-card-winning {
+            animation: win-glow 1.6s ease-in-out infinite;
+            border: 2px solid rgb(255, 215, 80);
+        }
+
+        /* Seats — absolutely positioned around the felt ellipse */
+        .pk-seat {
+            position: absolute;
+            width: 150px;
+            flex-direction: column;
+            align-items: center;
+            row-gap: 4px;
+            padding: 6px 6px 8px 6px;
+            border-radius: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+            background-color: rgba(0, 0, 0, 0.45);
+            z-index: 10;
+        }
+
+        .pk-seat-active {
+            animation: pulse-turn 1.4s ease-in-out infinite;
+            background-color: rgba(255, 215, 0, 0.08);
+        }
+
+        .pk-seat-local {
+            border-color: rgba(255, 215, 0, 0.25);
+        }
+
+        .pk-seat-empty { opacity: 0.4; }
+        .pk-seat-folded { opacity: 0.45; }
+        .pk-seat-allin { animation: allin-pulse 1.2s ease-in-out infinite; }
+
+        .pk-seat-cards {
+            flex-direction: row;
+            column-gap: 3px;
+            min-height: 56px;
+            justify-content: center;
+        }
+
+        .pk-seat-name {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.7);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pk-seat-name-local {
+            color: rgb(255, 215, 100);
+            font-weight: 700;
+        }
+
+        .pk-seat-chips {
+            font-size: 13px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .pk-seat-bet {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: Consolas;
+            background-color: rgba(0, 0, 0, 0.55);
+            padding: 2px 8px;
+            border-radius: 3px;
+            border: 1px solid rgba(200, 180, 80, 0.35);
+            letter-spacing: 1px;
+        }
+
+        .pk-seat-action {
+            font-size: 11px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 1px;
+            min-height: 14px;
+        }
+
+        .pk-seat-handlabel {
+            font-size: 10px;
+            color: rgb(255, 215, 80);
+            font-family: Consolas;
+            letter-spacing: 1px;
+            min-height: 12px;
+        }
+
+        /* Tokens (button / SB / BB) */
+        .pk-token {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-family: Consolas;
+            font-weight: 900;
+            border: 2px solid rgba(0, 0, 0, 0.4);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+        }
+
+        .pk-token-button {
+            background-color: rgb(245, 240, 220);
+            color: rgb(40, 30, 10);
+        }
+
+        .pk-token-sb {
+            background-color: rgb(60, 110, 200);
+            color: white;
+            top: -8px;
+            right: 18px;
+        }
+
+        .pk-token-bb {
+            background-color: rgb(180, 40, 40);
+            color: white;
+            top: -8px;
+            right: 18px;
+        }
+
+        /* Timer ring on active seat */
+        .pk-timer {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .pk-timer-fill {
+            height: 100%;
+            background-color: rgb(255, 215, 80);
+        }
+
+        /* Action bar */
+        .pk-action-bar {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 28px;
+            background-color: rgb(18, 15, 12);
+            border-top: 2px solid rgb(60, 35, 15);
+            flex-shrink: 0;
+            min-height: 80px;
+        }
+
+        .pk-action-info {
+            flex-direction: column;
+            row-gap: 4px;
+            align-items: flex-start;
+        }
+
+        .pk-info-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.45);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .pk-info-value {
+            font-size: 18px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .pk-raise-controls {
+            flex-direction: column;
+            align-items: center;
+            row-gap: 6px;
+            min-width: 280px;
+        }
+
+        .pk-raise-amount {
+            font-size: 20px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 700;
+        }
+
+        .pk-raise-buttons {
+            flex-direction: row;
+            column-gap: 6px;
+        }
+
+        .pk-raise-step {
+            padding: 4px 10px;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.8);
+            font-family: Consolas;
+            cursor: pointer;
+        }
+
+        .pk-raise-step:hover {
+            background-color: rgba(255, 215, 100, 0.15);
+            color: rgb(255, 215, 100);
+        }
+
+        .pk-actions-row {
+            flex-direction: row;
+            column-gap: 8px;
+            align-items: center;
+        }
+
+        .pk-action-btn {
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border: 1px solid;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .pk-action-btn:hover { transform: scale(1.04); }
+        .pk-action-btn.disabled { opacity: 0.25; pointer-events: none; }
+
+        .pk-btn-fold {
+            background-color: rgba(180, 40, 40, 0.7);
+            border-color: rgba(220, 60, 60, 0.5);
+            color: white;
+        }
+        .pk-btn-fold:hover { background-color: rgba(200, 50, 50, 0.85); }
+
+        .pk-btn-check {
+            background-color: rgba(60, 100, 160, 0.75);
+            border-color: rgba(80, 140, 200, 0.5);
+            color: white;
+        }
+        .pk-btn-check:hover { background-color: rgba(70, 120, 180, 0.9); }
+
+        .pk-btn-call {
+            background-color: rgba(40, 150, 60, 0.8);
+            border-color: rgba(60, 200, 80, 0.5);
+            color: white;
+        }
+        .pk-btn-call:hover { background-color: rgba(50, 180, 70, 0.9); }
+
+        .pk-btn-raise {
+            background-color: rgba(200, 160, 40, 0.85);
+            border-color: rgba(240, 200, 60, 0.5);
+            color: rgb(20, 15, 0);
+        }
+        .pk-btn-raise:hover { background-color: rgba(220, 180, 50, 0.95); }
+
+        .pk-btn-allin {
+            background-color: rgba(120, 30, 30, 0.85);
+            border-color: rgba(220, 60, 60, 0.6);
+            color: rgb(255, 220, 220);
+        }
+        .pk-btn-allin:hover { background-color: rgba(160, 40, 40, 0.95); }
+
+        /* Buy-in dialog */
+        .pk-dialog-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.75);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .pk-dialog {
+            width: 580px;
+            flex-direction: column;
+            align-items: center;
+            row-gap: 18px;
+            padding: 30px 40px;
+            background-color: rgb(20, 18, 14);
+            border: 2px solid rgb(85, 50, 18);
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .pk-dialog-title {
+            font-size: 22px;
+            color: rgb(220, 195, 140);
+            font-family: Consolas;
+            letter-spacing: 6px;
+            font-weight: 900;
+        }
+
+        .pk-dialog-subtitle {
+            flex-direction: row;
+            column-gap: 18px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+
+        .pk-dialog-amount {
+            font-size: 38px;
+            color: rgb(255, 215, 100);
+            font-family: Consolas;
+            font-weight: 900;
+        }
+
+        .pk-dialog-steps {
+            flex-direction: row;
+            column-gap: 6px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pk-dialog-step {
+            padding: 6px 12px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.85);
+            font-family: Consolas;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pk-dialog-step:hover {
+            background-color: rgba(255, 215, 100, 0.15);
+            color: rgb(255, 215, 100);
+        }
+
+        .pk-dialog-buttons {
+            flex-direction: row;
+            column-gap: 14px;
+            margin-top: 6px;
+        }
+
+        .pk-dialog-confirm {
+            padding: 12px 32px;
+            background-color: rgba(40, 150, 60, 0.85);
+            border: 1px solid rgba(60, 200, 80, 0.5);
+            color: white;
+            border-radius: 6px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+        }
+        .pk-dialog-confirm:hover { background-color: rgba(50, 180, 70, 0.95); }
+        .pk-dialog-confirm.disabled { opacity: 0.3; pointer-events: none; }
+
+        .pk-dialog-cancel {
+            padding: 12px 32px;
+            background-color: rgba(180, 40, 40, 0.5);
+            border: 1px solid rgba(220, 60, 60, 0.4);
+            color: rgba(255, 255, 255, 0.85);
+            border-radius: 6px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+        }
+        .pk-dialog-cancel:hover { background-color: rgba(200, 50, 50, 0.7); }
+
+        .pk-dialog-balance {
+            flex-direction: row;
+            column-gap: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.55);
+            font-family: Consolas;
+            letter-spacing: 2px;
+        }
+    </style>
+
+    <div class="poker-overlay @(IsVisible ? "" : "hidden")">
+        <div class="pk-container">
+            <!-- Header -->
+            <div class="pk-header">
+                <div class="pk-header-left">
+                    <div class="pk-title">TEXAS HOLD'EM</div>
+                    <div class="pk-balance">
+                        <div>Balance:</div>
+                        <div class="pk-balance-amount">@Balance.ToString("N0")</div>
+                        <div>credits</div>
+                    </div>
+                </div>
+                <div class="pk-leave-btn" onclick="@OnLeave">LEAVE TABLE</div>
+                <div class="pk-header-accent"></div>
+            </div>
+
+            <!-- Felt -->
+            <div class="pk-table">
+                <div class="pk-felt">
+                    <div class="pk-table-print">NO LIMIT TEXAS HOLD'EM   ·   BLINDS @PokerBridge.SmallBlind / @PokerBridge.BigBlind</div>
+
+                    <!-- Community + pot center -->
+                    <div class="pk-center">
+                        <div class="pk-community">
+                            @{
+                                int displayedCommunity = CommunityCards?.Count ?? 0;
+                            }
+                            @for ( int i = 0; i < 5; i++ )
+                            {
+                                if ( i < displayedCommunity )
+                                {
+                                    var card = CommunityCards[i];
+                                    <div class="pk-card pk-card-face">
+                                        <div class="pk-card-rank @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetRankText()</div>
+                                        <div class="pk-card-suit @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetSuitSymbol()</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <div class="pk-pot-wrap">
+                            <div class="pk-pot-label">POT</div>
+                            <div class="pk-pot-value">@MainPot.ToString("N0")</div>
+                        </div>
+                    </div>
+
+                    <!-- Status / Play button -->
+                    @if ( !GameStarted && CanStartGame )
+                    {
+                        <div class="pk-play-btn" onclick="@OnStartGame">PLAY</div>
+                    }
+                    else if ( !GameStarted && Phase == PokerPhase.WaitingForPlayers && LocalSeatIndex >= 0 )
+                    {
+                        <div class="pk-status">Waiting for players...</div>
+                    }
+                    else if ( !string.IsNullOrEmpty( StatusMessage ) && Phase != PokerPhase.WaitingForPlayers )
+                    {
+                        <div class="pk-status">@StatusMessage</div>
+                    }
+
+                    @if ( !string.IsNullOrEmpty( LastWinnerText ) )
+                    {
+                        <div class="pk-winner-banner">@LastWinnerText</div>
+                    }
+
+                    <!-- Seats arranged around the oval -->
+                    @for ( int i = 0; i < 10; i++ )
+                    {
+                        var seatIdx = i;
+                        var seat = Seats?[seatIdx];
+                        if ( seat == null ) continue;
+
+                        var pos = GetSeatPosition( seatIdx );
+                        bool isActive = ActiveSeat == seatIdx;
+                        bool isLocal = LocalSeatIndex == seatIdx;
+                        bool folded = seat.HasFolded;
+                        bool allIn = seat.IsAllIn;
+
+                        string seatClass = "pk-seat";
+                        if ( isActive ) seatClass += " pk-seat-active";
+                        if ( isLocal ) seatClass += " pk-seat-local";
+                        if ( !seat.IsOccupied ) seatClass += " pk-seat-empty";
+                        if ( folded ) seatClass += " pk-seat-folded";
+                        if ( allIn ) seatClass += " pk-seat-allin";
+
+                        <div class="@seatClass" style="left:@(pos.x.ToString("0.##"))%; top:@(pos.y.ToString("0.##"))%; transform:translate(-50%,-50%);">
+
+                            @if ( seat.IsButton )
+                            {
+                                <div class="pk-token pk-token-button">D</div>
+                            }
+                            @if ( seat.IsSmallBlind )
+                            {
+                                <div class="pk-token pk-token-sb">SB</div>
+                            }
+                            @if ( seat.IsBigBlind )
+                            {
+                                <div class="pk-token pk-token-bb">BB</div>
+                            }
+
+                            <!-- Empty slot for joining -->
+                            @if ( !seat.IsOccupied )
+                            {
+                                <div class="pk-seat-name">SEAT @(seatIdx + 1)</div>
+                                <div class="pk-seat-cards"></div>
+                                @if ( LocalSeatIndex < 0 && !PokerBridge.ShowBuyInDialog )
+                                {
+                                    <div class="pk-action-btn pk-btn-call" style="padding:6px 14px; font-size:11px; min-width:60px;" onclick="@(() => OnJoinSeat(seatIdx))">JOIN</div>
+                                }
+                                else
+                                {
+                                    <div class="pk-seat-chips">---</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="pk-seat-name @(isLocal ? "pk-seat-name-local" : "")">@seat.PlayerName</div>
+
+                                <div class="pk-seat-cards">
+                                    @if ( isLocal && LocalHoleCards != null && LocalHoleCards.Count > 0 )
+                                    {
+                                        @foreach ( var card in LocalHoleCards )
+                                        {
+                                            var cardClass = "pk-card pk-card-small pk-card-face";
+                                            if ( IsCardInWinningFive( card ) ) cardClass += " pk-card-winning";
+                                            <div class="@cardClass">
+                                                <div class="pk-card-rank @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetRankText()</div>
+                                                <div class="pk-card-suit @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetSuitSymbol()</div>
+                                            </div>
+                                        }
+                                    }
+                                    else if ( seat.ShowdownRevealed && seat.HoleCards != null && seat.HoleCards.Count > 0 )
+                                    {
+                                        @foreach ( var card in seat.HoleCards )
+                                        {
+                                            <div class="pk-card pk-card-small pk-card-face">
+                                                <div class="pk-card-rank @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetRankText()</div>
+                                                <div class="pk-card-suit @(card.IsRed ? "pk-card-red" : "pk-card-black")">@card.GetSuitSymbol()</div>
+                                            </div>
+                                        }
+                                    }
+                                    else if ( seat.HoleCards != null && seat.HoleCards.Count > 0 && !folded )
+                                    {
+                                        @for ( int c = 0; c < 2; c++ )
+                                        {
+                                            <div class="pk-card pk-card-small pk-card-back"></div>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="pk-seat-chips">@seat.Chips.ToString("N0")</div>
+
+                                @if ( seat.ChipsInPotThisRound > 0 )
+                                {
+                                    <div class="pk-seat-bet">@seat.ChipsInPotThisRound.ToString("N0")</div>
+                                }
+
+                                <div class="pk-seat-action">
+                                    @if ( allIn )
+                                    {
+                                        <span>ALL IN</span>
+                                    }
+                                    else if ( folded )
+                                    {
+                                        <span>FOLD</span>
+                                    }
+                                    else
+                                    {
+                                        @GetActionLabel( seat )
+                                    }
+                                </div>
+
+                                @if ( seat.ShowdownRevealed && !string.IsNullOrEmpty( seat.ShowdownLabel ) )
+                                {
+                                    <div class="pk-seat-handlabel">@seat.ShowdownLabel</div>
+                                }
+
+                                @if ( isActive )
+                                {
+                                    <div class="pk-timer">
+                                        <div class="pk-timer-fill" style="width:@(GetTimerPct().ToString("0.#"))%;"></div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Action bar -->
+            <div class="pk-action-bar">
+                <div class="pk-action-info">
+                    <div class="pk-info-label">TO CALL</div>
+                    <div class="pk-info-value">@CallAmount.ToString("N0")</div>
+                </div>
+
+                @if ( CanRaise || CanBet )
+                {
+                    <div class="pk-raise-controls">
+                        <div class="pk-raise-amount">RAISE TO @RaiseSliderValue.ToString("N0")</div>
+                        <div class="pk-raise-buttons">
+                            <div class="pk-raise-step" onclick="@(() => AdjustRaise(-MinRaiseStep()))">-</div>
+                            <div class="pk-raise-step" onclick="@(() => SetRaiseFraction(0.5f))">½ POT</div>
+                            <div class="pk-raise-step" onclick="@(() => SetRaiseFraction(0.75f))">¾ POT</div>
+                            <div class="pk-raise-step" onclick="@(() => SetRaiseFraction(1.0f))">POT</div>
+                            <div class="pk-raise-step" onclick="@SetRaiseMin">MIN</div>
+                            <div class="pk-raise-step" onclick="@SetRaiseMax">MAX</div>
+                            <div class="pk-raise-step" onclick="@(() => AdjustRaise(MinRaiseStep()))">+</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="pk-action-info" style="align-items:center;">
+                        <div class="pk-info-label">POT</div>
+                        <div class="pk-info-value">@MainPot.ToString("N0")</div>
+                    </div>
+                }
+
+                <div class="pk-actions-row">
+                    <div class="pk-action-btn pk-btn-fold @(CanFold ? "" : "disabled")" onclick="@OnFold">FOLD</div>
+                    @if ( CanCheck )
+                    {
+                        <div class="pk-action-btn pk-btn-check" onclick="@OnCheck">CHECK</div>
+                    }
+                    else
+                    {
+                        <div class="pk-action-btn pk-btn-call @(CanCall ? "" : "disabled")" onclick="@OnCall">CALL @CallAmount.ToString("N0")</div>
+                    }
+                    @if ( CanBet )
+                    {
+                        <div class="pk-action-btn pk-btn-raise" onclick="@OnBet">BET</div>
+                    }
+                    else
+                    {
+                        <div class="pk-action-btn pk-btn-raise @(CanRaise ? "" : "disabled")" onclick="@OnRaise">RAISE</div>
+                    }
+                    <div class="pk-action-btn pk-btn-allin @(CanAllIn ? "" : "disabled")" onclick="@OnAllIn">ALL IN</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buy-in dialog -->
+        @if ( ShowBuyInDialog )
+        {
+            <div class="pk-dialog-overlay">
+                <div class="pk-dialog">
+                    <div class="pk-dialog-title">BUY IN</div>
+                    <div class="pk-dialog-subtitle">
+                        <div>SEAT @(PendingSeat + 1)</div>
+                        <div>RANGE @PokerBridge.MinBuyIn - @PokerBridge.MaxBuyIn</div>
+                    </div>
+                    <div class="pk-dialog-amount">@SelectedBuyIn.ToString("N0")</div>
+                    <div class="pk-dialog-steps">
+                        <div class="pk-dialog-step" onclick="@(() => AdjustBuyIn(-100))">-100</div>
+                        <div class="pk-dialog-step" onclick="@(() => AdjustBuyIn(-50))">-50</div>
+                        <div class="pk-dialog-step" onclick="@SetBuyInMin">MIN</div>
+                        <div class="pk-dialog-step" onclick="@SetBuyInHalf">HALF</div>
+                        <div class="pk-dialog-step" onclick="@SetBuyInMax">MAX</div>
+                        <div class="pk-dialog-step" onclick="@(() => AdjustBuyIn(50))">+50</div>
+                        <div class="pk-dialog-step" onclick="@(() => AdjustBuyIn(100))">+100</div>
+                    </div>
+                    <div class="pk-dialog-balance">
+                        <div>YOUR BALANCE:</div>
+                        <div>@Balance.ToString("N0")</div>
+                    </div>
+                    <div class="pk-dialog-buttons">
+                        <div class="pk-dialog-cancel" onclick="@OnCancelBuyIn">CANCEL</div>
+                        <div class="pk-dialog-confirm @(SelectedBuyIn >= PokerBridge.MinBuyIn && SelectedBuyIn <= Balance ? "" : "disabled")" onclick="@OnConfirmBuyIn">CONFIRM</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</root>
+
+@code {
+    bool IsVisible;
+    int Balance;
+    int LocalSeatIndex;
+    int ActiveSeat;
+    int ButtonSeat;
+    PokerPhase Phase;
+    string StatusMessage = "";
+    string LastWinnerText = "";
+
+    long MainPot;
+    long CurrentBet;
+    long CallAmount;
+    long MinRaiseTo;
+    long MaxRaiseTo;
+    long RaiseSliderValue;
+
+    bool CanFold, CanCheck, CanCall, CanBet, CanRaise, CanAllIn;
+    bool CanStartGame;
+    bool GameStarted;
+
+    bool ShowBuyInDialog;
+    int PendingSeat;
+    int SelectedBuyIn;
+
+    PokerSeatData[] Seats = new PokerSeatData[10];
+    List<CardData> CommunityCards = new();
+    List<CardData> LocalHoleCards = new();
+
+    protected override void OnUpdate()
+    {
+        IsVisible = PokerBridge.IsOpen;
+        if ( !IsVisible ) return;
+
+        Balance = PokerBridge.CachedBalance;
+        LocalSeatIndex = PokerBridge.LocalSeatIndex;
+        ActiveSeat = PokerBridge.ActiveSeat;
+        ButtonSeat = PokerBridge.ButtonSeat;
+        Phase = PokerBridge.Phase;
+        StatusMessage = PokerBridge.StatusMessage;
+        LastWinnerText = PokerBridge.LastWinnerText;
+
+        MainPot = PokerBridge.MainPot;
+        CurrentBet = PokerBridge.CurrentBet;
+        CallAmount = PokerBridge.CallAmount;
+        MinRaiseTo = PokerBridge.MinRaiseTo;
+        MaxRaiseTo = PokerBridge.MaxRaiseTo;
+        RaiseSliderValue = PokerBridge.RaiseSliderValue;
+
+        CanFold = PokerBridge.CanFold;
+        CanCheck = PokerBridge.CanCheck;
+        CanCall = PokerBridge.CanCall;
+        CanBet = PokerBridge.CanBet;
+        CanRaise = PokerBridge.CanRaise;
+        CanAllIn = PokerBridge.CanAllIn;
+        CanStartGame = PokerBridge.CanStartGame;
+        GameStarted = PokerBridge.GameStarted;
+
+        ShowBuyInDialog = PokerBridge.ShowBuyInDialog;
+        PendingSeat = PokerBridge.PendingSeat;
+        SelectedBuyIn = PokerBridge.SelectedBuyIn;
+
+        Seats = PokerBridge.Seats;
+        CommunityCards = PokerBridge.CommunityCards;
+        LocalHoleCards = PokerBridge.LocalHoleCards;
+    }
+
+    /// <summary>
+    /// Returns (x,y) percent position for the given seat, rotated so the local
+    /// player always appears at the bottom-center of the felt.
+    /// </summary>
+    private (double x, double y) GetSeatPosition( int seatIdx )
+    {
+        // Rotate so LocalSeatIndex (or seat 0 if not seated) is at the bottom.
+        int displayIdx = seatIdx;
+        if ( LocalSeatIndex >= 0 )
+            displayIdx = (seatIdx - LocalSeatIndex + 10) % 10;
+
+        // theta = 0 is right side, +PI/2 is bottom (start at bottom-center)
+        double theta = (Math.PI * 2.0) * (displayIdx / 10.0) + (Math.PI / 2.0);
+        double x = 50.0 + 40.0 * Math.Cos( theta );
+        double y = 46.0 + 38.0 * Math.Sin( theta );
+
+        // Cap the bottom seat (displayIdx 0) so it aligns with seats 2 and 10
+        double maxY = 46.0 + 38.0 * Math.Sin( Math.PI / 2.0 + (Math.PI * 2.0 / 10.0) );
+        if ( y > maxY ) y = maxY;
+
+        return (x, y);
+    }
+
+    private string GetActionLabel( PokerSeatData seat )
+    {
+        return seat.LastAction switch
+        {
+            PokerActionType.Fold => "FOLD",
+            PokerActionType.Check => "CHECK",
+            PokerActionType.Call => $"CALL {seat.LastActionAmount}",
+            PokerActionType.Bet => $"BET {seat.LastActionAmount}",
+            PokerActionType.Raise => $"RAISE {seat.LastActionAmount}",
+            PokerActionType.AllIn => "ALL IN",
+            PokerActionType.SmallBlind => $"SB {seat.LastActionAmount}",
+            PokerActionType.BigBlind => $"BB {seat.LastActionAmount}",
+            _ => ""
+        };
+    }
+
+    private float GetTimerPct()
+    {
+        float remaining = PokerBridge.ActionDeadline - RealTime.Now;
+        if ( remaining < 0 ) remaining = 0;
+        float pct = (remaining / PokerBridge.TurnDuration) * 100f;
+        if ( pct > 100f ) pct = 100f;
+        return pct;
+    }
+
+    private bool IsCardInWinningFive( CardData card )
+    {
+        // Could be wired up later to highlight winning hand cards
+        return false;
+    }
+
+    private long MinRaiseStep()
+    {
+        long step = PokerBridge.BigBlind;
+        if ( step <= 0 ) step = 25;
+        return step;
+    }
+
+    // === Action handlers ===
+
+    private PokerManager GetManager()
+    {
+        if ( PokerBridge.ActiveTable == null ) return null;
+        return PokerBridge.ActiveTable.GameObject.Components.Get<PokerManager>();
+    }
+
+    private string LocalSteamId() => Connection.Local?.SteamId.ToString() ?? "";
+
+    private void OnFold()
+    {
+        if ( !CanFold ) return;
+        GetManager()?.RequestFold( LocalSteamId() );
+    }
+
+    private void OnCheck()
+    {
+        if ( !CanCheck ) return;
+        GetManager()?.RequestCheck( LocalSteamId() );
+    }
+
+    private void OnCall()
+    {
+        if ( !CanCall ) return;
+        GetManager()?.RequestCall( LocalSteamId() );
+        // wagered chips tracked here for client-side leaderboard responsiveness
+        if ( CallAmount > 0 )
+            Sandbox.Services.Stats.Increment( "credits_wagered", (int)CallAmount );
+    }
+
+    private void OnBet()
+    {
+        if ( !CanBet ) return;
+        long amount = RaiseSliderValue;
+        if ( amount < PokerBridge.MinBetAmount ) amount = PokerBridge.MinBetAmount;
+        if ( amount > MaxRaiseTo ) amount = MaxRaiseTo;
+        GetManager()?.RequestBet( LocalSteamId(), amount );
+        Sandbox.Services.Stats.Increment( "credits_wagered", (int)amount );
+    }
+
+    private void OnRaise()
+    {
+        if ( !CanRaise ) return;
+        long raiseTo = RaiseSliderValue;
+        if ( raiseTo < MinRaiseTo ) raiseTo = MinRaiseTo;
+        if ( raiseTo > MaxRaiseTo ) raiseTo = MaxRaiseTo;
+        GetManager()?.RequestRaise( LocalSteamId(), raiseTo );
+        // Local seat's contribution delta tracked
+        if ( LocalSeatIndex >= 0 && LocalSeatIndex < 10 )
+        {
+            long delta = raiseTo - Seats[LocalSeatIndex].ChipsInPotThisRound;
+            if ( delta > 0 ) Sandbox.Services.Stats.Increment( "credits_wagered", (int)delta );
+        }
+    }
+
+    private void OnAllIn()
+    {
+        if ( !CanAllIn ) return;
+        GetManager()?.RequestAllIn( LocalSteamId() );
+        if ( LocalSeatIndex >= 0 && LocalSeatIndex < 10 )
+        {
+            long chips = Seats[LocalSeatIndex].Chips;
+            if ( chips > 0 ) Sandbox.Services.Stats.Increment( "credits_wagered", (int)chips );
+        }
+    }
+
+    private void OnStartGame()
+    {
+        if ( !CanStartGame ) return;
+        GetManager()?.RequestStartGame( LocalSteamId() );
+    }
+
+    private void OnLeave()
+    {
+        PokerBridge.ActiveTable?.LeaveTable();
+    }
+
+    private void AdjustRaise( long delta )
+    {
+        long v = PokerBridge.RaiseSliderValue + delta;
+        long lo = CanBet ? PokerBridge.MinBetAmount : MinRaiseTo;
+        if ( v < lo ) v = lo;
+        if ( v > MaxRaiseTo ) v = MaxRaiseTo;
+        PokerBridge.RaiseSliderValue = v;
+    }
+
+    private void SetRaiseFraction( float f )
+    {
+        // Pot-relative bet sizing: target = currentBet + (pot + callAmount) * f, then "raise to" amount
+        long potTotal = MainPot + CallAmount;
+        long target = CurrentBet + (long)(potTotal * f);
+        long lo = CanBet ? PokerBridge.MinBetAmount : MinRaiseTo;
+        if ( target < lo ) target = lo;
+        if ( target > MaxRaiseTo ) target = MaxRaiseTo;
+        PokerBridge.RaiseSliderValue = target;
+    }
+
+    private void SetRaiseMin()
+    {
+        PokerBridge.RaiseSliderValue = CanBet ? PokerBridge.MinBetAmount : MinRaiseTo;
+    }
+
+    private void SetRaiseMax()
+    {
+        PokerBridge.RaiseSliderValue = MaxRaiseTo;
+    }
+
+    // === Buy-in dialog handlers ===
+
+    private void OnJoinSeat( int seatIdx )
+    {
+        if ( PokerBridge.ActiveTable == null ) return;
+        if ( LocalSeatIndex >= 0 ) return;
+        PokerBridge.PendingSeat = seatIdx;
+        PokerBridge.ShowBuyInDialog = true;
+        if ( PokerBridge.SelectedBuyIn < PokerBridge.MinBuyIn )
+            PokerBridge.SelectedBuyIn = PokerBridge.MinBuyIn;
+        if ( PokerBridge.SelectedBuyIn > Balance )
+            PokerBridge.SelectedBuyIn = Math.Max( PokerBridge.MinBuyIn, Balance );
+    }
+
+    private void OnConfirmBuyIn()
+    {
+        if ( PokerBridge.ActiveTable == null ) return;
+        PokerBridge.ActiveTable.ConfirmBuyIn( PokerBridge.SelectedBuyIn );
+    }
+
+    private void OnCancelBuyIn()
+    {
+        PokerBridge.ActiveTable?.CancelBuyIn();
+    }
+
+    private void AdjustBuyIn( int delta )
+    {
+        int v = PokerBridge.SelectedBuyIn + delta;
+        v = Math.Clamp( v, PokerBridge.MinBuyIn, Math.Min( PokerBridge.MaxBuyIn, Math.Max( PokerBridge.MinBuyIn, Balance ) ) );
+        PokerBridge.SelectedBuyIn = v;
+    }
+
+    private void SetBuyInMin() { PokerBridge.SelectedBuyIn = PokerBridge.MinBuyIn; }
+    private void SetBuyInMax() { PokerBridge.SelectedBuyIn = Math.Min( PokerBridge.MaxBuyIn, Math.Max( PokerBridge.MinBuyIn, Balance ) ); }
+    private void SetBuyInHalf()
+    {
+        int half = Math.Min( PokerBridge.MaxBuyIn, Math.Max( PokerBridge.MinBuyIn, Balance / 2 ) );
+        PokerBridge.SelectedBuyIn = half;
+    }
+
+    protected override int BuildHash()
+    {
+        var h = System.HashCode.Combine( IsVisible, Phase, ActiveSeat, ButtonSeat, MainPot, CurrentBet, RaiseSliderValue, Balance );
+        h = System.HashCode.Combine( h, ShowBuyInDialog, SelectedBuyIn, LocalSeatIndex, CommunityCards?.Count ?? 0 );
+        h = System.HashCode.Combine( h, LocalHoleCards?.Count ?? 0, CanFold, CanCheck, CanCall, CanBet, CanRaise );
+        h = System.HashCode.Combine( h, CanAllIn, CallAmount, CanStartGame, GameStarted );
+        if ( Seats != null )
+        {
+            for ( int i = 0; i < 10; i++ )
+            {
+                var s = Seats[i];
+                if ( s == null ) continue;
+                h = System.HashCode.Combine( h, s.IsOccupied, s.Chips, s.HasFolded, s.IsAllIn, s.ChipsInPotThisRound, s.LastAction, s.HoleCards?.Count ?? 0 );
+                h = System.HashCode.Combine( h, s.ShowdownRevealed );
+            }
+        }
+        return h;
+    }
+}

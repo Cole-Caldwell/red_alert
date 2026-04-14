@@ -10,24 +10,50 @@
 			top: 0;
 			width: 100%;
 			height: 100%;
-			background-color: rgba(0, 0, 0, 0.95);
 			display: flex;
 			flex-direction: column;
 			align-items: center;
 			justify-content: center;
 			pointer-events: none;
 			z-index: 5000;
+		}
+
+		.death-bg {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.95);
 			opacity: 1;
 		}
 
-		.death-overlay.fade-out {
+		.death-bg.fade-out {
 			opacity: 0.3;
 			transition: opacity 0.8s ease-in;
 		}
 
-		.death-overlay.fade-gone {
+		.death-bg.fade-gone {
 			opacity: 0;
 			transition: opacity 0.5s ease-in;
+		}
+
+		.death-content.fade-out {
+			opacity: 0.3;
+			transition: opacity 0.8s ease-in;
+		}
+
+		.death-content.fade-gone {
+			opacity: 0;
+			transition: opacity 0.5s ease-in;
+		}
+
+		.death-content {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			z-index: 1;
 		}
 
 		.death-icon-img {
@@ -55,35 +81,62 @@
 			margin-bottom: 12px;
 		}
 
+		.death-killer {
+			font-size: 22px;
+			font-weight: 800;
+			color: rgba(255, 200, 200, 0.95);
+			letter-spacing: 4px;
+			font-family: Consolas;
+			text-shadow: 0 0 20px rgba(255, 50, 50, 0.5);
+			margin-bottom: 16px;
+		}
+
 		.death-subtext {
 			font-size: 16px;
 			font-weight: 700;
-			color: rgba(200, 200, 220, 0.5);
+			color: rgba(200, 200, 220, 0.7);
 			letter-spacing: 6px;
 			font-family: Consolas;
 		}
 	</style>
 
-	<div class="death-overlay @FadeClass">
-		<img class="death-icon-img" src="ui/red-alert-death.png" />
-		<div class="death-line"></div>
-		<label class="death-text">YOU HAVE BEEN KILLED</label>
-		<label class="death-subtext">ENTERING SPECTATOR MODE</label>
-		<div class="death-line"></div>
+	<div class="death-overlay">
+		<div class="death-bg @FadeClass"></div>
+		<div class="death-content @FadeClass">
+			<img class="death-icon-img" src="ui/red-alert-death.png" />
+			<div class="death-line"></div>
+			<label class="death-text">@HeadlineText</label>
+			<label class="death-killer">@KillerText</label>
+			<label class="death-subtext">ENTERING SPECTATOR MODE</label>
+			<div class="death-line"></div>
+		</div>
 	</div>
 </root>
 
 @code {
 	public string FadeClass { get; set; } = "";
+	public string HeadlineText { get; set; } = "YOU HAVE BEEN KILLED";
+	public string KillerText { get; set; } = "";
 
 	private float startTime = 0f;
 	private bool isActive = true;
 
-	public void Show()
+	public void Show( string killerName, bool byTrap )
 	{
 		startTime = Time.Now;
 		isActive = true;
 		FadeClass = "";
+
+		if ( byTrap )
+		{
+			HeadlineText = "YOU WERE CAUGHT IN A TRAP";
+			KillerText = string.IsNullOrEmpty( killerName ) ? "PLACED BY THE ANOMALY" : $"PLACED BY {killerName.ToUpper()}";
+		}
+		else
+		{
+			HeadlineText = "YOU HAVE BEEN KILLED";
+			KillerText = string.IsNullOrEmpty( killerName ) ? "KILLER UNKNOWN" : $"KILLED BY {killerName.ToUpper()}";
+		}
 	}
 
 	protected override void OnStart()
@@ -125,6 +178,6 @@
 
 	protected override int BuildHash()
 	{
-		return System.HashCode.Combine( FadeClass, isActive );
+		return System.HashCode.Combine( FadeClass, HeadlineText, KillerText, isActive );
 	}
 }

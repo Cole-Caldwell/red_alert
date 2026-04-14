@@ -233,6 +233,10 @@
         },
         "Role": "Citizen",
         "RunSpeed": 270,
+        "TrapPrefab": {
+          "_type": "gameobject",
+          "prefab": "prefabs/trap.prefab"
+        },
         "VanishCooldown": 90,
         "WalkSpeed": 200,
         "XRayDuration": 15

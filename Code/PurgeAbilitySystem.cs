@@ -85,6 +85,16 @@ public static class PurgeAbilityRegistry
             WinsRequired = 20,
             Duration = 20f,
             Cooldown = 120f
+        },
+        new PurgeAbilityData
+        {
+            Id = "trapper",
+            Name = "TRAPPER",
+            Description = "Place a deadly trap at your feet. The first citizen to wander into it dies instantly.",
+            Icon = "ui/red-alert-trapper.png",
+            WinsRequired = 0,
+            Duration = 0f,
+            Cooldown = 120f
         }
     };
 

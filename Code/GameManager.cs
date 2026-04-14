@@ -1338,7 +1338,7 @@ public partial class GameManager : Component
 		if ( target.GameObject.Network.Owner != null )
 		{
 			target.PlayDeathSoundRpc();
-			target.ShowDeathUIRpc();
+			target.ShowDeathUIRpc( "THE CREW", false );
 		}
 		target.BecomeGhostRpc();
 	}

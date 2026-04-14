@@ -19,6 +19,7 @@ public partial class PlayerController : Component
 	[Property, Sync] public bool IsTyping { get; set; } = false;
 	[Property, Sync] public string EquippedPerkId { get; set; } = "";
 	[Property] public GameObject RagdollPrefab { get; set; }
+	[Property] public GameObject TrapPrefab { get; set; }
 	[Property] public float XRayDuration { get; set; } = 20f;
 	[Property] public float VanishCooldown { get; set; } = 90f;
 
@@ -98,6 +99,9 @@ public partial class PlayerController : Component
 
 	// Blackjack Table Mount System
 	private BlackjackTable mountedBlackjackTable = null;
+
+	// Poker Table Mount System
+	private PokerTable mountedPokerTable = null;
 	
 	// Movement State
 	private Vector3 velocity;
@@ -176,10 +180,11 @@ public partial class PlayerController : Component
 
 	private async void CheckDailyBonus()
 	{
-		// Wait for the game to fully load
-		await GameTask.DelaySeconds( 3f );
+		// Wait for the game to fully load and for the stats service
+		// to fetch this player's current values from the backend.
+		await GameTask.DelaySeconds( 5f );
 
-		if ( DailyBonusTracker.HasClaimedToday() )
+		if ( await DailyBonusTracker.HasClaimedTodayAsync() )
 			return;
 
 		// Pass sounds to the spinner via bridge
@@ -263,6 +268,12 @@ public partial class PlayerController : Component
 			{
 				// E key handled by BlackjackTable.OnUpdate (avoids same-frame double trigger)
 				// All other blackjack input handled via UI buttons
+				return;
+			}
+
+			if ( mountedPokerTable != null )
+			{
+				// E key handled by PokerTable.OnUpdate
 				return;
 			}
 
@@ -494,10 +505,18 @@ public partial class PlayerController : Component
 		Log.Info( $"[PlayerController] {PlayerName} sat at blackjack table" );
 	}
 
+	public void MountToPokerTable( PokerTable table )
+	{
+		mountedPokerTable = table;
+		isMountedToStation = true;
+		Log.Info( $"[PlayerController] {PlayerName} sat at poker table" );
+	}
+
 	public void UnmountFromStation()
 	{
 		mountedStation = null;
 		mountedBlackjackTable = null;
+		mountedPokerTable = null;
 		isMountedToStation = false;
 		Log.Info( $"[PlayerController] {PlayerName} unmounted from station" );
 	}
@@ -1341,7 +1360,7 @@ public partial class PlayerController : Component
 	}
 
 	[Rpc.Broadcast]
-	public void KillPlayer( PlayerController target )
+	public void KillPlayer( PlayerController target, bool byTrap = false )
 	{
 		if ( !target.IsAlive )
 			return;
@@ -1456,7 +1475,8 @@ public partial class PlayerController : Component
 		if ( target.GameObject.Network.Owner != null )
 		{
 			target.PlayDeathSoundRpc();
-			target.ShowDeathUIRpc();
+			string killerDisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+			target.ShowDeathUIRpc( killerDisplayName, byTrap );
 		}
 
 		// Clear tasks for the killed player
@@ -1470,13 +1490,13 @@ public partial class PlayerController : Component
 	}
 
 	[Rpc.Owner]
-	public void ShowDeathUIRpc()
+	public void ShowDeathUIRpc( string killerName, bool byTrap )
 	{
 		// Create death UI
 		var uiObject = Scene.CreateObject();
 		uiObject.Name = "Death UI";
 		var deathUI = uiObject.Components.Create<DeathOverlayUI>();
-		deathUI.Show();
+		deathUI.Show( killerName, byTrap );
 	}
 
 	[Rpc.Owner]
@@ -1825,10 +1845,22 @@ public partial class PlayerController : Component
 		{
 			var localPlayer = Scene.GetAllComponents<PlayerController>()
 				.FirstOrDefault( p => !p.IsProxy );
-			
+
 			if ( localPlayer != null && localPlayer == this )
 			{
 				localPlayer.StartMimicEffect();
+			}
+		}
+
+		// Trapper: anomaly places a persistent trap at their feet
+		if ( abilityId == "trapper" )
+		{
+			var localPlayer = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy );
+
+			if ( localPlayer != null && localPlayer == this )
+			{
+				localPlayer.ActivateTrapper();
 			}
 		}
 	}
@@ -2048,6 +2080,64 @@ public partial class PlayerController : Component
 	private void VanishTeleportRpc( Vector3 position )
 	{
 		GameObject.WorldPosition = position;
+	}
+
+	public void ActivateTrapper()
+	{
+		if ( TrapPrefab == null )
+		{
+			Log.Warning( "[Trapper] TrapPrefab not set!" );
+			return;
+		}
+
+		var ownerSteamId = GameObject.Network.Owner?.SteamId ?? 0;
+		var trapId = System.Guid.NewGuid().ToString();
+
+		SpawnTrapRpc( WorldPosition, trapId, ownerSteamId );
+
+		Log.Info( $"[Trapper] Placed trap {trapId} at {WorldPosition}" );
+	}
+
+	[Rpc.Broadcast]
+	private void SpawnTrapRpc( Vector3 position, string trapId, ulong ownerSteamId )
+	{
+		var playerWithPrefab = Scene.GetAllComponents<PlayerController>()
+			.FirstOrDefault( p => p.TrapPrefab != null );
+
+		if ( playerWithPrefab?.TrapPrefab == null )
+		{
+			Log.Warning( "[Trapper] No TrapPrefab reference found!" );
+			return;
+		}
+
+		var trap = playerWithPrefab.TrapPrefab.Clone();
+		trap.NetworkMode = NetworkMode.Never;
+		trap.WorldPosition = position;
+
+		var trapComp = trap.Components.Get<TrapComponent>();
+		if ( trapComp != null )
+		{
+			trapComp.TrapId = trapId;
+			trapComp.OwnerSteamId = ownerSteamId;
+		}
+		else
+		{
+			Log.Warning( "[Trapper] Spawned trap prefab has no TrapComponent!" );
+		}
+	}
+
+	[Rpc.Broadcast]
+	public void DestroyTrapRpc( string trapId )
+	{
+		var traps = Scene.GetAllComponents<TrapComponent>().ToList();
+		foreach ( var t in traps )
+		{
+			if ( t.TrapId == trapId )
+			{
+				t.GameObject.Destroy();
+				return;
+			}
+		}
 	}
 
 	public void StartMimicEffect()
