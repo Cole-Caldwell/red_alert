@@ -25,36 +25,30 @@ public class TaskManager : Component
 	{
 	}
 	
-	public void AssignTasksToPlayers()
+	public void AssignTasksToPlayers( List<PlayerController> citizens )
 	{
 		// Clear any stale task data from previous rounds
     	playerTasks.Clear();
     	activeTaskUIs.Clear();
-		
+
 		// Get all task stations in the scene
 		var allStations = Scene.GetAllComponents<TaskStation>().ToList();
-		
+
 		if ( allStations.Count == 0 )
 		{
 			Log.Warning( "No task stations found in scene!" );
 			return;
 		}
-		
+
 		// Determine how many tasks to assign (max 3, but limited by available stations)
 		int tasksToAssign = System.Math.Min( 3, allStations.Count );
-		
-		// Get all players
-		var players = Scene.GetAllComponents<PlayerController>()
-			.Where( p => p.GameObject.Network.Owner != null && p.IsInGame )
-			.ToList();
-		
-		foreach ( var player in players )
+
+		// Use the explicit citizen list provided by AssignRoles - reading player.Role here
+		// races with the owner-authoritative Role sync and can mis-classify fresh anomalies as citizens
+		foreach ( var player in citizens )
 		{
-			// Only assign tasks to Citizens
-			if ( player.Role != PlayerController.PlayerRole.Citizen )
-			{
+			if ( player == null || !player.IsValid() || player.GameObject.Network.Owner == null || !player.IsInGame )
 				continue;
-			}
 			
 			// Randomly pick tasks (up to tasksToAssign)
 			var shuffledStations = allStations.OrderBy( _ => Game.Random.Int( 0, 1000 ) ).ToList();

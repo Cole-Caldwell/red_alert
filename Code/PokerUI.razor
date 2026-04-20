@@ -700,6 +700,19 @@
         }
         .pk-dialog-cancel:hover { background-color: rgba(200, 50, 50, 0.7); }
 
+        .pk-dialog-spectate {
+            padding: 12px 32px;
+            background-color: rgba(60, 90, 140, 0.7);
+            border: 1px solid rgba(100, 130, 180, 0.45);
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: 6px;
+            font-family: Consolas;
+            font-weight: 700;
+            letter-spacing: 2px;
+            cursor: pointer;
+        }
+        .pk-dialog-spectate:hover { background-color: rgba(80, 110, 160, 0.85); }
+
         .pk-dialog-balance {
             flex-direction: row;
             column-gap: 8px;
@@ -977,6 +990,7 @@
                     </div>
                     <div class="pk-dialog-buttons">
                         <div class="pk-dialog-cancel" onclick="@OnCancelBuyIn">CANCEL</div>
+                        <div class="pk-dialog-spectate" onclick="@OnSpectateBuyIn">SPECTATE</div>
                         <div class="pk-dialog-confirm @(SelectedBuyIn >= PokerBridge.MinBuyIn && SelectedBuyIn <= Balance ? "" : "disabled")" onclick="@OnConfirmBuyIn">CONFIRM</div>
                     </div>
                 </div>
@@ -1244,6 +1258,11 @@
     private void OnCancelBuyIn()
     {
         PokerBridge.ActiveTable?.CancelBuyIn();
+    }
+
+    private void OnSpectateBuyIn()
+    {
+        PokerBridge.ActiveTable?.SpectateFromBuyIn();
     }
 
     private void AdjustBuyIn( int delta )

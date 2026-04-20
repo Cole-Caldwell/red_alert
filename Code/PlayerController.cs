@@ -469,6 +469,20 @@ public partial class PlayerController : Component
 			var voiceComp = Components.Get<Voice>();
 			if ( voiceComp != null )
 				voiceComp.Enabled = false;
+
+			if ( perkHudUI != null && perkHudUI.IsValid() )
+			{
+				perkHudUI.GameObject.Destroy();
+				perkHudUI = null;
+			}
+
+			if ( silenceTargetUI != null && silenceTargetUI.IsValid() )
+			{
+				silenceTargetUI.GameObject.Destroy();
+				silenceTargetUI = null;
+			}
+
+			PerkBridge.SilenceUIOpen = false;
 		}
 
 		Log.Info( $"{PlayerName} entered spectator mode at {position}" );
@@ -870,10 +884,8 @@ public partial class PlayerController : Component
 
 	private void AttemptPerkActivation()
 	{
-		// Must be in game
 		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
-		if ( gameManager == null || gameManager.CurrentState != GameManager.GameState.InGame )
-			return;
+		if ( gameManager == null ) return;
 
 		// Must have a perk equipped and not already used
 		if ( PerkBridge.PerkUsedThisRound || !PerkBridge.HasPerkEquipped() )
@@ -887,6 +899,22 @@ public partial class PlayerController : Component
 		if ( perk.Role == PerkRole.CitizenOnly && Role != PlayerRole.Citizen )
 			return;
 		if ( perk.Role == PerkRole.AnomalyOnly && Role != PlayerRole.Anomaly )
+			return;
+
+		// Silence is the only perk that's used during a meeting — all others require InGame.
+		if ( perk.Id == "silence" )
+		{
+			if ( gameManager.CurrentState != GameManager.GameState.Voting ) return;
+			if ( !IsAlive || !IsInGame ) return;
+			// Toggle the target-selection UI. Perk is not charged until a target is actually picked.
+			PerkBridge.SilenceUIOpen = !PerkBridge.SilenceUIOpen;
+			return;
+		}
+
+		if ( gameManager.CurrentState != GameManager.GameState.InGame )
+			return;
+
+		if ( !IsAlive || !IsInGame )
 			return;
 
 		// Quick Fix requires an assigned task
@@ -1251,6 +1279,40 @@ public partial class PlayerController : Component
 		}
 	}
 
+	// Called by SilenceTargetUI when the anomaly clicks a citizen.
+	// The perk is charged here — not on G press — so skipping never consumes it.
+	public void CommitSilenceOnTarget( ulong targetSteamId )
+	{
+		if ( Role != PlayerRole.Anomaly ) return;
+		if ( PerkBridge.PerkUsedThisRound ) return;
+		if ( PerkBridge.EquippedPerkId != "silence" ) return;
+
+		var gameManager = Scene.GetAllComponents<GameManager>().FirstOrDefault();
+		if ( gameManager == null || gameManager.CurrentState != GameManager.GameState.Voting )
+			return;
+
+		var silencePerk = PerkRegistry.GetById( "silence" );
+		if ( silencePerk == null ) return;
+
+		// Ask host to apply the silence. Host validates and broadcasts.
+		ulong callerSteamId = GameObject.Network?.Owner?.SteamId ?? 0;
+		if ( callerSteamId == 0 ) return;
+		gameManager.RequestSilencePlayerRpc( callerSteamId, targetSteamId );
+
+		// Charge credits and consume the perk locally.
+		PerkBridge.MarkPerkUsed();
+		activePerkId = "silence";
+		Sandbox.Services.Stats.Increment( "credits_spent", silencePerk.Cost );
+		PerkBridge.UnequipPerk();
+		EquippedPerkId = "";
+		PerkBridge.SilenceUIOpen = false;
+
+		if ( PerkActivateSound != null )
+			Sound.Play( PerkActivateSound );
+
+		Log.Info( $"[Perk] Silence committed on SteamId {targetSteamId}" );
+	}
+
 	[Rpc.Owner]
 	public void ActivateRevealPerkRpc( PlayerController revealedPlayer, bool isAnomaly )
 	{
@@ -1384,7 +1446,8 @@ public partial class PlayerController : Component
 		// SAVE DEATH POSITION AND RENDERER BEFORE ANYTHING ELSE
 		var deathPosition = target.WorldPosition;
 		var deathRotation = target.WorldRotation;
-		var targetRenderer = target.GameObject.Components.GetInDescendants<SkinnedModelRenderer>();
+		// Must include disabled components: BecomeGhostRpc can race ahead of this broadcast on uninvolved clients and disable the victim's renderers before we copy them
+		var targetRenderer = target.GameObject.Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelfAndDescendants );
 
 		// ALL CLIENTS spawn their own ragdoll (local visual, no networking needed)
 		var playerWithPrefab = Scene.GetAllComponents<PlayerController>()
@@ -1418,8 +1481,9 @@ public partial class PlayerController : Component
 					foreach ( var child in targetRenderer.GameObject.Children )
 					{
 						if ( !child.IsValid() || !child.Name.StartsWith( "Clothing" ) ) continue;
-						
-						var childRenderer = child.Components.Get<SkinnedModelRenderer>();
+
+						// Same reason as targetRenderer above: BecomeGhostRpc may have already disabled these
+						var childRenderer = child.Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelf );
 						if ( childRenderer == null ) continue;
 						
 						var clothingObj = new GameObject( true, child.Name );
@@ -1471,22 +1535,23 @@ public partial class PlayerController : Component
 			}
 		}
 
-		// NOW ghost the player (after ragdoll has copied their bones)
-		if ( target.GameObject.Network.Owner != null )
+		if ( Networking.IsHost )
 		{
-			target.PlayDeathSoundRpc();
-			string killerDisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
-			target.ShowDeathUIRpc( killerDisplayName, byTrap );
-		}
+			if ( target.GameObject.Network.Owner != null )
+			{
+				target.PlayDeathSoundRpc();
+				string killerDisplayName = GameObject.Root.Name.Replace( "Player - ", "" );
+				target.ShowDeathUIRpc( killerDisplayName, byTrap );
+			}
 
-		// Clear tasks for the killed player
-		var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
-		if ( taskManager != null )
-		{
-			taskManager.ClearPlayerTasks( target );
-		}
+			var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
+			if ( taskManager != null )
+			{
+				taskManager.ClearPlayerTasks( target );
+			}
 
-		target.BecomeGhostRpc();
+			target.BecomeGhostRpc();
+		}
 	}
 
 	[Rpc.Owner]
@@ -1561,6 +1626,20 @@ public partial class PlayerController : Component
 
 			xRayActive = false;
 			trackerTagTarget = null;
+
+			if ( perkHudUI != null && perkHudUI.IsValid() )
+			{
+				perkHudUI.GameObject.Destroy();
+				perkHudUI = null;
+			}
+
+			if ( silenceTargetUI != null && silenceTargetUI.IsValid() )
+			{
+				silenceTargetUI.GameObject.Destroy();
+				silenceTargetUI = null;
+			}
+
+			PerkBridge.SilenceUIOpen = false;
 
 			// Clear active task ID
 			CurrentActiveTaskId = "";
@@ -1769,26 +1848,31 @@ public partial class PlayerController : Component
 	{
 		Log.Info( $"[ExecutePurgeRpc] Running on {(Networking.IsHost ? "HOST" : "CLIENT")}, abilityId: '{abilityId}'" );
 
-		var allPlayers = Scene.GetAllComponents<PlayerController>();
-
-		foreach ( var player in allPlayers )
+		// Host-only: these are [Rpc.Owner] routed RPCs - if every client runs this loop,
+		// each target gets N invocations and UI/sound effects stack N times.
+		if ( Networking.IsHost )
 		{
-			if ( player.GameObject.Network.Owner == null || !player.IsInGame )
-				continue;
-			
-			if ( player.Role == PlayerRole.Anomaly )
+			var allPlayers = Scene.GetAllComponents<PlayerController>();
+
+			foreach ( var player in allPlayers )
 			{
-				// Mimic shows its own UI with target name from StartMimicEffect
-				if ( abilityId != "mimic" )
+				if ( player.GameObject.Network.Owner == null || !player.IsInGame )
+					continue;
+
+				if ( player.Role == PlayerRole.Anomaly )
 				{
-					player.ShowPurgeActivatedRpc( abilityId );
+					// Mimic shows its own UI with target name from StartMimicEffect
+					if ( abilityId != "mimic" )
+					{
+						player.ShowPurgeActivatedRpc( abilityId );
+					}
 				}
-			}
-			else if ( player.Role == PlayerRole.Citizen && player.IsAlive )
-			{
-				if ( abilityId == "blind" )
+				else if ( player.Role == PlayerRole.Citizen && player.IsAlive )
 				{
-					player.BlindPlayerRpc();
+					if ( abilityId == "blind" )
+					{
+						player.BlindPlayerRpc();
+					}
 				}
 			}
 		}
@@ -2140,6 +2224,21 @@ public partial class PlayerController : Component
 		}
 	}
 
+	[Rpc.Broadcast]
+	public void PlayTrapWarningRpc( string trapId )
+	{
+		var traps = Scene.GetAllComponents<TrapComponent>().ToList();
+		foreach ( var t in traps )
+		{
+			if ( t.TrapId == trapId )
+			{
+				if ( t.WarningSound != null )
+					Sound.Play( t.WarningSound, t.WorldPosition );
+				return;
+			}
+		}
+	}
+
 	public void StartMimicEffect()
 	{
 		var myOwner = GameObject.Network.Owner;
@@ -2345,6 +2444,7 @@ public partial class PlayerController : Component
 	}
 
 	private PerkHudUI perkHudUI = null;
+	private SilenceTargetUI silenceTargetUI = null;
 
 	[Rpc.Owner]
 	public void ShowPerkHudRpc()
@@ -2366,6 +2466,15 @@ public partial class PlayerController : Component
 		PerkBridge.ActivePerkName = perk.Name;
 		PerkBridge.IsPassivePerk = perk.Activation == PerkActivation.Passive;
 
+		if ( perk.Id == "silence" && (silenceTargetUI == null || !silenceTargetUI.IsValid()) )
+		{
+			var silenceObj = Scene.CreateObject();
+			silenceObj.Name = "Silence Target UI";
+			var silenceScreen = silenceObj.Components.Create<ScreenPanel>();
+			silenceScreen.ZIndex = 210;
+			silenceTargetUI = silenceObj.Components.Create<SilenceTargetUI>();
+		}
+
 		if ( perkHudUI != null && perkHudUI.IsValid() )
 			return;
 
@@ -2385,6 +2494,12 @@ public partial class PlayerController : Component
 			perkHudUI = null;
 		}
 
+		if ( silenceTargetUI != null && silenceTargetUI.IsValid() )
+		{
+			silenceTargetUI.GameObject.Destroy();
+			silenceTargetUI = null;
+		}
+
 		// Reset perk state
 		if ( perkActive )
 		{
@@ -2398,6 +2513,7 @@ public partial class PlayerController : Component
 		PerkBridge.PerkTimeRemaining = 0f;
 		PerkBridge.ActivePerkName = "";
 		PerkBridge.IsPassivePerk = false;
+		PerkBridge.ResetSilenceForMeeting();
 		CleanupRevealTag();
 	}
 

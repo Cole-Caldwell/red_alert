@@ -375,7 +375,7 @@
         "__version": 2,
         "Flags": 0,
         "Name": "Body",
-        "Position": "167.748,48.93005,-144.8708",
+        "Position": "167.748001,48.9300499,-144.870804",
         "Rotation": "0,0,0,1",
         "Scale": "1,1,1",
         "Tags": "",
@@ -472,7 +472,7 @@
             "OnTriggerExit": null,
             "Radius": 11.313708,
             "RollingResistance": null,
-            "Start": "0,0,60.68629",
+            "Start": "0,0,60.6862907",
             "Static": false,
             "Surface": null,
             "SurfaceVelocity": "0,0,0"
@@ -578,6 +578,7 @@
         "AgentMaxSlope": 40,
         "ExcludedBodies": "",
         "IncludedBodies": "",
+        "DeferGeneration": false,
         "CustomBounds": false
       }
     },

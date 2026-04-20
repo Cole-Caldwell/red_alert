@@ -6,7 +6,7 @@
     "Name": "trap",
     "Position": "0,0,0",
     "Rotation": "0,0,0,1",
-    "Scale": "0.2,0.2,0.2",
+    "Scale": "0.200000003,0.200000003,0.200000003",
     "Tags": "",
     "Enabled": true,
     "NetworkMode": 2,
@@ -26,7 +26,9 @@
         "OnComponentFixedUpdate": null,
         "OnComponentStart": null,
         "OnComponentUpdate": null,
-        "TriggerRadius": 150
+        "TriggerRadius": 150,
+        "WarningDuration": 0.7,
+        "WarningSound": "sounds/trapwarning.sound"
       },
       {
         "__type": "Sandbox.ModelRenderer",
@@ -62,7 +64,7 @@
         "__version": 2,
         "Flags": 0,
         "Name": "Smoke",
-        "Position": "0,0,18.17655",
+        "Position": "0,0,18.1765499",
         "Rotation": "0,0,0,1",
         "Scale": "1,1,1",
         "Tags": "particles",
@@ -285,7 +287,7 @@
             "OnComponentStart": null,
             "OnComponentUpdate": null,
             "OnEdge": false,
-            "Radius": 23.6,
+            "Radius": 25.157234,
             "Rate": 5,
             "RateOverDistance": 0,
             "Velocity": 0
@@ -310,6 +312,7 @@
         "AgentMaxSlope": 40,
         "ExcludedBodies": "",
         "IncludedBodies": "",
+        "DeferGeneration": false,
         "CustomBounds": false
       }
     },

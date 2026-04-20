@@ -1,0 +1,337 @@
+@using Sandbox;
+@using Sandbox.UI;
+@using System.Linq;
+@inherits PanelComponent
+
+<root>
+	<style>
+		.silence-overlay {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+			pointer-events: all;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			background-color: rgba(0, 0, 0, 0.82);
+		}
+
+		.silence-overlay.hidden {
+			display: none;
+		}
+
+		/* Container — violet/indigo to distinguish from voting red */
+		.silence-container {
+			width: 1100px;
+			max-height: 820px;
+			background-color: rgb(10, 6, 22);
+			border: 2px solid rgba(170, 90, 240, 0.55);
+			border-radius: 6px;
+			flex-direction: column;
+			overflow: hidden;
+			box-shadow: 0 0 100px rgba(150, 60, 240, 0.18), 0 0 40px rgba(0, 0, 0, 0.8);
+		}
+
+		/* Header */
+		.silence-header {
+			flex-direction: column;
+			padding: 22px 36px 18px 36px;
+			background-color: rgba(28, 8, 44, 0.55);
+			border-bottom: 2px solid rgba(170, 90, 240, 0.35);
+		}
+
+		.silence-header-row {
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.silence-title {
+			font-size: 30px;
+			font-weight: 900;
+			color: rgb(210, 150, 255);
+			letter-spacing: 8px;
+			font-family: Consolas;
+			text-shadow: 0 0 20px rgba(170, 90, 240, 0.5);
+		}
+
+		.silence-subtitle {
+			font-size: 13px;
+			color: rgba(200, 160, 255, 0.75);
+			letter-spacing: 4px;
+			margin-top: 4px;
+			font-family: Consolas;
+		}
+
+		.silence-badge {
+			padding: 8px 18px;
+			border-radius: 4px;
+			border: 1px solid rgba(170, 90, 240, 0.45);
+			background-color: rgba(120, 40, 220, 0.12);
+		}
+
+		.silence-badge-text {
+			font-size: 13px;
+			font-weight: 800;
+			letter-spacing: 3px;
+			color: rgb(210, 150, 255);
+			font-family: Consolas;
+		}
+
+		.silence-info-bar {
+			margin-top: 14px;
+			padding: 10px 20px;
+			background-color: rgba(120, 40, 220, 0.08);
+			border: 1px solid rgba(170, 90, 240, 0.18);
+			border-radius: 3px;
+			flex-direction: row;
+			align-items: center;
+			gap: 10px;
+		}
+
+		.silence-info-icon {
+			font-size: 16px;
+			color: rgba(200, 140, 255, 0.75);
+			font-family: Consolas;
+		}
+
+		.silence-info-text {
+			font-size: 14px;
+			color: rgba(220, 190, 255, 0.9);
+			font-family: Consolas;
+			letter-spacing: 1px;
+		}
+
+		/* Player grid — block style like voting */
+		.silence-grid {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+			padding: 20px 30px;
+			gap: 14px;
+			justify-content: center;
+			align-items: flex-start;
+			flex-grow: 1;
+		}
+
+		.target-card {
+			width: 260px;
+			flex-direction: column;
+			background-color: rgba(14, 10, 32, 0.95);
+			border: 1px solid rgba(170, 90, 240, 0.2);
+			border-radius: 5px;
+			overflow: hidden;
+			transition: all 0.15s;
+			cursor: pointer;
+		}
+
+		.target-card:hover {
+			border-color: rgba(210, 140, 255, 0.7);
+			background-color: rgba(26, 14, 54, 0.95);
+			box-shadow: 0 0 18px rgba(170, 90, 240, 0.2);
+		}
+
+		.target-card-main {
+			flex-direction: row;
+			align-items: center;
+			padding: 14px 16px;
+			gap: 14px;
+		}
+
+		.target-avatar {
+			width: 52px;
+			height: 52px;
+			min-width: 52px;
+			background-color: rgba(120, 40, 220, 0.12);
+			border: 1px solid rgba(170, 90, 240, 0.3);
+			border-radius: 4px;
+			justify-content: center;
+			align-items: center;
+			overflow: hidden;
+		}
+
+		.target-avatar img {
+			width: 100%;
+			height: 100%;
+		}
+
+		.target-initial {
+			font-size: 22px;
+			font-weight: 900;
+			color: rgb(210, 150, 255);
+			font-family: Consolas;
+		}
+
+		.target-info {
+			flex-direction: column;
+			flex-grow: 1;
+			gap: 4px;
+			overflow: hidden;
+		}
+
+		.target-name {
+			font-size: 16px;
+			font-weight: 800;
+			color: rgba(230, 210, 250, 0.95);
+			font-family: Consolas;
+			letter-spacing: 1px;
+			overflow: hidden;
+			white-space: nowrap;
+		}
+
+		.target-status {
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 2px;
+			color: rgba(180, 140, 230, 0.7);
+			font-family: Consolas;
+		}
+
+		/* Bottom bar */
+		.silence-bottom-bar {
+			flex-direction: row;
+			justify-content: space-between;
+			align-items: center;
+			padding: 14px 36px;
+			background-color: rgba(4, 0, 16, 0.9);
+			border-top: 1px solid rgba(170, 90, 240, 0.15);
+		}
+
+		.silence-skip-button {
+			padding: 10px 28px;
+			background-color: rgba(120, 120, 140, 0.08);
+			border: 1px solid rgba(160, 160, 180, 0.3);
+			border-radius: 4px;
+			cursor: pointer;
+			transition: all 0.15s;
+		}
+
+		.silence-skip-button:hover {
+			background-color: rgba(160, 160, 180, 0.14);
+			border-color: rgba(200, 200, 220, 0.5);
+		}
+
+		.silence-skip-text {
+			font-size: 14px;
+			font-weight: 800;
+			color: rgba(190, 190, 210, 0.8);
+			letter-spacing: 3px;
+			font-family: Consolas;
+		}
+
+		.silence-hint {
+			flex-direction: row;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.silence-hint-text {
+			font-size: 12px;
+			color: rgba(180, 140, 230, 0.65);
+			font-family: Consolas;
+		}
+
+		.silence-hint-key {
+			font-size: 11px;
+			font-weight: 700;
+			color: rgba(210, 150, 255, 0.7);
+			background-color: rgba(120, 40, 220, 0.12);
+			border: 1px solid rgba(170, 90, 240, 0.3);
+			border-radius: 3px;
+			padding: 3px 10px;
+			font-family: Consolas;
+		}
+	</style>
+
+	<div class="silence-overlay @(IsVisible ? "" : "hidden")">
+		<div class="silence-container">
+
+			<div class="silence-header">
+				<div class="silence-header-row">
+					<div style="flex-direction: column;">
+						<label class="silence-title">SILENCE TARGET</label>
+						<label class="silence-subtitle">NEXUS-7 COMMS JAMMER</label>
+					</div>
+					<div class="silence-badge">
+						<label class="silence-badge-text">ELITE PERK</label>
+					</div>
+				</div>
+
+				<div class="silence-info-bar">
+					<label class="silence-info-icon">▸</label>
+					<label class="silence-info-text">Choose a citizen to jam for the rest of this meeting.</label>
+				</div>
+			</div>
+
+			<div class="silence-grid">
+				@foreach ( var player in Targets )
+				{
+					var initial = player.Name.Length > 0 ? player.Name.Substring( 0, 1 ).ToUpper() : "?";
+
+					<div class="target-card" onclick=@( () => OnTargetClicked( player ) )>
+						<div class="target-card-main">
+							<div class="target-avatar">
+								@if ( player.SteamId > 0 )
+								{
+									<img src="avatar:@player.SteamId" />
+								}
+								else
+								{
+									<label class="target-initial">@initial</label>
+								}
+							</div>
+							<div class="target-info">
+								<label class="target-name">@player.Name</label>
+								<label class="target-status">CITIZEN</label>
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+
+			<div class="silence-bottom-bar">
+				<div class="silence-hint">
+					<label class="silence-hint-text">Press</label>
+					<label class="silence-hint-key">G</label>
+					<label class="silence-hint-text">to close</label>
+				</div>
+				<div class="silence-skip-button" onclick=@OnSkipClicked>
+					<label class="silence-skip-text">SKIP — SAVE FOR LATER</label>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</root>
+
+@code {
+	public bool IsVisible { get; set; } = false;
+	public List<SilenceBridge.TargetData> Targets { get; set; } = new();
+
+	protected override void OnUpdate()
+	{
+		IsVisible = SilenceBridge.ShouldShowUI( Scene );
+		if ( IsVisible )
+		{
+			Targets = SilenceBridge.GetCitizenTargets( Scene );
+		}
+	}
+
+	private void OnTargetClicked( SilenceBridge.TargetData target )
+	{
+		SilenceBridge.CommitSilence( Scene, target.SteamId );
+	}
+
+	private void OnSkipClicked()
+	{
+		PerkBridge.SilenceUIOpen = false;
+	}
+
+	protected override int BuildHash()
+	{
+		var hash = System.HashCode.Combine( IsVisible, Targets.Count );
+		foreach ( var t in Targets )
+			hash = System.HashCode.Combine( hash, t.Name, t.SteamId );
+		return hash;
+	}
+}

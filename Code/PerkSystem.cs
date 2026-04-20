@@ -133,6 +133,17 @@ public static class PerkRegistry
         },
         new PerkData
         {
+            Id = "silence",
+            Name = "SILENCE",
+            Description = "During a meeting, jam one citizen's comms for the rest of that meeting. Press G during a meeting to choose your target.",
+            Cost = 1000,
+            Icon = "ui/red-alert-silence.png",
+            Tier = PerkTier.Expensive,
+            Role = PerkRole.AnomalyOnly,
+            Activation = PerkActivation.Active
+        },
+        new PerkData
+        {
             Id = "paranoia_immunity",
             Name = "PARANOIA IMMUNITY",
             Description = "All purge abilities have no effect on you for the entire round.",

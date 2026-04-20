@@ -51,6 +51,15 @@ public partial class GameManager : Component
 	private float currentLobbyTime = 0f;
 	private bool voiceCurrentlyEnabled = false;
 
+	// Silence perk: SteamId of the player silenced this meeting (host-authoritative, one per meeting)
+	private ulong currentMeetingSilencedSteamId = 0;
+
+	// Local per-client guard against duplicate TriggerEmergencyMeeting broadcasts racing the CurrentState sync
+	private bool meetingInFlight = false;
+
+	// Local per-client latch so EndGame only runs once per round even if CheckWinConditions and TallyVotes race
+	private bool gameEnded = false;
+
 	protected override void OnStart()
 	{
 		Log.Info( $"GameManager Started! (IsHost: {Networking.IsHost})" );
@@ -477,6 +486,7 @@ public partial class GameManager : Component
 		Log.Info( $"Game Starting! (IsHost: {Networking.IsHost})" );
 		CurrentState = GameState.InGame;
 		gameStartTime = Time.Now;
+		gameEnded = false;
 
 		// Reset round tracking for all players
 		var allPlayers = Scene.GetAllComponents<PlayerController>().ToList();
@@ -569,13 +579,15 @@ public partial class GameManager : Component
 		
 		// Shuffle players for random assignment
 		var shuffled = playersForRoles.OrderBy( x => Game.Random.Int( 0, 10000 ) ).ToList();
-		
+
+		var citizens = new List<PlayerController>();
+
 		// Assign Anomalies
 		for ( int i = 0; i < anomalyCount; i++ )
 		{
 			// Use RPC instead of direct assignment
 			shuffled[i].AssignRoleRpc( PlayerController.PlayerRole.Anomaly );
-			
+
 			// Show role reveal to all real players (including proxies)
 			if ( shuffled[i].GameObject.Network.Owner != null )
 			{
@@ -589,14 +601,15 @@ public partial class GameManager : Component
 		{
 			// Use RPC instead of direct assignment
 			shuffled[i].AssignRoleRpc( PlayerController.PlayerRole.Citizen );
-			
+			citizens.Add( shuffled[i] );
+
 			// Show role reveal to all real players (including proxies)
 			if ( shuffled[i].GameObject.Network.Owner != null )
 			{
 				shuffled[i].ShowRoleRevealRpc( PlayerController.PlayerRole.Citizen );
 			}
 		}
-		
+
 		// Show perk HUD for all players with equipped perks
 		foreach ( var p in shuffled )
 		{
@@ -608,20 +621,19 @@ public partial class GameManager : Component
 
 		Log.Info( "=== ROLE ASSIGNMENT COMPLETE ===" );
 
-		// Wait a moment for roles to sync before assigning tasks
-		AssignTasksAfterDelay();
+		// Pass the citizens list explicitly so task assignment doesn't race the Role sync round-trip
+		AssignTasksAfterDelay( citizens );
 	}
 
-	private async void AssignTasksAfterDelay()
+	private async void AssignTasksAfterDelay( List<PlayerController> citizens )
 	{
-		// Wait for roles to sync
+		// Small delay so the role-reveal UI lands before the task list UI on the owner's screen
 		await GameTask.DelaySeconds( 0.2f );
-		
-		// Assign tasks to Citizens
+
 		var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
 		if ( taskManager != null )
 		{
-			taskManager.AssignTasksToPlayers();
+			taskManager.AssignTasksToPlayers( citizens );
 		}
 		else
 		{
@@ -634,12 +646,14 @@ public partial class GameManager : Component
 	[Rpc.Broadcast]
 	public void TriggerEmergencyMeeting( PlayerController reporter, DeadBody body )
 	{
-		// Prevent re-triggering during an active meeting
-		if ( CurrentState == GameState.Voting )
+		// Prevent re-triggering during an active meeting.
+		// meetingInFlight catches duplicate broadcasts racing the host's CurrentState sync on non-host clients.
+		if ( meetingInFlight || CurrentState == GameState.Voting )
 		{
 			Log.Warning( "[Meeting] TriggerEmergencyMeeting called while already in Voting state - ignoring." );
 			return;
 		}
+		meetingInFlight = true;
 
 		// Show splash screen and play sound on all clients
 		var splashObj = Scene.CreateObject();
@@ -1251,7 +1265,8 @@ public partial class GameManager : Component
 		// Spawn ragdoll at their current position (meeting room)
 		var deathPosition = target.WorldPosition;
 		var deathRotation = target.WorldRotation;
-		var targetRenderer = target.GameObject.Components.GetInDescendants<SkinnedModelRenderer>();
+		// Must include disabled components: the victim's renderers may already be disabled (ghost state / FP-only owner)
+		var targetRenderer = target.GameObject.Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelfAndDescendants );
 
 		// Find any player with a RagdollPrefab to use
 		var playerWithPrefab = Scene.GetAllComponents<PlayerController>()
@@ -1283,7 +1298,7 @@ public partial class GameManager : Component
 					foreach ( var child in targetRenderer.GameObject.Children )
 					{
 						if ( !child.IsValid() || !child.Name.StartsWith( "Clothing" ) ) continue;
-						var childRenderer = child.Components.Get<SkinnedModelRenderer>();
+						var childRenderer = child.Components.Get<SkinnedModelRenderer>( FindMode.EverythingInSelf );
 						if ( childRenderer == null ) continue;
 
 						var clothingObj = new GameObject( true, child.Name );
@@ -1327,20 +1342,21 @@ public partial class GameManager : Component
 			}
 		}
 
-		// Clear tasks for the killed player
-		var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
-		if ( taskManager != null )
+		if ( Networking.IsHost )
 		{
-			taskManager.ClearPlayerTasks( target );
-		}
+			var taskManager = Scene.GetAllComponents<TaskManager>().FirstOrDefault();
+			if ( taskManager != null )
+			{
+				taskManager.ClearPlayerTasks( target );
+			}
 
-		// Ghost the player and show death UI
-		if ( target.GameObject.Network.Owner != null )
-		{
-			target.PlayDeathSoundRpc();
-			target.ShowDeathUIRpc( "THE CREW", false );
+			if ( target.GameObject.Network.Owner != null )
+			{
+				target.PlayDeathSoundRpc();
+				target.ShowDeathUIRpc( "THE CREW", false );
+			}
+			target.BecomeGhostRpc();
 		}
-		target.BecomeGhostRpc();
 	}
 
 	[Rpc.Broadcast]
@@ -1363,14 +1379,75 @@ public partial class GameManager : Component
 		Log.Info( $"[MeetingResult] Showing: {resultType}, Ejected: {ejectedName}" );
 	}
 
+	// === SILENCE PERK ===
+
+	// Called by the Anomaly's client after they click a target in the SilenceTargetUI.
+	// Host validates and then broadcasts to apply silence.
+	[Rpc.Broadcast]
+	public void RequestSilencePlayerRpc( ulong callerSteamId, ulong targetSteamId )
+	{
+		if ( !Networking.IsHost ) return;
+		if ( CurrentState != GameState.Voting ) return;
+		if ( currentMeetingSilencedSteamId != 0 ) return; // only one silence per meeting
+
+		// Validate caller is an alive Anomaly in-game
+		var callerPlayer = Scene.GetAllComponents<PlayerController>()
+			.FirstOrDefault( p => p.GameObject.Network.Owner != null
+				&& p.GameObject.Network.Owner.SteamId == callerSteamId );
+		if ( callerPlayer == null ) return;
+		if ( callerPlayer.Role != PlayerController.PlayerRole.Anomaly ) return;
+		if ( !callerPlayer.IsAlive || !callerPlayer.IsInGame ) return;
+
+		// Validate target is an alive, in-game citizen
+		var targetPlayer = Scene.GetAllComponents<PlayerController>()
+			.FirstOrDefault( p => p.GameObject.Network.Owner != null
+				&& p.GameObject.Network.Owner.SteamId == targetSteamId );
+		if ( targetPlayer == null ) return;
+		if ( targetPlayer.Role != PlayerController.PlayerRole.Citizen ) return;
+		if ( !targetPlayer.IsAlive || !targetPlayer.IsInGame ) return;
+
+		currentMeetingSilencedSteamId = targetSteamId;
+
+		// Cut voice on the target (host authoritative voice control).
+		targetPlayer.SetVoiceChatEnabled( false );
+
+		// Broadcast so the target client can disable their chat and show the UI message.
+		ApplySilenceRpc( targetSteamId );
+
+		Log.Info( $"[Silence] Anomaly {callerPlayer.PlayerName} silenced SteamId {targetSteamId}" );
+	}
+
+	[Rpc.Broadcast]
+	private void ApplySilenceRpc( ulong targetSteamId )
+	{
+		ulong localSteamId = Connection.Local?.SteamId ?? 0;
+		if ( localSteamId != targetSteamId ) return;
+
+		PerkBridge.IsSilencedByAnomaly = true;
+		if ( ChatSystem.Instance != null )
+			ChatSystem.Instance.ChatEnabled = false;
+	}
+
+	[Rpc.Broadcast]
+	private void ClearSilenceRpc()
+	{
+		PerkBridge.ResetSilenceForMeeting();
+	}
+
 	[Rpc.Broadcast]
 	private void ResumeGameAfterMeetingRpc()
 	{
+		// Clear silence state for the meeting that's ending (all clients)
+		PerkBridge.ResetSilenceForMeeting();
+		if ( Networking.IsHost )
+			currentMeetingSilencedSteamId = 0;
+
 		// Teleport on all clients
 		TeleportAlivePlayersToGame();
 
 		// Set state on all clients
 		CurrentState = GameState.InGame;
+		meetingInFlight = false;
 
 		// Host re-sends task data to all alive citizens as a safety net
 		if ( Networking.IsHost )
@@ -1430,7 +1507,7 @@ public partial class GameManager : Component
 		{
 			var bodiesToDestroy = new List<GameObject>( spawnedBodies );
 			spawnedBodies.Clear();
-			
+
 			foreach ( var body in bodiesToDestroy )
 			{
 				if ( body != null && body.IsValid() )
@@ -1438,18 +1515,35 @@ public partial class GameManager : Component
 			}
 			Log.Info( $"[HOST] Cleaned up {bodiesToDestroy.Count} tracked bodies" );
 		}
-		
+
 		// ALL clients: find and destroy local ragdolls by tag
 		var ragdolls = Scene.GetAllObjects( true )
 			.Where( obj => obj.Tags.Has( "ragdoll" ) )
 			.ToList();
-		
+
 		foreach ( var ragdoll in ragdolls )
 		{
 			if ( ragdoll != null && ragdoll.IsValid() )
 				ragdoll.Destroy();
 		}
 		Log.Info( $"Cleaned up {ragdolls.Count} ragdolls on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
+	}
+
+	[Rpc.Broadcast]
+	private void CleanupTraps()
+	{
+		// Traps are NetworkMode.Never clones — each client destroys its own copies.
+		var traps = Scene.GetAllComponents<TrapComponent>().ToList();
+		int destroyed = 0;
+		foreach ( var t in traps )
+		{
+			if ( t != null && t.GameObject != null && t.GameObject.IsValid() )
+			{
+				t.GameObject.Destroy();
+				destroyed++;
+			}
+		}
+		Log.Info( $"Cleaned up {destroyed} traps on {(Networking.IsHost ? "HOST" : "CLIENT")}" );
 	}
 
 	private void EndAllBlindEffects()
@@ -1505,8 +1599,9 @@ public partial class GameManager : Component
 		var aliveAnomalies = alivePlayers.Where( p => p.Role == PlayerController.PlayerRole.Anomaly ).ToList();
 		var aliveCitizens = alivePlayers.Where( p => p.Role == PlayerController.PlayerRole.Citizen ).ToList();
 
-		// Don't check win conditions if game hasn't started properly
-		if ( CurrentState != GameState.InGame && CurrentState != GameState.Voting )
+		// Only check win conditions during active play. During Voting, TallyVotes is the
+		// authoritative path to EndGame - letting the 2s poll also fire here caused duplicate ends.
+		if ( CurrentState != GameState.InGame )
 			return;
 
 		Log.Info( $"[WinCheck] Anomalies: {aliveAnomalies.Count}, Citizens: {aliveCitizens.Count}" );
@@ -1552,6 +1647,11 @@ public partial class GameManager : Component
 	[Rpc.Broadcast]
 	private void EndGame( string winner )
 	{
+		// Latch against duplicate EndGame broadcasts (e.g. TallyVotes + CheckWinConditions both triggering on last-anomaly ejection)
+		if ( gameEnded )
+			return;
+		gameEnded = true;
+
 		EndAllBlindEffects();
 		CurrentState = GameState.GameOver;
 
@@ -1794,6 +1894,7 @@ public partial class GameManager : Component
 		
 		// Schedule cleanup
 		CleanupDeadBodies();
+		CleanupTraps();
 		
 		// Destroy victory UI
 		if ( votingUI != null )
@@ -1826,7 +1927,11 @@ public partial class GameManager : Component
 		playerVotes.Clear();
 		votingUIActive = false;
 		votingTimer = 0f;
-		
+		currentMeetingSilencedSteamId = 0;
+		meetingInFlight = false;
+		gameEnded = false;
+		PerkBridge.ResetSilenceForMeeting();
+
 		CurrentState = GameState.WaitingInLobby;
 		EnableVoiceForAll();
 

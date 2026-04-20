@@ -114,9 +114,9 @@
 		}
 
 		.chat-hint {
-			font-size: 10px;
+			font-size: 11px;
 			font-family: Consolas;
-			color: rgba(0, 200, 240, 0.25);
+			color: rgba(0, 200, 240, 0.65);
 			letter-spacing: 1px;
 			padding: 4px 2px;
 		}
@@ -152,7 +152,14 @@
 			{
 				<div class="chat-disabled-box">
 					<label class="chat-disabled-icon">✕</label>
-					<label class="chat-disabled-text">COMMS DISABLED — GAME ACTIVE</label>
+					@if ( PerkBridge.IsSilencedByAnomaly )
+					{
+						<label class="chat-disabled-text">COMMS DISABLED — ANOMALY HAS SILENCED YOU</label>
+					}
+					else
+					{
+						<label class="chat-disabled-text">COMMS DISABLED — GAME ACTIVE</label>
+					}
 				</div>
 			}
 		</div>
@@ -238,6 +245,6 @@
 		var msgCount = ChatSystem.Instance?.Messages.Count ?? 0;
 		var timeHash = ((int)(Sandbox.Time.Now * 2)).ToString();
 		var chatEnabled = ChatSystem.Instance?.ChatEnabled ?? false;
-		return System.HashCode.Combine( CurrentText, ShowInput, msgCount, timeHash );
+		return System.HashCode.Combine( CurrentText, ShowInput, msgCount, timeHash, chatEnabled, PerkBridge.IsSilencedByAnomaly );
 	}
 }

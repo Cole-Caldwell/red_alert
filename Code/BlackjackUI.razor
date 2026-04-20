@@ -195,19 +195,21 @@
         }
 
         .bj-table-print {
-            font-size: 13px;
-            color: rgba(200, 180, 80, 0.3);
+            font-size: 16px;
+            color: rgba(200, 180, 80, 0.65);
             font-family: Consolas;
             letter-spacing: 4px;
             font-weight: 700;
+            text-stroke: 0.5px rgb(200, 180, 80);
         }
 
         .bj-table-print-large {
-            font-size: 16px;
-            color: rgba(200, 180, 80, 0.25);
+            font-size: 20px;
+            color: rgba(200, 180, 80, 0.6);
             font-family: Consolas;
             letter-spacing: 5px;
             font-weight: 700;
+            text-stroke: 0.5px rgb(200, 180, 80);
         }
 
         /* === DEALER AREA === */
@@ -221,7 +223,7 @@
 
         .bj-dealer-label {
             font-size: 12px;
-            color: rgba(255, 255, 255, 0.35);
+            color: rgba(255, 255, 255, 0.6);
             letter-spacing: 6px;
             font-family: Consolas;
             font-weight: 700;
@@ -293,11 +295,13 @@
             top: 45%;
             left: 50%;
             transform: translateX(-50%) translateY(-50%);
-            font-size: 16px;
+            font-size: 20px;
             color: rgba(255, 255, 255, 0.85);
             font-family: Consolas;
+            font-weight: 700;
             letter-spacing: 2px;
             text-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+            text-stroke: 0.5px rgb(255, 255, 255);
             z-index: 20;
             padding: 8px 24px;
             background-color: rgba(0, 0, 0, 0.35);
@@ -546,7 +550,7 @@
 
         .bj-bet-label {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.45);
+            color: rgba(255, 255, 255, 0.65);
             font-family: Consolas;
             letter-spacing: 2px;
         }
@@ -627,6 +631,23 @@
             border-color: rgba(220, 60, 60, 0.3);
             color: rgba(255, 255, 255, 0.8);
             padding: 10px 18px;
+        }
+
+        .bj-btn-spectate {
+            background-color: rgba(60, 90, 140, 0.7);
+            border-color: rgba(100, 130, 180, 0.45);
+            color: rgba(255, 255, 255, 0.9);
+            padding: 10px 18px;
+        }
+        .bj-btn-spectate:hover { background-color: rgba(80, 110, 160, 0.85); }
+
+        .bj-spectator-message {
+            color: rgba(180, 200, 230, 0.9);
+            font-family: Consolas;
+            font-size: 14px;
+            letter-spacing: 2px;
+            padding: 14px 24px;
+            text-align: center;
         }
 
         /* Insurance prompt */
@@ -876,7 +897,12 @@
 
             <!-- Action Bar -->
             <div class="bj-action-bar">
-                @if ( Phase == BlackjackPhase.WaitingForBets || Phase == BlackjackPhase.Idle )
+                @if ( LocalSeatIndex < 0 )
+                {
+                    <!-- Spectator -->
+                    <div class="bj-spectator-message">SPECTATING — WALK TO AN EMPTY SEAT AND PRESS E TO JOIN</div>
+                }
+                else if ( Phase == BlackjackPhase.WaitingForBets || Phase == BlackjackPhase.Idle )
                 {
                     <!-- Betting Phase -->
                     <div class="bj-chips-row">
@@ -895,6 +921,7 @@
                     <div class="bj-actions-row">
                         <div class="bj-action-btn bj-btn-clear @(CurrentBet <= 0 ? "disabled" : "")" onclick="@OnClearBet">CLEAR</div>
                         <div class="bj-action-btn bj-btn-deal @(CurrentBet < 5 || CurrentBet > Balance ? "disabled" : "")" onclick="@OnPlaceBet">PLACE BET</div>
+                        <div class="bj-action-btn bj-btn-spectate @(CanSpectate ? "" : "disabled")" onclick="@OnSpectate">SPECTATE</div>
                     </div>
                 }
                 else
@@ -913,6 +940,7 @@
                         <div class="bj-action-btn bj-btn-stand @(!CanStand ? "disabled" : "")" onclick="@OnStand">STAND</div>
                         <div class="bj-action-btn bj-btn-double @(!CanDouble ? "disabled" : "")" onclick="@OnDouble">DOUBLE</div>
                         <div class="bj-action-btn bj-btn-split @(!CanSplit ? "disabled" : "")" onclick="@OnSplit">SPLIT</div>
+                        <div class="bj-action-btn bj-btn-spectate disabled" onclick="@OnSpectate">SPECTATE</div>
                     </div>
                 }
             </div>
@@ -931,6 +959,7 @@
     string StatusMessage = "";
     BlackjackPhase Phase;
     bool CanHit, CanStand, CanDouble, CanSplit;
+    bool CanSpectate;
     bool ShowInsurance;
     int DealerScore;
     List<CardData> DealerCards = new();
@@ -959,6 +988,18 @@
         DealerScore = BlackjackBridge.DealerScore;
         DealerCards = BlackjackBridge.DealerCards;
         Seats = BlackjackBridge.Seats;
+
+        // Spectate is only allowed before any bet is committed to the current hand.
+        // Once the player places a bet (or cards are being dealt/played), they are in the hand.
+        bool bettingPhase = Phase == BlackjackPhase.WaitingForBets || Phase == BlackjackPhase.Idle;
+        bool hasCommittedBet = false;
+        if ( LocalSeatIndex >= 0 && LocalSeatIndex < Seats.Length )
+        {
+            var localSeat = Seats[LocalSeatIndex];
+            if ( localSeat != null && localSeat.HandBets.Count > 0 && localSeat.HandBets[0] > 0 )
+                hasCommittedBet = true;
+        }
+        CanSpectate = LocalSeatIndex >= 0 && bettingPhase && !hasCommittedBet;
     }
 
     private void SelectChip( int value )
@@ -979,6 +1020,14 @@
     private void OnClearBet()
     {
         BlackjackBridge.CurrentBet = 0;
+    }
+
+    private void OnSpectate()
+    {
+        if ( !CanSpectate ) return;
+        if ( BlackjackBridge.ActiveTable == null ) return;
+
+        BlackjackBridge.ActiveTable.SpectateTable();
     }
 
     private void OnPlaceBet()

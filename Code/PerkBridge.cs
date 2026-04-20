@@ -37,6 +37,20 @@ public static class PerkBridge
     {
         PerkUsedThisRound = false;
         IsPassivePerk = false;
+        SilenceUIOpen = false;
+        IsSilencedByAnomaly = false;
+    }
+
+    // === Silence perk state ===
+    // Anomaly-side: whether the target-selection UI is currently showing
+    public static bool SilenceUIOpen { get; set; } = false;
+    // Target-side: whether the local player has been silenced by an Anomaly this meeting
+    public static bool IsSilencedByAnomaly { get; set; } = false;
+
+    public static void ResetSilenceForMeeting()
+    {
+        SilenceUIOpen = false;
+        IsSilencedByAnomaly = false;
     }
 
     public static bool HasPerkEquipped()

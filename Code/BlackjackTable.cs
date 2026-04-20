@@ -127,6 +127,10 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			{
 				LeaveTable( localPlayer );
 			}
+			else if ( BlackjackBridge.IsOpen && BlackjackBridge.ActiveTable == this )
+			{
+				BlackjackBridge.Close();
+			}
 			return;
 		}
 
@@ -167,23 +171,63 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 	{
 		string steamId = Connection.Local?.SteamId.ToString() ?? "";
 		string displayName = player.GameObject.Root.Name.Replace( "Player - ", "" );
+
+		// Don't pick a seat locally - two clients pressing E in the same tick would both see the same
+		// empty seat and claim it. Ask the host to pick authoritatively.
+		RequestJoinRpc( steamId, displayName );
+	}
+
+	[Rpc.Broadcast]
+	public void RequestJoinRpc( string steamId, string displayName )
+	{
+		if ( !Networking.IsHost ) return;
+		if ( string.IsNullOrEmpty( steamId ) ) return;
+		if ( FindSeatForPlayer( steamId ) >= 0 ) return; // already seated
+
 		int seat = FindEmptySeat();
+		if ( seat < 0 ) return; // table full
+
+		BroadcastPlayerJoined( steamId, displayName, seat );
+	}
+
+	public void SpectateTable( PlayerController player = null )
+	{
+		string steamId = Connection.Local?.SteamId.ToString() ?? "";
+		int seat = FindSeatForPlayer( steamId );
 
 		if ( seat < 0 ) return;
 
-		BroadcastPlayerJoined( steamId, displayName, seat );
-		player.MountToBlackjackTable( this );
-
-		FetchBalance();
-
-		// Create the UI overlay if it doesn't exist yet
-		EnsureUIExists();
-
-		BlackjackBridge.Open( this, seat );
-
-		if ( JoinSound != null )
+		if ( player == null )
 		{
-			var handle = Sound.Play( JoinSound );
+			player = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
+		}
+
+		// Commit net credit change as if leaving — we are abandoning the seat
+		BlackjackBridge.LastKnownBalance = BlackjackBridge.CachedBalance;
+		BlackjackBridge.LastLeaveTime = DateTime.UtcNow;
+
+		int net = BlackjackBridge.SessionNetChange;
+		if ( net > 0 )
+		{
+			Sandbox.Services.Stats.Increment( "credits", net );
+		}
+		else if ( net < 0 )
+		{
+			Sandbox.Services.Stats.Increment( "credits_spent", -net );
+		}
+
+		BroadcastPlayerLeft( steamId, seat );
+		player?.UnmountFromStation();
+
+		// Keep the UI open in spectator mode
+		BlackjackBridge.LocalSeatIndex = -1;
+		BlackjackBridge.SessionNetChange = 0;
+		BlackjackBridge.CurrentBet = 0;
+
+		if ( LeaveSound != null )
+		{
+			var handle = Sound.Play( LeaveSound );
 			if ( handle != null ) handle.ListenLocal = true;
 		}
 	}
@@ -239,6 +283,28 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			BlackjackBridge.Seats[seatIndex].IsOccupied = true;
 			BlackjackBridge.Seats[seatIndex].PlayerName = name;
 			BlackjackBridge.Seats[seatIndex].SteamId = ulong.TryParse( steamId, out var id ) ? id : 0;
+		}
+
+		// If this broadcast is for the local player, do the local mount/UI/sound work now that we know our seat
+		string localSteamId = Connection.Local?.SteamId.ToString() ?? "";
+		if ( steamId == localSteamId )
+		{
+			var localPlayer = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
+
+			if ( localPlayer != null )
+			{
+				localPlayer.MountToBlackjackTable( this );
+				FetchBalance();
+				EnsureUIExists();
+				BlackjackBridge.Open( this, seatIndex );
+
+				if ( JoinSound != null )
+				{
+					var handle = Sound.Play( JoinSound );
+					if ( handle != null ) handle.ListenLocal = true;
+				}
+			}
 		}
 
 		// Host: notify manager
@@ -443,6 +509,11 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			if ( FindSeatForPlayer( localId ) >= 0 )
 			{
 				LeaveTable( player );
+			}
+			else if ( BlackjackBridge.IsOpen && BlackjackBridge.ActiveTable == this )
+			{
+				// Was spectating — close the UI on walk-away
+				BlackjackBridge.Close();
 			}
 		}
 	}

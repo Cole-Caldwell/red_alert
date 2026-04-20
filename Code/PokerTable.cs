@@ -158,6 +158,8 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 			string sid = Connection.Local?.SteamId.ToString() ?? "";
 			if ( FindSeatForPlayer( sid ) >= 0 )
 				LeaveTable( localPlayer );
+			else if ( PokerBridge.IsOpen && IsLocalActiveTable() )
+				PokerBridge.Close();
 			return;
 		}
 
@@ -206,7 +208,7 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 	}
 
 	/// <summary>
-	/// Called from the buy-in dialog Confirm button. Validates client-side, then sends RPC.
+	/// Called from the buy-in dialog Confirm button. Validates client-side, then asks the host to seat us.
 	/// </summary>
 	public void ConfirmBuyIn( int buyIn )
 	{
@@ -214,8 +216,8 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 			.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
 		if ( localPlayer == null ) return;
 
-		int seat = PokerBridge.PendingSeat;
-		if ( seat < 0 ) return;
+		int requestedSeat = PokerBridge.PendingSeat;
+		if ( requestedSeat < 0 ) return;
 
 		buyIn = System.Math.Clamp( buyIn, PokerBridge.MinBuyIn, PokerBridge.MaxBuyIn );
 		if ( buyIn > PokerBridge.CachedBalance ) buyIn = PokerBridge.CachedBalance;
@@ -224,21 +226,28 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		string steamId = Connection.Local?.SteamId.ToString() ?? "";
 		string displayName = localPlayer.GameObject.Root.Name.Replace( "Player - ", "" );
 
-		// Deduct buy-in immediately for responsiveness; refunded on leave (chips - buyIn = session delta)
-		PokerBridge.CachedBalance -= buyIn;
-		PokerBridge.SessionNetChange -= buyIn;
-		PokerBridge.LocalSeatIndex = seat;
+		// Close the dialog immediately. Everything else (balance deduct, seat assignment,
+		// mount, sound) happens when BroadcastPlayerJoined returns from the host.
 		PokerBridge.ShowBuyInDialog = false;
 		PokerBridge.PendingSeat = -1;
 
-		BroadcastPlayerJoined( steamId, displayName, seat, buyIn );
-		localPlayer.MountToPokerTable( this );
+		RequestJoinRpc( steamId, displayName, requestedSeat, buyIn );
+	}
 
-		if ( JoinSound != null )
-		{
-			var handle = Sound.Play( JoinSound );
-			if ( handle != null ) handle.ListenLocal = true;
-		}
+	[Rpc.Broadcast]
+	public void RequestJoinRpc( string steamId, string displayName, int requestedSeat, int buyIn )
+	{
+		if ( !Networking.IsHost ) return;
+		if ( string.IsNullOrEmpty( steamId ) ) return;
+		if ( FindSeatForPlayer( steamId ) >= 0 ) return; // already seated
+
+		// Honor the requested seat if it's still empty, otherwise fall back to any empty seat
+		int seat = requestedSeat;
+		if ( seat < 0 || seat >= MaxSeats || !string.IsNullOrEmpty( GetSeatSteamId( seat ) ) )
+			seat = FindEmptySeat();
+		if ( seat < 0 ) return; // table full
+
+		BroadcastPlayerJoined( steamId, displayName, seat, buyIn );
 	}
 
 	public void CancelBuyIn()
@@ -246,6 +255,17 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		PokerBridge.ShowBuyInDialog = false;
 		PokerBridge.PendingSeat = -1;
 		PokerBridge.Close();
+	}
+
+	/// <summary>
+	/// Called from the buy-in dialog Spectate button. Closes the dialog but keeps the UI open
+	/// in spectator mode — no seat, no actions, just a view of the table.
+	/// </summary>
+	public void SpectateFromBuyIn()
+	{
+		PokerBridge.ShowBuyInDialog = false;
+		PokerBridge.PendingSeat = -1;
+		// PokerBridge.IsOpen stays true; LocalSeatIndex is already -1 from OpenBuyInDialog.
 	}
 
 	public void LeaveTable( PlayerController player = null )
@@ -300,24 +320,33 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 	[Rpc.Broadcast]
 	public void BroadcastPlayerJoined( string steamId, string name, int seatIndex, int buyIn )
 	{
-		// If the requested seat is already taken, find another empty one.
-		// This prevents two clients from racing into the same seat when both
-		// call FindEmptySeat() locally before the first RPC arrives.
-		if ( !string.IsNullOrEmpty( GetSeatSteamId( seatIndex ) ) )
-		{
-			int alt = FindEmptySeat();
-			if ( alt < 0 ) return; // table full — reject silently
-			seatIndex = alt;
-		}
-
+		// Host authoritatively picked this seat in RequestJoinRpc - trust it
 		SetSeatRaw( seatIndex, steamId, name );
 		if ( Networking.IsHost )
 			SetSeatChips( seatIndex, buyIn );
 
-		// If this broadcast is for the local player, update their seat index
+		// If this broadcast is for the local player, do the local mount/UI/sound/balance work
 		string localId = Connection.Local?.SteamId.ToString() ?? "";
 		if ( steamId == localId )
-			PokerBridge.LocalSeatIndex = seatIndex;
+		{
+			var localPlayer = Scene.GetAllComponents<PlayerController>()
+				.FirstOrDefault( p => !p.IsProxy && p.GameObject.Network.Owner != null );
+
+			if ( localPlayer != null )
+			{
+				PokerBridge.LocalSeatIndex = seatIndex;
+				PokerBridge.CachedBalance -= buyIn;
+				PokerBridge.SessionNetChange -= buyIn;
+
+				localPlayer.MountToPokerTable( this );
+
+				if ( JoinSound != null )
+				{
+					var handle = Sound.Play( JoinSound );
+					if ( handle != null ) handle.ListenLocal = true;
+				}
+			}
+		}
 
 		if ( IsLocalActiveTable() )
 		{
@@ -473,8 +502,8 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 			string localId = Connection.Local?.SteamId.ToString() ?? "";
 			if ( FindSeatForPlayer( localId ) >= 0 )
 				LeaveTable( player );
-			else if ( PokerBridge.ShowBuyInDialog )
-				CancelBuyIn();
+			else if ( PokerBridge.IsOpen && IsLocalActiveTable() )
+				PokerBridge.Close(); // dialog open or spectating — either way, close on walk-away
 		}
 	}
 }

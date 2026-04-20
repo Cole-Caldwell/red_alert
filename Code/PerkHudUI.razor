@@ -7,7 +7,7 @@
         @if ( !IsPassive )
         {
             <div class="perk-key-wrap">
-                <div class="perk-key">G</div>
+                <div class="perk-key @(IsKeyDisabled ? "disabled" : "")">G</div>
             </div>
         }
         <div class="perk-info">
@@ -97,8 +97,15 @@
     }
 
     .perk-hud.used .perk-key {
-        border-color: rgba(80, 80, 90, 0.25);
-        color: rgba(100, 100, 110, 0.4);
+        border-color: rgba(80, 80, 90, 0.4);
+        color: rgba(100, 100, 110, 0.6);
+        text-shadow: none;
+        background-color: rgba(40, 40, 45, 0.2);
+    }
+
+    .perk-key.disabled {
+        border-color: rgba(80, 80, 90, 0.4);
+        color: rgba(100, 100, 110, 0.6);
         text-shadow: none;
         background-color: rgba(40, 40, 45, 0.2);
     }
@@ -110,19 +117,19 @@
     }
 
     .perk-label {
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 700;
-        color: rgba(160, 160, 170, 0.4);
+        color: rgba(160, 160, 170, 0.7);
         letter-spacing: 3px;
         font-family: Consolas;
     }
 
     .perk-hud.active .perk-label {
-        color: rgba(0, 255, 140, 0.4);
+        color: rgba(0, 255, 140, 0.7);
     }
 
     .perk-hud.used .perk-label {
-        color: rgba(80, 80, 90, 0.3);
+        color: rgba(80, 80, 90, 0.5);
     }
 
     .perk-name {
@@ -134,7 +141,7 @@
     }
 
     .perk-hud.used .perk-name {
-        color: rgba(100, 100, 110, 0.4);
+        color: rgba(100, 100, 110, 0.6);
     }
 
     .perk-timer {
@@ -146,9 +153,9 @@
     }
 
     .perk-status {
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 700;
-        color: rgba(100, 100, 110, 0.4);
+        color: rgba(100, 100, 110, 0.65);
         font-family: Consolas;
         letter-spacing: 2px;
     }
@@ -159,6 +166,7 @@
     public bool IsUsed { get; set; } = false;
     public bool IsActive { get; set; } = false;
     public bool IsPassive { get; set; } = false;
+    public bool IsKeyDisabled { get; set; } = false;
     public string TimerText { get; set; } = "";
     public string StatusClass { get; set; } = "";
     public string SlideClass { get; set; } = "";
@@ -186,6 +194,14 @@
         IsPassive = PerkBridge.IsPassivePerk;
         IsActive = false;
         TimerText = "";
+
+        // Silence is only usable during a meeting — gray out the G key the rest of the time.
+        IsKeyDisabled = false;
+        if ( PerkBridge.EquippedPerkId == "silence" && !IsUsed )
+        {
+            var gm = Scene.GetAllComponents<GameManager>().FirstOrDefault();
+            IsKeyDisabled = gm == null || gm.CurrentState != GameManager.GameState.Voting;
+        }
 
         // Read timed perk state from bridge
         if ( IsUsed && PerkBridge.IsPerkActive && PerkBridge.PerkTimeRemaining > 0 )
@@ -227,6 +243,6 @@
 
     protected override int BuildHash()
     {
-        return System.HashCode.Combine( PerkName, IsUsed, IsActive, IsPassive, TimerText, SlideClass );
+        return System.HashCode.Combine( PerkName, IsUsed, IsActive, IsPassive, TimerText, SlideClass, IsKeyDisabled );
     }
 }

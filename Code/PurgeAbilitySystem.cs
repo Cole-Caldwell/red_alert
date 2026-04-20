@@ -90,7 +90,7 @@ public static class PurgeAbilityRegistry
         {
             Id = "trapper",
             Name = "TRAPPER",
-            Description = "Place a deadly trap at your feet. The first citizen to wander into it dies instantly.",
+            Description = "Place a deadly trap at your feet. The first citizen to wander into it dies. React quickly or perish.",
             Icon = "ui/red-alert-trapper.png",
             WinsRequired = 0,
             Duration = 0f,
