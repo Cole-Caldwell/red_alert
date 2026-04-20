@@ -63,7 +63,6 @@ public partial class PlayerController : Component
 	private string originalName = "";
 
 	private float lastPurgeTime = -999f;
-	private bool isBlinded = false;
 	private AnomalyAbilitiesUI anomalyUI = null;
 	public string EquippedPurgeAbility { get; set; } = "blind";
 	
@@ -1029,7 +1028,7 @@ public partial class PlayerController : Component
 		if ( string.IsNullOrEmpty( CurrentActiveTaskId ) ) return;
 
 		// Get our own network owner ID
-		ulong ownerId = GameObject.Network?.Owner?.SteamId ?? 0;
+		ulong ownerId = GameObject.Network?.Owner?.SteamId ?? 0UL;
 		if ( ownerId == 0 ) return;
 
 		string taskId = CurrentActiveTaskId;
@@ -1295,7 +1294,7 @@ public partial class PlayerController : Component
 		if ( silencePerk == null ) return;
 
 		// Ask host to apply the silence. Host validates and broadcasts.
-		ulong callerSteamId = GameObject.Network?.Owner?.SteamId ?? 0;
+		ulong callerSteamId = GameObject.Network?.Owner?.SteamId ?? 0UL;
 		if ( callerSteamId == 0 ) return;
 		gameManager.RequestSilencePlayerRpc( callerSteamId, targetSteamId );
 
@@ -2010,8 +2009,6 @@ public partial class PlayerController : Component
 			return;
 		}
 
-		isBlinded = true;
-
 		// Play blinded sound
 		if ( BlindedSound != null )
 		{
@@ -2174,7 +2171,7 @@ public partial class PlayerController : Component
 			return;
 		}
 
-		var ownerSteamId = GameObject.Network.Owner?.SteamId ?? 0;
+		var ownerSteamId = GameObject.Network.Owner?.SteamId ?? 0UL;
 		var trapId = System.Guid.NewGuid().ToString();
 
 		SpawnTrapRpc( WorldPosition, trapId, ownerSteamId );
@@ -2257,7 +2254,7 @@ public partial class PlayerController : Component
 		}
 
 		var target = citizens[Game.Random.Int( 0, citizens.Count - 1 )];
-		ulong targetSteamId = target.GameObject.Network.Owner?.SteamId ?? 0;
+		ulong targetSteamId = target.GameObject.Network.Owner?.SteamId ?? 0UL;
 		string targetName = target.GameObject.Root.Name;
 
 		originalName = GameObject.Root.Name;
@@ -2520,14 +2517,11 @@ public partial class PlayerController : Component
 	private async void RemoveBlindAfterDelay()
 	{
 		await GameTask.DelaySeconds( PurgeDuration );
-		isBlinded = false;
 	}
 
 	[Rpc.Owner]
 	public void EndBlindEffectRpc()
 	{
-		isBlinded = false;
-		
 		// Find and destroy blind overlay
 		var blindUI = Scene.GetAllComponents<BlindOverlayUI>().FirstOrDefault();
 		if ( blindUI != null )

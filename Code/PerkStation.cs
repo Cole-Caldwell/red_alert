@@ -89,7 +89,7 @@ public class PerkStation : Component, Component.ITriggerListener
             spentBoard.MaxEntries = 50;
             await spentBoard.Refresh();
 
-            long localSteamId = (long)(Connection.Local?.SteamId ?? 0);
+            long localSteamId = (long)(Connection.Local?.SteamId ?? 0UL);
             int earned = 0;
             int spent = 0;
 

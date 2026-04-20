@@ -7,7 +7,6 @@ public partial class CountdownUI : Component
 	private bool showingInitialMessage = false;
 	private float initialDuration = 3f;
 
-	private bool showingCountdown = false;
 	private int lastDisplayedSecond = -1;
 	private float countdownFadeTimer = 0f;
 
@@ -59,7 +58,6 @@ public partial class CountdownUI : Component
 
 			if ( countdownFadeTimer > 0f )
 			{
-				showingCountdown = true;
 				DisplayCountdownNumber( currentSecond );
 				countdownFadeTimer -= Time.Delta;
 			}

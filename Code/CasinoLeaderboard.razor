@@ -517,7 +517,7 @@
         try
         {
             var playerMap = new Dictionary<long, CasinoLeaderboardEntry>();
-            long localSteamId = (long)(Connection.Local?.SteamId ?? 0);
+            long localSteamId = (long)(Connection.Local?.SteamId ?? 0UL);
 
             // Fetch credits_wagered (primary — determines who appears on the board)
             try

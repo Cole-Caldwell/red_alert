@@ -928,7 +928,7 @@ public partial class GameManager : Component
 			Name = GetPlayerDisplayName( p ),
 			IsAlive = p.IsAlive,
 			VoteCount = 0,
-			SteamId = p.GameObject.Network.Owner?.SteamId ?? 0
+			SteamId = p.GameObject.Network.Owner?.SteamId ?? 0UL
 		} ).ToList();
 
 		votingUI.UpdatePlayers( playerData );
@@ -1040,7 +1040,7 @@ public partial class GameManager : Component
 				if ( ejectedPlayer != null )
 				{
 					ejectedName = ejected;
-					ejectedSteamId = ejectedPlayer.GameObject.Network.Owner?.SteamId ?? 0;
+					ejectedSteamId = ejectedPlayer.GameObject.Network.Owner?.SteamId ?? 0UL;
 
 					if ( ejectedPlayer.Role == PlayerController.PlayerRole.Anomaly )
 						resultType = "was-anomaly";
@@ -1420,7 +1420,7 @@ public partial class GameManager : Component
 	[Rpc.Broadcast]
 	private void ApplySilenceRpc( ulong targetSteamId )
 	{
-		ulong localSteamId = Connection.Local?.SteamId ?? 0;
+		ulong localSteamId = Connection.Local?.SteamId ?? 0UL;
 		if ( localSteamId != targetSteamId ) return;
 
 		PerkBridge.IsSilencedByAnomaly = true;

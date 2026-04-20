@@ -486,7 +486,7 @@
                     {
                         Name = entry.DisplayName,
                         SteamId = (ulong)entry.SteamId,
-                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0)
+                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0UL)
                     };
                 }
                 playerMap[entry.SteamId].CitizenWins = (int)entry.Value;
@@ -500,7 +500,7 @@
                     {
                         Name = entry.DisplayName,
                         SteamId = (ulong)entry.SteamId,
-                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0)
+                        IsLocal = entry.SteamId == (long)(Connection.Local?.SteamId ?? 0UL)
                     };
                 }
                 playerMap[entry.SteamId].AnomalyWins = (int)entry.Value;
