@@ -159,7 +159,10 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 			if ( FindSeatForPlayer( sid ) >= 0 )
 				LeaveTable( localPlayer );
 			else if ( PokerBridge.IsOpen && IsLocalActiveTable() )
+			{
 				PokerBridge.Close();
+				DestroyUI();
+			}
 			return;
 		}
 
@@ -196,8 +199,11 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		int seat = FindEmptySeat();
 		if ( seat < 0 ) return;
 
+		string displayName = player.GameObject.Root.Name.Replace( "Player - ", "" );
+
 		EnsureUIExists();
 		FetchBalance();
+		OverrideInstanceBalance( displayName );
 
 		// Open the UI in spectate mode and show the buy-in dialog
 		PokerBridge.Open( this, -1 );
@@ -255,6 +261,7 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		PokerBridge.ShowBuyInDialog = false;
 		PokerBridge.PendingSeat = -1;
 		PokerBridge.Close();
+		DestroyUI();
 	}
 
 	/// <summary>
@@ -309,6 +316,7 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		player?.UnmountFromStation();
 
 		PokerBridge.Close();
+		DestroyUI();
 
 		if ( LeaveSound != null )
 		{
@@ -401,6 +409,7 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 
 			localPlayer?.UnmountFromStation();
 			PokerBridge.Close();
+			DestroyUI();
 		}
 
 		if ( Networking.IsHost )
@@ -431,6 +440,13 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 
 		pokerUIObject.Components.Create<PokerUI>();
 		Log.Info( "[PokerTable] Created PokerUI overlay" );
+	}
+
+	private static void DestroyUI()
+	{
+		if ( pokerUIObject != null && pokerUIObject.IsValid )
+			pokerUIObject.Destroy();
+		pokerUIObject = null;
 	}
 
 	private async void FetchBalance()
@@ -480,6 +496,16 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 		}
 	}
 
+	private async void OverrideInstanceBalance( string playerName )
+	{
+		await GameTask.DelaySeconds( 2f );
+		if ( System.Text.RegularExpressions.Regex.IsMatch( playerName, @"\(\d+\)$" ) )
+		{
+			PokerBridge.CachedBalance = 10000;
+			Log.Info( $"[PokerTable] Instance detected ({playerName}) — balance set to 10000" );
+		}
+	}
+
 	// Sound helpers (called from PokerManager via RPC handlers)
 	public void PlayCardSound() { if ( CardDealSound != null ) { var h = Sound.Play( CardDealSound ); if ( h != null ) h.ListenLocal = true; } }
 	public void PlayChipSound() { if ( ChipSound != null ) { var h = Sound.Play( ChipSound ); if ( h != null ) h.ListenLocal = true; } }
@@ -503,7 +529,10 @@ public sealed class PokerTable : Component, Component.ITriggerListener
 			if ( FindSeatForPlayer( localId ) >= 0 )
 				LeaveTable( player );
 			else if ( PokerBridge.IsOpen && IsLocalActiveTable() )
-				PokerBridge.Close(); // dialog open or spectating — either way, close on walk-away
+			{
+				PokerBridge.Close();
+				DestroyUI();
+			}
 		}
 	}
 }

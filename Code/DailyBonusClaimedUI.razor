@@ -1,0 +1,112 @@
+@using Sandbox
+@using Sandbox.UI
+@using System
+@inherits PanelComponent
+
+<root>
+    <style>
+        .claimed-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 960;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .claimed-overlay.fade-out {
+            opacity: 0;
+        }
+
+        @@keyframes claimed-slide-in {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .claimed-panel {
+            flex-direction: column;
+            align-items: center;
+            background-color: rgb(12, 10, 8);
+            border: 1px solid rgba(180, 160, 120, 0.25);
+            border-radius: 8px;
+            padding: 32px 56px;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(200, 180, 100, 0.05);
+            position: relative;
+            overflow: hidden;
+            animation: claimed-slide-in 0.3s ease-out;
+        }
+
+        .claimed-glow-top {
+            position: absolute;
+            top: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(200, 160, 80, 0), rgba(200, 160, 80, 0.4), rgba(200, 160, 80, 0.6), rgba(200, 160, 80, 0.4), rgba(200, 160, 80, 0));
+            box-shadow: 0 0 12px rgba(200, 160, 80, 0.2);
+        }
+
+        .claimed-title {
+            font-size: 22px;
+            font-weight: 900;
+            color: rgba(200, 185, 150, 0.9);
+            letter-spacing: 4px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(200, 180, 120, 0.2);
+            margin-bottom: 8px;
+        }
+
+        .claimed-message {
+            font-size: 14px;
+            color: rgba(180, 160, 120, 0.7);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="claimed-overlay @FadeClass">
+        <div class="claimed-panel">
+            <div class="claimed-glow-top"></div>
+            <label class="claimed-title">BONUS ALREADY CLAIMED</label>
+            <label class="claimed-message">Come back tomorrow!</label>
+        </div>
+    </div>
+</root>
+
+@code {
+    public string FadeClass { get; set; } = "";
+
+    private float spawnTime = 0f;
+    private float fadeStartTime = 0f;
+    private bool fading = false;
+
+    protected override void OnStart()
+    {
+        spawnTime = Time.Now;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( !fading && Time.Now - spawnTime > 2.0f )
+        {
+            fading = true;
+            FadeClass = "fade-out";
+            fadeStartTime = Time.Now;
+        }
+
+        if ( fading && Time.Now - fadeStartTime > 0.5f )
+        {
+            if ( GameObject.IsValid() )
+                GameObject.Destroy();
+        }
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( FadeClass );
+    }
+}

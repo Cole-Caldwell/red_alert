@@ -6,6 +6,8 @@ public static class DailyBonusTracker
 {
 	private const string StatName = "daily_bonus_date";
 
+	public static bool ClaimedThisSession { get; private set; } = false;
+
 	private static int TodayAsInt()
 	{
 		var now = DateTime.UtcNow;
@@ -49,11 +51,9 @@ public static class DailyBonusTracker
 		try
 		{
 			int today = TodayAsInt();
-			// The stat uses Max aggregation on the backend; today's date int is
-			// always larger than any previous claim, so this surfaces today's date
-			// as the highest value for this player.
 			Sandbox.Services.Stats.Increment( StatName, today );
-			Log.Info( $"[DailyBonus] Increment({StatName}, {today}) called" );
+			ClaimedThisSession = true;
+			Log.Info( $"[DailyBonus] Increment({StatName}, {today}) called — session flag set" );
 		}
 		catch ( Exception e )
 		{

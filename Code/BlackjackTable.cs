@@ -130,6 +130,7 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			else if ( BlackjackBridge.IsOpen && BlackjackBridge.ActiveTable == this )
 			{
 				BlackjackBridge.Close();
+				DestroyUI();
 			}
 			return;
 		}
@@ -264,6 +265,7 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 		player?.UnmountFromStation();
 
 		BlackjackBridge.Close();
+		DestroyUI();
 
 		if ( LeaveSound != null )
 		{
@@ -296,6 +298,7 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			{
 				localPlayer.MountToBlackjackTable( this );
 				FetchBalance();
+				OverrideInstanceBalance( name );
 				EnsureUIExists();
 				BlackjackBridge.Open( this, seatIndex );
 
@@ -363,6 +366,7 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 
 			localPlayer?.UnmountFromStation();
 			BlackjackBridge.Close();
+			DestroyUI();
 		}
 
 		// Host clears all seats
@@ -393,6 +397,13 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 		blackjackUIObject.Components.Create<BlackjackUI>();
 
 		Log.Info( "[BlackjackTable] Created BlackjackUI overlay" );
+	}
+
+	private static void DestroyUI()
+	{
+		if ( blackjackUIObject != null && blackjackUIObject.IsValid )
+			blackjackUIObject.Destroy();
+		blackjackUIObject = null;
 	}
 
 	private async void FetchBalance()
@@ -448,6 +459,16 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 		catch ( System.Exception e )
 		{
 			Log.Warning( $"[BlackjackTable] Failed to fetch balance: {e.Message}" );
+		}
+	}
+
+	private async void OverrideInstanceBalance( string playerName )
+	{
+		await GameTask.DelaySeconds( 2f );
+		if ( System.Text.RegularExpressions.Regex.IsMatch( playerName, @"\(\d+\)$" ) )
+		{
+			BlackjackBridge.CachedBalance = 10000;
+			Log.Info( $"[BlackjackTable] Instance detected ({playerName}) — balance set to 10000" );
 		}
 	}
 
@@ -512,8 +533,8 @@ public sealed class BlackjackTable : Component, Component.ITriggerListener
 			}
 			else if ( BlackjackBridge.IsOpen && BlackjackBridge.ActiveTable == this )
 			{
-				// Was spectating — close the UI on walk-away
 				BlackjackBridge.Close();
+				DestroyUI();
 			}
 		}
 	}

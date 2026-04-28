@@ -198,8 +198,6 @@
         "__enabled": true,
         "Flags": 0,
         "BlindedSound": "sounds/anomalyblind.sound",
-        "DailyRewardSound": "sounds/dailywin.sound",
-        "DailySpinSound": "sounds/spinner.sound",
         "DeathSound": "sounds/deathsound.sound",
         "EquippedPerkId": "",
         "Gravity": 800,

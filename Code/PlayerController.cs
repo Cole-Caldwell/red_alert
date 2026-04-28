@@ -52,8 +52,6 @@ public partial class PlayerController : Component
 	[Property] public SoundEvent DeathSound { get; set; }
 	[Property] public SoundEvent KillSound { get; set; }
 	[Property] public SoundEvent PerkActivateSound { get; set; }
-	[Property] public SoundEvent DailySpinSound { get; set; }
-	[Property] public SoundEvent DailyRewardSound { get; set; }
 	[Property] public float MimicDuration { get; set; } = 15f;
 	
 	public string LastKillVictimName { get; set; } = "";
@@ -171,32 +169,7 @@ public partial class PlayerController : Component
 
 			// Reset role to citizen (default)
 			Role = PlayerRole.Citizen;
-
-			// Check for daily login bonus
-			CheckDailyBonus();
 		}
-	}
-
-	private async void CheckDailyBonus()
-	{
-		// Wait for the game to fully load and for the stats service
-		// to fetch this player's current values from the backend.
-		await GameTask.DelaySeconds( 5f );
-
-		if ( await DailyBonusTracker.HasClaimedTodayAsync() )
-			return;
-
-		// Pass sounds to the spinner via bridge
-		DailyBonusBridge.SpinSound = DailySpinSound;
-		DailyBonusBridge.RewardSound = DailyRewardSound;
-
-		// Show the daily spinner UI
-		var uiObject = Scene.CreateObject();
-		uiObject.Name = "Daily Spinner UI";
-		var screenPanel = uiObject.Components.Create<ScreenPanel>();
-		screenPanel.ZIndex = 950;
-		uiObject.Components.Create<DailySpinnerUI>();
-		Log.Info( "[DailyBonus] Showing daily spinner" );
 	}
 
 	protected override void OnUpdate()

@@ -1160,7 +1160,7 @@
     protected override int BuildHash()
     {
         var h = System.HashCode.Combine( IsVisible, Phase, ActiveSeatIndex, CurrentBet, SelectedChip, Balance, DealerScore, DealerCards.Count );
-        h = System.HashCode.Combine( h, ShowInsurance );
+        h = System.HashCode.Combine( h, ShowInsurance, StatusMessage );
         if ( Seats != null )
         {
             for ( int i = 0; i < 7; i++ )

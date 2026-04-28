@@ -1,0 +1,398 @@
+@using Sandbox
+@using Sandbox.UI
+@using Sandbox.Network
+@inherits PanelComponent
+
+<root>
+    <style>
+        .menu-root {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            flex-direction: row;
+            pointer-events: all;
+        }
+
+        /* === LEFT PANEL === */
+        .menu-left {
+            width: 520px;
+            flex-direction: column;
+            padding: 80px 50px 40px 50px;
+            justify-content: flex-start;
+            background-color: rgba(2, 4, 12, 0.85);
+            border-right: 1px solid rgba(0, 180, 220, 0.08);
+            opacity: 0;
+            transition: opacity 1.5s ease;
+        }
+
+        .menu-left.visible {
+            opacity: 1;
+        }
+
+        .menu-title {
+            font-size: 56px;
+            font-weight: 900;
+            color: rgb(220, 40, 40);
+            letter-spacing: 10px;
+            font-family: Consolas;
+            text-shadow: 0 0 40px rgba(220, 40, 40, 0.5), 0 0 80px rgba(220, 40, 40, 0.2);
+            margin-bottom: 6px;
+        }
+
+        .menu-subtitle {
+            font-size: 12px;
+            color: rgba(0, 180, 220, 0.4);
+            letter-spacing: 6px;
+            font-family: Consolas;
+            margin-bottom: 50px;
+        }
+
+        .menu-buttons {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .menu-btn {
+            padding: 18px 30px;
+            background-color: rgba(0, 30, 60, 0.25);
+            border: 1px solid rgba(0, 180, 220, 0.15);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .menu-btn:hover {
+            background-color: rgba(0, 80, 160, 0.3);
+            border-color: rgba(0, 220, 255, 0.5);
+            box-shadow: 0 0 25px rgba(0, 180, 220, 0.12);
+        }
+
+        .menu-btn-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: rgba(180, 220, 255, 0.85);
+            letter-spacing: 5px;
+            font-family: Consolas;
+        }
+
+        .menu-btn.discord-btn {
+            margin-top: 16px;
+            border-color: rgba(88, 101, 242, 0.3);
+            background-color: rgba(88, 101, 242, 0.1);
+        }
+
+        .menu-btn.discord-btn:hover {
+            background-color: rgba(88, 101, 242, 0.25);
+            border-color: rgba(88, 101, 242, 0.6);
+            box-shadow: 0 0 25px rgba(88, 101, 242, 0.15);
+        }
+
+        .discord-text {
+            font-size: 20px;
+            font-weight: 800;
+            color: rgba(88, 101, 242, 0.9);
+            letter-spacing: 5px;
+            font-family: Consolas;
+        }
+
+        /* === PLAYER INFO === */
+        .player-info {
+            margin-top: auto;
+            padding: 16px 0;
+            border-top: 1px solid rgba(0, 180, 220, 0.1);
+        }
+
+        .player-name {
+            font-size: 14px;
+            color: rgba(140, 170, 200, 0.5);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        /* === RIGHT PANEL === */
+        .menu-right {
+            flex-grow: 1;
+            background-color: transparent;
+        }
+
+        /* === BACK BUTTON === */
+        .back-btn {
+            padding: 12px 24px;
+            background-color: rgba(80, 20, 20, 0.2);
+            border: 1px solid rgba(255, 60, 60, 0.25);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+            align-self: flex-start;
+        }
+
+        .back-btn:hover {
+            background-color: rgba(120, 30, 30, 0.3);
+            border-color: rgba(255, 80, 80, 0.5);
+        }
+
+        .back-btn-text {
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255, 100, 100, 0.8);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+
+        /* === LOBBY BROWSER === */
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: rgba(0, 200, 240, 0.8);
+            letter-spacing: 4px;
+            font-family: Consolas;
+            margin-bottom: 16px;
+        }
+
+        .lobby-actions {
+            flex-direction: row;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .refresh-btn {
+            padding: 10px 22px;
+            background-color: rgba(0, 60, 100, 0.25);
+            border: 1px solid rgba(0, 180, 220, 0.25);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background-color: rgba(0, 80, 140, 0.3);
+            border-color: rgba(0, 220, 255, 0.5);
+        }
+
+        .refresh-text {
+            font-size: 13px;
+            font-weight: 700;
+            color: rgba(0, 200, 240, 0.7);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .lobby-list {
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: scroll;
+            max-height: 400px;
+        }
+
+        .lobby-row {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 22px;
+            background-color: rgba(0, 16, 40, 0.4);
+            border: 1px solid rgba(0, 180, 220, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .lobby-row:hover {
+            background-color: rgba(0, 60, 120, 0.3);
+            border-color: rgba(0, 200, 240, 0.4);
+        }
+
+        .lobby-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: rgba(190, 210, 235, 0.9);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .lobby-players {
+            font-size: 13px;
+            color: rgba(0, 200, 240, 0.6);
+            letter-spacing: 2px;
+            font-family: Consolas;
+        }
+
+        .empty-message {
+            font-size: 15px;
+            color: rgba(140, 160, 190, 0.4);
+            letter-spacing: 2px;
+            font-family: Consolas;
+            padding: 30px 0;
+        }
+
+        /* === CONNECTING OVERLAY === */
+        .connecting-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .connecting-text {
+            font-size: 24px;
+            font-weight: 800;
+            color: rgba(0, 200, 240, 0.9);
+            letter-spacing: 6px;
+            font-family: Consolas;
+            text-shadow: 0 0 20px rgba(0, 180, 220, 0.4);
+        }
+
+        .connecting-sub {
+            font-size: 13px;
+            color: rgba(140, 170, 200, 0.4);
+            letter-spacing: 3px;
+            font-family: Consolas;
+        }
+    </style>
+
+    <div class="menu-root">
+        <div class="menu-left @(PanelVisible ? "visible" : "")">
+            <label class="menu-title">RED ALERT</label>
+            <label class="menu-subtitle">ANOMALY PROTOCOL</label>
+
+            @if ( CurrentScreen == 0 )
+            {
+                <div class="menu-buttons">
+                    <div class="menu-btn" onclick=@OnCreateLobby>
+                        <label class="menu-btn-text">CREATE LOBBY</label>
+                    </div>
+                    <div class="menu-btn" onclick=@OnJoinLobby>
+                        <label class="menu-btn-text">JOIN LOBBY</label>
+                    </div>
+                    <div class="menu-btn discord-btn" onclick=@OnDiscord>
+                        <label class="discord-text">@(DiscordCopied ? "LINK COPIED!" : "DISCORD")</label>
+                    </div>
+                </div>
+            }
+
+            @if ( CurrentScreen == 1 )
+            {
+                <div class="back-btn" onclick=@OnBack>
+                    <label class="back-btn-text">BACK</label>
+                </div>
+
+                <label class="section-title">AVAILABLE LOBBIES</label>
+
+                <div class="lobby-actions">
+                    <div class="refresh-btn" onclick=@OnRefreshLobbies>
+                        <label class="refresh-text">@(IsRefreshing ? "SEARCHING..." : "REFRESH")</label>
+                    </div>
+                </div>
+
+                <div class="lobby-list">
+                    @if ( Lobbies.Count == 0 && !IsRefreshing )
+                    {
+                        <label class="empty-message">NO LOBBIES FOUND</label>
+                    }
+
+                    @foreach ( var lobby in Lobbies )
+                    {
+                        <div class="lobby-row" onclick=@(() => OnJoinSelected( lobby ))>
+                            <label class="lobby-name">@lobby.Name</label>
+                            <label class="lobby-players">@lobby.Members / @lobby.MaxMembers</label>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="player-info">
+                <label class="player-name">@PlayerName</label>
+            </div>
+        </div>
+
+        <div class="menu-right"></div>
+    </div>
+
+    @if ( IsConnecting )
+    {
+        <div class="connecting-overlay">
+            <label class="connecting-text">@StatusMessage</label>
+            <label class="connecting-sub">PLEASE WAIT</label>
+        </div>
+    }
+</root>
+
+@code {
+    int CurrentScreen { get; set; } = 0;
+    bool IsConnecting { get; set; } = false;
+    bool IsRefreshing { get; set; } = false;
+    string StatusMessage { get; set; } = "";
+    string PlayerName { get; set; } = "";
+    List<LobbyInformation> Lobbies { get; set; } = new();
+    bool PanelVisible { get; set; } = false;
+    float fadeTimer = 0f;
+
+    protected override void OnStart()
+    {
+        MainMenuBridge.Reset();
+        PanelVisible = false;
+        fadeTimer = 0f;
+    }
+
+    protected override void OnUpdate()
+    {
+        if ( !PanelVisible )
+        {
+            fadeTimer += Time.Delta;
+            if ( fadeTimer >= 0.5f )
+                PanelVisible = true;
+        }
+
+        CurrentScreen = (int)MainMenuBridge.CurrentScreen;
+        IsConnecting = MainMenuBridge.IsConnecting;
+        IsRefreshing = MainMenuBridge.IsRefreshingLobbies;
+        StatusMessage = MainMenuBridge.StatusMessage;
+        PlayerName = Connection.Local?.DisplayName ?? "Player";
+        Lobbies = MainMenuBridge.AvailableLobbies;
+    }
+
+    void OnCreateLobby()
+    {
+        _ = MainMenuBridge.CreateLobby();
+    }
+
+    void OnJoinLobby()
+    {
+        MainMenuBridge.CurrentScreen = MainMenuBridge.MenuScreen.JoinLobby;
+        _ = MainMenuBridge.RefreshLobbies();
+    }
+
+    void OnBack()
+    {
+        MainMenuBridge.CurrentScreen = MainMenuBridge.MenuScreen.Main;
+    }
+
+    void OnRefreshLobbies()
+    {
+        _ = MainMenuBridge.RefreshLobbies();
+    }
+
+    void OnJoinSelected( LobbyInformation lobby )
+    {
+        MainMenuBridge.JoinLobby( lobby );
+    }
+
+    string DiscordUrl = "https://discord.gg/dRxugKVF";
+    bool DiscordCopied = false;
+
+    void OnDiscord()
+    {
+        Clipboard.SetText( DiscordUrl );
+        DiscordCopied = true;
+    }
+
+    protected override int BuildHash()
+    {
+        return System.HashCode.Combine( CurrentScreen, IsConnecting, IsRefreshing, StatusMessage, Lobbies?.Count ?? 0, DiscordCopied, PanelVisible );
+    }
+}

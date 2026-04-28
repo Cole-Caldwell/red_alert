@@ -374,7 +374,8 @@ public sealed class PokerManager : Component
 
 	private async Task AwardSinglePotWinner()
 	{
-		// Everyone but one player folded — they win all chips contributed this hand.
+		cleanupInProgress = true;
+
 		int winner = -1;
 		for ( int i = 0; i < MaxSeats; i++ )
 		{

@@ -2034,6 +2034,11 @@ public partial class GameManager : Component
 		target.AdminGiveCreditsRpc( amount );
 		Log.Info( $"[Admin] Gave {amount} credits to {target.PlayerName}" );
 	}
+
+	public static void ReturnToMainMenu()
+	{
+		MainMenuBridge.Disconnect();
+	}
 }
 
 // Helper class to track player data
